@@ -3,11 +3,16 @@ import { chromium } from "playwright";
 
 const outputDir = "/workspace/docs/screenshots";
 const targetSet = new Set(
-  (process.env.CAPTURE_TARGETS ?? "frontend,backend,airflow,jupyter,gitlab")
+  (
+    process.env.CAPTURE_TARGETS ??
+    "frontend,backend,airflow,jupyter,gitlab,control-plane-login,control-plane-nodes,control-plane-pods"
+  )
     .split(",")
     .map((value) => value.trim().toLowerCase())
     .filter(Boolean),
 );
+const controlPlaneUsername = process.env.CONTROL_PLANE_USERNAME ?? "platform-admin";
+const controlPlanePassword = process.env.CONTROL_PLANE_PASSWORD ?? "controlplane123!";
 
 async function ensureDir() {
   await mkdir(outputDir, { recursive: true });
@@ -42,6 +47,28 @@ async function captureFrontend(browser) {
   await page.goto("http://127.0.0.1:30080", { waitUntil: "networkidle", timeout: 180000 });
   await page.screenshot({ path: `${outputDir}/frontend-dashboard.png`, fullPage: true });
   await page.close();
+}
+
+async function createControlPlanePage(browser) {
+  const page = await browser.newPage({
+    viewport: { width: 1440, height: 1200 },
+  });
+  await page.addInitScript(() => {
+    window.localStorage.removeItem("controlPlaneToken");
+  });
+  await page.goto("http://127.0.0.1:30080/#control-plane", {
+    waitUntil: "networkidle",
+    timeout: 180000,
+  });
+  return page;
+}
+
+async function loginControlPlane(page) {
+  await page.getByLabel("Admin Username").fill(controlPlaneUsername);
+  await page.getByLabel("Admin Password").fill(controlPlanePassword);
+  await page.getByRole("button", { name: "Login Dashboard" }).click();
+  await page.getByRole("tab", { name: "Nodes" }).waitFor({ state: "visible", timeout: 180000 });
+  await page.waitForLoadState("networkidle", { timeout: 180000 }).catch(() => {});
 }
 
 async function captureBackend(browser) {
@@ -88,12 +115,40 @@ async function captureGitLab(browser) {
   await page.close();
 }
 
+async function captureControlPlaneLogin(browser) {
+  await waitForHttp("http://127.0.0.1:30080", { timeoutMs: 180000 });
+  const page = await createControlPlanePage(browser);
+  await page.screenshot({ path: `${outputDir}/k8s-control-plane-login.png`, fullPage: true });
+  await page.close();
+}
+
+async function captureControlPlaneNodes(browser) {
+  await waitForHttp("http://127.0.0.1:30080", { timeoutMs: 180000 });
+  const page = await createControlPlanePage(browser);
+  await loginControlPlane(page);
+  await page.screenshot({ path: `${outputDir}/k8s-control-plane-nodes.png`, fullPage: true });
+  await page.close();
+}
+
+async function captureControlPlanePods(browser) {
+  await waitForHttp("http://127.0.0.1:30080", { timeoutMs: 180000 });
+  const page = await createControlPlanePage(browser);
+  await loginControlPlane(page);
+  await page.getByRole("tab", { name: "Pods" }).click();
+  await page.waitForLoadState("networkidle", { timeout: 180000 }).catch(() => {});
+  await page.screenshot({ path: `${outputDir}/k8s-control-plane-pods.png`, fullPage: true });
+  await page.close();
+}
+
 const captures = [
   ["frontend", captureFrontend],
   ["backend", captureBackend],
   ["airflow", captureAirflow],
   ["jupyter", captureJupyter],
   ["gitlab", captureGitLab],
+  ["control-plane-login", captureControlPlaneLogin],
+  ["control-plane-nodes", captureControlPlaneNodes],
+  ["control-plane-pods", captureControlPlanePods],
 ];
 
 const browser = await chromium.launch({ headless: true });

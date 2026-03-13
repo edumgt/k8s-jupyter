@@ -63,6 +63,11 @@ def quick_links(settings: Settings) -> list[dict[str, str]]:
             "description": "Quasar dashboard for the platform lab.",
         },
         {
+            "name": "Control Plane",
+            "url": settings.control_plane_url,
+            "description": "Frontend module for cluster admin login, node list, and pod inventory.",
+        },
+        {
             "name": "Airflow",
             "url": settings.airflow_url,
             "description": "Workflow orchestration UI.",
@@ -70,7 +75,7 @@ def quick_links(settings: Settings) -> list[dict[str, str]]:
         {
             "name": "Jupyter",
             "url": settings.jupyter_url,
-            "description": "Notebook workbench pod.",
+            "description": "Shared JupyterLab entrypoint. Personal labs launch from the frontend session module.",
         },
         {
             "name": "GitLab",

@@ -1,11 +1,27 @@
 from pathlib import Path
 
-from fastapi import FastAPI
+from fastapi import Depends, FastAPI, Header, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.config import get_settings
-from app.models import DashboardResponse, TeradataQueryRequest, TeradataQueryResponse
+from app.models import (
+    ControlPlaneDashboardResponse,
+    ControlPlaneLoginRequest,
+    ControlPlaneLoginResponse,
+    DashboardResponse,
+    LabSessionRequest,
+    LabSessionResponse,
+    TeradataQueryRequest,
+    TeradataQueryResponse,
+)
 from app.services.catalog import quick_links, runtime_profile, sample_queries
+from app.services.control_plane import (
+    build_control_plane_dashboard,
+    build_control_plane_token,
+    verify_control_plane_credentials,
+    verify_control_plane_token,
+)
+from app.services.jupyter_sessions import delete_lab_session, ensure_lab_session, get_lab_session
 from app.services.mongo import get_mongo_status
 from app.services.redis_store import get_redis_status
 from app.services.teradata import run_ansi_query, teradata_summary
@@ -25,6 +41,15 @@ def list_notebooks(notebooks_path: str) -> list[str]:
     if not path.exists():
         return []
     return sorted(item.name for item in path.iterdir() if item.suffix == ".ipynb")
+
+
+def require_control_plane_access(
+    x_control_plane_token: str | None = Header(default=None),
+):
+    settings = get_settings()
+    if not verify_control_plane_token(settings, x_control_plane_token):
+        raise HTTPException(status_code=401, detail="Control-plane login required.")
+    return settings
 
 
 @app.get("/healthz")
@@ -77,6 +102,13 @@ def dashboard() -> DashboardResponse:
             "detail": redis_detail,
         },
         {
+            "name": "control-plane-dashboard",
+            "kind": "cluster-admin",
+            "endpoint": settings.control_plane_url,
+            "ok": True,
+            "detail": "Frontend control-plane dashboard with node and pod inventory after admin login",
+        },
+        {
             "name": "airflow",
             "kind": "orchestrator",
             "endpoint": settings.airflow_url,
@@ -88,7 +120,7 @@ def dashboard() -> DashboardResponse:
             "kind": "workbench",
             "endpoint": settings.jupyter_url,
             "ok": True,
-            "detail": "JupyterLab pod exposed on 8888 or NodePort 30088",
+            "detail": "Shared JupyterLab plus per-user Jupyter sessions launched from the frontend",
         },
         {
             "name": "gitlab",
@@ -114,3 +146,63 @@ def teradata_query(request: TeradataQueryRequest) -> TeradataQueryResponse:
     settings = get_settings()
     result = run_ansi_query(settings, request.sql, request.limit)
     return TeradataQueryResponse(**result)
+
+
+@app.post("/api/jupyter/sessions", response_model=LabSessionResponse)
+def create_jupyter_session(request: LabSessionRequest) -> LabSessionResponse:
+    settings = get_settings()
+    try:
+        return LabSessionResponse(**ensure_lab_session(settings, request.username))
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except RuntimeError as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
+
+
+@app.get("/api/jupyter/sessions/{username}", response_model=LabSessionResponse)
+def read_jupyter_session(username: str) -> LabSessionResponse:
+    settings = get_settings()
+    try:
+        return LabSessionResponse(**get_lab_session(settings, username))
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except RuntimeError as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
+
+
+@app.delete("/api/jupyter/sessions/{username}", response_model=LabSessionResponse)
+def remove_jupyter_session(username: str) -> LabSessionResponse:
+    settings = get_settings()
+    try:
+        return LabSessionResponse(**delete_lab_session(settings, username))
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except RuntimeError as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
+
+
+@app.post("/api/control-plane/login", response_model=ControlPlaneLoginResponse)
+def control_plane_login(request: ControlPlaneLoginRequest) -> ControlPlaneLoginResponse:
+    settings = get_settings()
+    if not verify_control_plane_credentials(settings, request.username, request.password):
+        raise HTTPException(status_code=401, detail="Invalid control-plane credentials.")
+
+    dashboard = build_control_plane_dashboard(settings, namespace="all")
+    return ControlPlaneLoginResponse(
+        token=build_control_plane_token(settings, request.username),
+        username=request.username,
+        dashboard=ControlPlaneDashboardResponse(**dashboard),
+    )
+
+
+@app.get("/api/control-plane/dashboard", response_model=ControlPlaneDashboardResponse)
+def control_plane_dashboard(
+    namespace: str = "all",
+    settings=Depends(require_control_plane_access),
+) -> ControlPlaneDashboardResponse:
+    try:
+        return ControlPlaneDashboardResponse(**build_control_plane_dashboard(settings, namespace))
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except RuntimeError as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc

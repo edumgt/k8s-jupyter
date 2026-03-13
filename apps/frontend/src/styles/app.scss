@@ -130,6 +130,66 @@ body {
   flex-wrap: wrap;
 }
 
+.lab-form {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  align-items: flex-start;
+  margin-top: 18px;
+}
+
+.lab-input {
+  flex: 1 1 260px;
+  min-width: 220px;
+}
+
+.lab-progress {
+  margin-top: 18px;
+}
+
+.lab-banner {
+  margin-top: 18px;
+}
+
+.lab-url {
+  margin-top: 8px;
+  font-family: "IBM Plex Mono", "SFMono-Regular", monospace;
+  word-break: break-all;
+}
+
+.control-plane-anchor {
+  scroll-margin-top: 24px;
+}
+
+.admin-login-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-top: 18px;
+}
+
+.admin-input,
+.namespace-select {
+  flex: 1 1 220px;
+  min-width: 220px;
+}
+
+.admin-toolbar {
+  margin-top: 18px;
+}
+
+.inventory-card {
+  overflow: hidden;
+}
+
+.inventory-separator {
+  margin: 14px 0;
+}
+
+.inventory-panels {
+  background: transparent;
+}
+
 .button-grid {
   margin-top: 12px;
 }
@@ -165,5 +225,13 @@ body {
 
   .hero-panel {
     padding: 22px;
+  }
+
+  .lab-form {
+    flex-direction: column;
+  }
+
+  .admin-login-grid {
+    flex-direction: column;
   }
 }

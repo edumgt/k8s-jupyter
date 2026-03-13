@@ -51,6 +51,7 @@ WSL Ubuntu
      - redis
      - airflow
      - jupyter
+     - per-user jupyter-session pods
      - gitlab
   -> GitLab Runner (k8s executor)
   -> Harbor push
@@ -159,7 +160,17 @@ bash scripts/export_gitlab_repos.sh --force
 
 - dev Airflow: `admin` / `admin12345!`
 - dev JupyterLab token: `platform123`
+- control-plane dashboard: `platform-admin` / `controlplane123!`
 - dev GitLab root: `v7Q#2mL!9xC@4pR%8tZ`
+
+## 사용자별 JupyterLab 흐름
+
+1. Frontend `Personal JupyterLab` 카드에서 사용자명을 입력합니다.
+2. Frontend가 backend `/api/jupyter/sessions`를 호출합니다.
+3. Backend가 현재 namespace에 사용자 전용 Jupyter pod와 NodePort service를 생성합니다.
+4. 세션이 `ready`가 되면 Frontend가 같은 호스트의 동적 NodePort URL로 JupyterLab을 엽니다.
+
+이 per-user 세션은 `apps/jupyter` 이미지를 그대로 사용하므로 Python 3.12, JupyterLab, 샘플 notebook이 함께 제공됩니다. 세션 저장공간은 pod 생명주기에 묶인 실습용 ephemeral workspace 입니다.
 
 ## UI 캡처
 
@@ -172,6 +183,18 @@ bash scripts/export_gitlab_repos.sh --force
 ### Backend OpenAPI
 
 ![Backend OpenAPI](docs/screenshots/backend-openapi.png)
+
+### Control Plane Login
+
+![Control plane login](docs/screenshots/k8s-control-plane-login.png)
+
+### Control Plane Nodes
+
+![Control plane nodes](docs/screenshots/k8s-control-plane-nodes.png)
+
+### Control Plane Pods
+
+![Control plane pods](docs/screenshots/k8s-control-plane-pods.png)
 
 ### Airflow
 
@@ -197,12 +220,15 @@ bash scripts/export_gitlab_repos.sh --force
 - MongoDB / Redis 헬스 체크
 - Teradata ANSI SQL 실행용 `/api/teradata/query`
 - 샘플 ANSI SQL 카탈로그 제공
+- `/api/jupyter/sessions` 로 사용자별 Jupyter pod / service 생성 및 제거
+- `/api/control-plane/login`, `/api/control-plane/dashboard` 로 cluster node / pod inventory 제공
 - Jupyter / Airflow / GitLab / Harbor 링크 제공
 
 ### Frontend
 
 - `Quasar + Vue 3 + Vite`
 - 플랫폼 상태 카드, 서비스 링크, 샘플 SQL 뷰
+- control-plane login, node inventory, pod inventory 화면 제공
 - `Node 22.22` 빌드 스테이지
 
 ### Jupyter
@@ -211,6 +237,7 @@ bash scripts/export_gitlab_repos.sh --force
 - JupyterLab
 - MongoDB / Redis / Teradata Python 드라이버 포함
 - PVC 기반 shared notebook workspace
+- Frontend 요청으로 생성되는 per-user JupyterLab pod 지원
 
 ### Airflow
 

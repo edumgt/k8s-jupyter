@@ -8,6 +8,7 @@ data:
   PLATFORM_REDIS_URL: redis://redis:6379/0
   PLATFORM_BACKEND_URL: http://localhost:30081/docs
   PLATFORM_FRONTEND_URL: http://localhost:30080
+  PLATFORM_CONTROL_PLANE_URL: http://localhost:30080/#control-plane
   PLATFORM_AIRFLOW_URL: http://localhost:30090
   PLATFORM_JUPYTER_URL: http://localhost:30088/lab
   PLATFORM_GITLAB_URL: http://localhost:30089
