@@ -16,9 +16,17 @@ class Settings(BaseSettings):
     jupyter_url: str = "http://localhost:30088/lab"
     gitlab_url: str = "http://localhost:30089"
     harbor_url: str = "http://harbor.local:30083"
+    harbor_registry: str = "harbor.local"
+    harbor_project: str = "data-platform"
+    harbor_user: str | None = None
+    harbor_password: str | None = None
+    harbor_insecure_registry: bool = True
     notebooks_path: str = "/workspace/notebooks"
     k8s_namespace: str = "data-platform"
     jupyter_image: str = "harbor.local/data-platform/jupyter:latest"
+    jupyter_workspace_pvc: str = "jupyter-workspace"
+    jupyter_workspace_root: str = "/workspace/user-home"
+    jupyter_snapshot_builder_image: str = "gcr.io/kaniko-project/executor:v1.23.2-debug"
     jupyter_token: str = Field(default="platform123", validation_alias="JUPYTER_TOKEN")
     control_plane_username: str = "platform-admin"
     control_plane_password: str = "controlplane123!"

@@ -22,3 +22,9 @@ def get_core_v1_api() -> client.CoreV1Api:
 def get_version_api() -> client.VersionApi:
     _load_config()
     return client.VersionApi()
+
+
+@lru_cache
+def get_batch_v1_api() -> client.BatchV1Api:
+    _load_config()
+    return client.BatchV1Api()

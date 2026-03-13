@@ -1,7 +1,9 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-mkdir -p /workspace/notebooks
+ROOT_DIR="${JUPYTER_ROOT_DIR:-/workspace}"
+
+mkdir -p "${ROOT_DIR}"
 
 exec jupyter lab \
   --ip=0.0.0.0 \
@@ -10,4 +12,4 @@ exec jupyter lab \
   --allow-root \
   --ServerApp.token="${JUPYTER_TOKEN:-platform123}" \
   --ServerApp.allow_origin="*" \
-  --ServerApp.root_dir=/workspace
+  --ServerApp.root_dir="${ROOT_DIR}"
