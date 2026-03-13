@@ -23,8 +23,16 @@
     content: |
       #!/usr/bin/env bash
       set -euo pipefail
-      sudo kubectl apply -k /opt/k8s-data-platform/infra/k8s/base
-      sudo kubectl get pods -n data-platform
+      ENVIRONMENT="${1:-dev}"
+      case "${ENVIRONMENT}" in
+        dev|prod) ;;
+        *)
+          printf 'Unsupported environment: %s\n' "${ENVIRONMENT}" >&2
+          exit 1
+          ;;
+      esac
+      sudo kubectl apply -k "/opt/k8s-data-platform/infra/k8s/overlays/${ENVIRONMENT}"
+      sudo kubectl get pods -n "data-platform-${ENVIRONMENT}"
 
 - name: Install platform reset helper
   copy:
@@ -33,8 +41,16 @@
     content: |
       #!/usr/bin/env bash
       set -euo pipefail
-      sudo kubectl delete -k /opt/k8s-data-platform/infra/k8s/runner --ignore-not-found
-      sudo kubectl delete -k /opt/k8s-data-platform/infra/k8s/base --ignore-not-found
+      ENVIRONMENT="${1:-dev}"
+      case "${ENVIRONMENT}" in
+        dev|prod) ;;
+        *)
+          printf 'Unsupported environment: %s\n' "${ENVIRONMENT}" >&2
+          exit 1
+          ;;
+      esac
+      sudo kubectl delete -k "/opt/k8s-data-platform/infra/k8s/runner/overlays/${ENVIRONMENT}" --ignore-not-found
+      sudo kubectl delete -k "/opt/k8s-data-platform/infra/k8s/overlays/${ENVIRONMENT}" --ignore-not-found
 
 - name: Install platform status helper
   copy:
@@ -43,11 +59,19 @@
     content: |
       #!/usr/bin/env bash
       set -euo pipefail
+      ENVIRONMENT="${1:-dev}"
+      case "${ENVIRONMENT}" in
+        dev|prod) ;;
+        *)
+          printf 'Unsupported environment: %s\n' "${ENVIRONMENT}" >&2
+          exit 1
+          ;;
+      esac
       echo '[kubernetes]'
       sudo kubectl get nodes
-      sudo kubectl get pods -n data-platform
-      sudo kubectl get svc -n data-platform
-      sudo kubectl get pvc -n data-platform
+      sudo kubectl get pods -n "data-platform-${ENVIRONMENT}"
+      sudo kubectl get svc -n "data-platform-${ENVIRONMENT}"
+      sudo kubectl get pvc -n "data-platform-${ENVIRONMENT}"
 
 - name: Write host bootstrap note
   copy:
@@ -55,7 +79,7 @@
     mode: '0644'
     content: |
       # Host Quickstart
-      kubectl apply -k /opt/k8s-data-platform/infra/k8s/base
-      kubectl get pods -n data-platform
-      kubectl get svc -n data-platform
-      kubectl get pvc -n data-platform
+      kubectl apply -k /opt/k8s-data-platform/infra/k8s/overlays/dev
+      kubectl get pods -n data-platform-dev
+      kubectl get svc -n data-platform-dev
+      kubectl get pvc -n data-platform-dev

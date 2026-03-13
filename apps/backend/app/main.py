@@ -100,7 +100,7 @@ def dashboard() -> DashboardResponse:
     ]
 
     return DashboardResponse(
-        runtime=runtime_profile(),
+        runtime=runtime_profile(settings),
         services=services,
         quick_links=quick_links(settings),
         sample_queries=sample_queries(),

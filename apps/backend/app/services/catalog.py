@@ -1,8 +1,9 @@
 from app.config import Settings
 
 
-def runtime_profile() -> dict[str, str]:
+def runtime_profile(settings: Settings) -> dict[str, str]:
     return {
+        "environment": settings.env,
         "host_os": "Ubuntu 24",
         "cluster": "k3s single-node",
         "containers": "OCI images on Kubernetes",
@@ -53,12 +54,12 @@ def quick_links(settings: Settings) -> list[dict[str, str]]:
     return [
         {
             "name": "Backend API",
-            "url": "http://localhost:30081/docs",
+            "url": settings.backend_url,
             "description": "FastAPI OpenAPI and health endpoints.",
         },
         {
             "name": "Frontend",
-            "url": "http://localhost:30080",
+            "url": settings.frontend_url,
             "description": "Quasar dashboard for the platform lab.",
         },
         {

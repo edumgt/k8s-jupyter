@@ -1,46 +1,54 @@
 stages:
-  - test
-  - build
+  - validate
   - deploy
 
 variables:
-  IMAGE_PREFIX: "$HARBOR_REGISTRY/$HARBOR_PROJECT"
+  DEPLOY_ENV: "prod"
+  DEPLOY_NAMESPACE: "data-platform-prod"
+  APPLY_RUNNER: "false"
 
 python_sanity:
-  stage: test
+  stage: validate
   image: python:3.12
   script:
     - python -m compileall apps/backend/app apps/airflow/dags
 
-kaniko_build_and_push:
-  stage: build
-  image:
-    name: gcr.io/kaniko-project/executor:v1.23.2-debug
-    entrypoint: [""]
+shell_sanity:
+  stage: validate
+  image: bash:5.2
   script:
-    - mkdir -p /kaniko/.docker
-    - >
-      printf '{"auths":{"%s":{"username":"%s","password":"%s"}}}'
-      "$HARBOR_REGISTRY" "$HARBOR_USER" "$HARBOR_PASSWORD" > /kaniko/.docker/config.json
-    - /kaniko/executor --context "${CI_PROJECT_DIR}/apps/backend" --dockerfile "${CI_PROJECT_DIR}/apps/backend/Dockerfile" --destination "$IMAGE_PREFIX/backend:$CI_COMMIT_SHORT_SHA" --destination "$IMAGE_PREFIX/backend:latest"
-    - /kaniko/executor --context "${CI_PROJECT_DIR}/apps/frontend" --dockerfile "${CI_PROJECT_DIR}/apps/frontend/Dockerfile" --build-arg VITE_API_BASE_URL=http://localhost:30081 --destination "$IMAGE_PREFIX/frontend:$CI_COMMIT_SHORT_SHA" --destination "$IMAGE_PREFIX/frontend:latest"
-    - /kaniko/executor --context "${CI_PROJECT_DIR}/apps/airflow" --dockerfile "${CI_PROJECT_DIR}/apps/airflow/Dockerfile" --destination "$IMAGE_PREFIX/airflow:$CI_COMMIT_SHORT_SHA" --destination "$IMAGE_PREFIX/airflow:latest"
-    - /kaniko/executor --context "${CI_PROJECT_DIR}/apps/jupyter" --dockerfile "${CI_PROJECT_DIR}/apps/jupyter/Dockerfile" --destination "$IMAGE_PREFIX/jupyter:$CI_COMMIT_SHORT_SHA" --destination "$IMAGE_PREFIX/jupyter:latest"
+    - bash -n scripts/apply_k8s.sh
+    - bash -n scripts/reset_k8s.sh
+    - bash -n scripts/status_k8s.sh
+    - bash -n scripts/healthcheck.sh
+    - bash -n scripts/verify.sh
+    - bash -n scripts/export_gitlab_repos.sh
 
-deploy_k8s:
+kustomize_validate:
+  stage: validate
+  image: bitnami/kubectl:1.32
+  script:
+    - kubectl kustomize infra/k8s/base >/dev/null
+    - kubectl kustomize infra/k8s/overlays/dev >/dev/null
+    - kubectl kustomize infra/k8s/overlays/prod >/dev/null
+    - kubectl kustomize infra/k8s/runner/base >/dev/null
+    - kubectl kustomize infra/k8s/runner/overlays/dev >/dev/null
+    - kubectl kustomize infra/k8s/runner/overlays/prod >/dev/null
+
+deploy_platform_overlay:
   stage: deploy
   image: bitnami/kubectl:1.32
   needs:
-    - kaniko_build_and_push
+    - python_sanity
+    - shell_sanity
+    - kustomize_validate
   script:
     - echo "$KUBECONFIG_B64" | base64 -d > kubeconfig
     - export KUBECONFIG="$CI_PROJECT_DIR/kubeconfig"
-    - kubectl apply -k infra/k8s/base
-    - kubectl set image deployment/backend backend="$IMAGE_PREFIX/backend:latest" -n data-platform
-    - kubectl set image deployment/frontend frontend="$IMAGE_PREFIX/frontend:latest" -n data-platform
-    - kubectl set image deployment/airflow airflow="$IMAGE_PREFIX/airflow:latest" -n data-platform
-    - kubectl set image deployment/jupyter jupyter="$IMAGE_PREFIX/jupyter:latest" -n data-platform
-    - kubectl rollout status deployment/backend -n data-platform --timeout=180s
-    - kubectl rollout status deployment/frontend -n data-platform --timeout=180s
-    - kubectl rollout status deployment/airflow -n data-platform --timeout=180s
-    - kubectl rollout status deployment/jupyter -n data-platform --timeout=180s
+    - export DEPLOY_NAMESPACE="${DEPLOY_NAMESPACE:-data-platform-${DEPLOY_ENV}}"
+    - kubectl apply -k "infra/k8s/overlays/${DEPLOY_ENV}"
+    - |
+      if [ "${APPLY_RUNNER}" = "true" ]; then
+        kubectl apply -k "infra/k8s/runner/overlays/${DEPLOY_ENV}"
+      fi
+    - kubectl get pods -n "$DEPLOY_NAMESPACE"
