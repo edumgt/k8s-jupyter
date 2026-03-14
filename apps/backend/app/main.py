@@ -11,6 +11,7 @@ from app.models import (
     DashboardResponse,
     LabSessionRequest,
     LabSessionResponse,
+    SnapshotStatusResponse,
     TeradataQueryRequest,
     TeradataQueryResponse,
 )
@@ -22,6 +23,7 @@ from app.services.control_plane import (
     verify_control_plane_token,
 )
 from app.services.jupyter_sessions import delete_lab_session, ensure_lab_session, get_lab_session
+from app.services.jupyter_snapshots import create_snapshot_publish_job, get_snapshot_status
 from app.services.mongo import get_mongo_status
 from app.services.redis_store import get_redis_status
 from app.services.teradata import run_ansi_query, teradata_summary
@@ -120,7 +122,7 @@ def dashboard() -> DashboardResponse:
             "kind": "workbench",
             "endpoint": settings.jupyter_url,
             "ok": True,
-            "detail": "Shared JupyterLab plus per-user Jupyter sessions launched from the frontend",
+            "detail": "Shared JupyterLab plus per-user Jupyter sessions with PVC workspace restore and Harbor snapshots",
         },
         {
             "name": "gitlab",
@@ -175,6 +177,28 @@ def remove_jupyter_session(username: str) -> LabSessionResponse:
     settings = get_settings()
     try:
         return LabSessionResponse(**delete_lab_session(settings, username))
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except RuntimeError as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
+
+
+@app.get("/api/jupyter/snapshots/{username}", response_model=SnapshotStatusResponse)
+def read_jupyter_snapshot(username: str) -> SnapshotStatusResponse:
+    settings = get_settings()
+    try:
+        return SnapshotStatusResponse(**get_snapshot_status(settings, username))
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except RuntimeError as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
+
+
+@app.post("/api/jupyter/snapshots", response_model=SnapshotStatusResponse)
+def publish_jupyter_snapshot(request: LabSessionRequest) -> SnapshotStatusResponse:
+    settings = get_settings()
+    try:
+        return SnapshotStatusResponse(**create_snapshot_publish_job(settings, request.username))
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     except RuntimeError as exc:

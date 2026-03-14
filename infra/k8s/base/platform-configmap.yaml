@@ -13,6 +13,14 @@ data:
   PLATFORM_JUPYTER_URL: http://localhost:30088/lab
   PLATFORM_GITLAB_URL: http://localhost:30089
   PLATFORM_HARBOR_URL: http://harbor.local:30083
-  PLATFORM_NOTEBOOKS_PATH: /workspace/notebooks
+  PLATFORM_HARBOR_REGISTRY: harbor.local
+  PLATFORM_HARBOR_PROJECT: data-platform
+  PLATFORM_HARBOR_INSECURE_REGISTRY: "true"
+  PLATFORM_NOTEBOOKS_PATH: /workspace/notebooks/shared
+  PLATFORM_JUPYTER_IMAGE: docker.io/edumgt/k8s-data-platform-jupyter:latest
+  PLATFORM_JUPYTER_WORKSPACE_PVC: jupyter-workspace
+  PLATFORM_JUPYTER_WORKSPACE_ROOT: /workspace/user-home
+  PLATFORM_JUPYTER_BOOTSTRAP_DIR: /opt/platform/bootstrap-workspace
+  PLATFORM_JUPYTER_SNAPSHOT_BUILDER_IMAGE: docker.io/edumgt/platform-kaniko-executor:v1.23.2-debug
   PLATFORM_TERADATA_DATABASE: dbc
   PLATFORM_TERADATA_FAKE_MODE: "true"

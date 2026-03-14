@@ -12,7 +12,7 @@ def runtime_profile(settings: Settings) -> dict[str, str]:
         "orchestration": "Apache Airflow",
         "workbench": "JupyterLab pod",
         "data": "MongoDB, Redis, Teradata ANSI SQL",
-        "cicd": "GitLab, GitLab Runner(k8s executor), Harbor",
+        "cicd": "Docker Hub(edumgt), GitHub Actions, GitLab Runner(k8s executor), Harbor snapshot",
     }
 
 
@@ -85,6 +85,6 @@ def quick_links(settings: Settings) -> list[dict[str, str]]:
         {
             "name": "Harbor",
             "url": settings.harbor_url,
-            "description": "Container image registry target.",
+            "description": "Per-user Jupyter snapshot registry target.",
         },
     ]

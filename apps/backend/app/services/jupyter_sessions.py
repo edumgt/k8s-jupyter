@@ -1,47 +1,19 @@
 from __future__ import annotations
 
 import hashlib
-import re
 
 from kubernetes import client
 from kubernetes.client.exceptions import ApiException
 from kubernetes.config.config_exception import ConfigException
 
 from app.config import Settings
+from app.services.jupyter_snapshots import resolve_launch_image_for_identity
 from app.services.kube_client import get_core_v1_api
+from app.services.lab_identity import LabIdentity, build_lab_identity
 
 SESSION_COMPONENT = "jupyter-session"
 SESSION_LABEL_KEY = "platform.dev/session-id"
 MANAGED_BY = "k8s-data-platform-api"
-
-
-def canonical_username(username: str) -> str:
-    normalized = username.strip().lower()
-    if len(normalized) < 2 or len(normalized) > 48:
-        raise ValueError("username must be between 2 and 48 characters")
-    if not re.fullmatch(r"[a-z0-9._@-]+", normalized):
-        raise ValueError("username may contain only letters, numbers, dot, underscore, dash, and @")
-    return normalized
-
-
-def build_session_id(username: str) -> str:
-    slug = re.sub(r"[^a-z0-9]+", "-", username).strip("-")
-    slug = (slug[:24] or "user").strip("-") or "user"
-    digest = hashlib.sha1(username.encode("utf-8")).hexdigest()[:8]
-    return f"{slug}-{digest}"
-
-
-def build_session_token(settings: Settings, session_id: str) -> str:
-    seed = f"{settings.jupyter_token}:{session_id}"
-    return hashlib.sha256(seed.encode("utf-8")).hexdigest()[:24]
-
-
-def pod_name(session_id: str) -> str:
-    return f"lab-{session_id}"
-
-
-def service_name(session_id: str) -> str:
-    return f"lab-{session_id}"
 
 
 def _read_pod(api: client.CoreV1Api, namespace: str, name: str) -> client.V1Pod | None:
@@ -100,13 +72,35 @@ def _created_at(pod: client.V1Pod | None) -> str | None:
     return pod.metadata.creation_timestamp.isoformat()
 
 
+def _pod_image(pod: client.V1Pod | None) -> str | None:
+    if pod is None or pod.spec is None:
+        return None
+    containers = pod.spec.containers or []
+    if not containers:
+        return None
+    return containers[0].image
+
+
+def _restore_workspace_script(settings: Settings, launch_image: str, workspace_subpath: str) -> str:
+    return f"""
+set -eu
+workspace_dir="/workspace-volume/{workspace_subpath}"
+mkdir -p "${workspace_dir}"
+if [ -z "$(find "${workspace_dir}" -mindepth 1 -maxdepth 1 2>/dev/null | head -n 1)" ] && [ -d "{settings.jupyter_bootstrap_dir}" ]; then
+  cp -a {settings.jupyter_bootstrap_dir}/. "${workspace_dir}"/ 2>/dev/null || true
+fi
+mkdir -p "${workspace_dir}/.platform"
+printf '%s\\n' '{launch_image}' > "${workspace_dir}/.platform/launch-image"
+""".strip()
+
+
 def _session_summary(
     settings: Settings,
-    username: str,
+    identity: LabIdentity,
     pod: client.V1Pod | None,
     service: client.V1Service | None,
+    launch_image: str,
 ) -> dict[str, object]:
-    session_id = build_session_id(username)
     node_port = None
     if service and service.spec and service.spec.ports:
         node_port = service.spec.ports[0].node_port
@@ -130,49 +124,84 @@ def _session_summary(
         detail = _container_detail(pod) or "JupyterLab pod is being prepared."
 
     return {
-        "session_id": session_id,
-        "username": username,
+        "session_id": identity.session_id,
+        "username": identity.username,
         "namespace": settings.k8s_namespace,
-        "pod_name": pod_name(session_id),
-        "service_name": service_name(session_id),
+        "pod_name": identity.pod_name,
+        "service_name": identity.service_name,
+        "workspace_subpath": identity.workspace_subpath,
+        "image": _pod_image(pod) or launch_image,
         "status": status,
         "phase": phase,
         "ready": ready and bool(node_port),
         "detail": detail,
-        "token": build_session_token(settings, session_id),
+        "token": build_session_token(settings, identity.session_id),
         "node_port": node_port,
         "created_at": _created_at(pod),
     }
 
 
-def _create_pod(api: client.CoreV1Api, settings: Settings, username: str, session_id: str) -> None:
+def build_session_token(settings: Settings, session_id: str) -> str:
+    seed = f"{settings.jupyter_token}:{session_id}"
+    return hashlib.sha256(seed.encode("utf-8")).hexdigest()[:24]
+
+
+def _create_pod(api: client.CoreV1Api, settings: Settings, identity: LabIdentity, launch_image: str) -> None:
     pod = client.V1Pod(
         metadata=client.V1ObjectMeta(
-            name=pod_name(session_id),
-            labels=_session_labels(session_id),
+            name=identity.pod_name,
+            labels=_session_labels(identity.session_id),
             annotations={
-                "platform.dev/username": username,
+                "platform.dev/username": identity.username,
+                "platform.dev/workspace-subpath": identity.workspace_subpath,
+                "platform.dev/launch-image": launch_image,
             },
         ),
         spec=client.V1PodSpec(
             restart_policy="Always",
             termination_grace_period_seconds=15,
+            init_containers=[
+                client.V1Container(
+                    name="restore-workspace",
+                    image=launch_image,
+                    image_pull_policy="IfNotPresent",
+                    command=["/bin/sh", "-c", _restore_workspace_script(settings, launch_image, identity.workspace_subpath)],
+                    env=[
+                        client.V1EnvVar(name="JUPYTER_ROOT_DIR", value=settings.jupyter_workspace_root),
+                        client.V1EnvVar(name="JUPYTER_BOOTSTRAP_DIR", value=settings.jupyter_bootstrap_dir),
+                    ],
+                    volume_mounts=[
+                        client.V1VolumeMount(name="jupyter-workspace", mount_path="/workspace-volume")
+                    ],
+                )
+            ],
             containers=[
                 client.V1Container(
                     name="jupyter",
-                    image=settings.jupyter_image,
+                    image=launch_image,
                     image_pull_policy="IfNotPresent",
                     ports=[client.V1ContainerPort(container_port=8888)],
                     env=[
                         client.V1EnvVar(
                             name="JUPYTER_TOKEN",
-                            value=build_session_token(settings, session_id),
+                            value=build_session_token(settings, identity.session_id),
                         ),
+                        client.V1EnvVar(name="JUPYTER_ROOT_DIR", value=settings.jupyter_workspace_root),
+                        client.V1EnvVar(name="JUPYTER_BOOTSTRAP_DIR", value=settings.jupyter_bootstrap_dir),
+                        client.V1EnvVar(name="PLATFORM_LAB_USERNAME", value=identity.username),
+                        client.V1EnvVar(name="PLATFORM_LAB_SESSION_ID", value=identity.session_id),
                     ],
                     resources=client.V1ResourceRequirements(
                         requests={"cpu": "100m", "memory": "256Mi"},
                         limits={"cpu": "1000m", "memory": "1Gi"},
                     ),
+                    volume_mounts=[
+                        client.V1VolumeMount(
+                            name="jupyter-workspace",
+                            mount_path=settings.jupyter_workspace_root,
+                            sub_path=identity.workspace_subpath,
+                        )
+                    ],
                     readiness_probe=client.V1Probe(
                         http_get=client.V1HTTPGetAction(path="/lab", port=8888),
                         initial_delay_seconds=5,
@@ -189,20 +218,28 @@ def _create_pod(api: client.CoreV1Api, settings: Settings, username: str, sessio
                     ),
                 )
             ],
+            volumes=[
+                client.V1Volume(
+                    name="jupyter-workspace",
+                    persistent_volume_claim=client.V1PersistentVolumeClaimVolumeSource(
+                        claim_name=settings.jupyter_workspace_pvc,
+                    ),
+                )
+            ],
         ),
     )
     api.create_namespaced_pod(namespace=settings.k8s_namespace, body=pod)
 
 
-def _create_service(api: client.CoreV1Api, settings: Settings, session_id: str) -> None:
+def _create_service(api: client.CoreV1Api, settings: Settings, identity: LabIdentity) -> None:
     service = client.V1Service(
         metadata=client.V1ObjectMeta(
-            name=service_name(session_id),
-            labels=_session_labels(session_id),
+            name=identity.service_name,
+            labels=_session_labels(identity.session_id),
         ),
         spec=client.V1ServiceSpec(
             type="NodePort",
-            selector={SESSION_LABEL_KEY: session_id},
+            selector={SESSION_LABEL_KEY: identity.session_id},
             ports=[
                 client.V1ServicePort(
                     name="http",
@@ -217,14 +254,16 @@ def _create_service(api: client.CoreV1Api, settings: Settings, session_id: str) 
 
 
 def get_lab_session(settings: Settings, username: str) -> dict[str, object]:
-    username = canonical_username(username)
-    session_id = build_session_id(username)
+    identity = build_lab_identity(username)
 
     try:
         api = get_core_v1_api()
-        pod = _read_pod(api, settings.k8s_namespace, pod_name(session_id))
-        service = _read_service(api, settings.k8s_namespace, service_name(session_id))
-        return _session_summary(settings, username, pod, service)
+        pod = _read_pod(api, settings.k8s_namespace, identity.pod_name)
+        service = _read_service(api, settings.k8s_namespace, identity.service_name)
+        launch_image = _pod_image(pod)
+        if launch_image is None:
+            launch_image, _snapshot = resolve_launch_image_for_identity(settings, identity)
+        return _session_summary(settings, identity, pod, service, launch_image)
     except ConfigException as exc:
         raise RuntimeError("Kubernetes client configuration is unavailable.") from exc
     except ApiException as exc:
@@ -232,26 +271,26 @@ def get_lab_session(settings: Settings, username: str) -> dict[str, object]:
 
 
 def ensure_lab_session(settings: Settings, username: str) -> dict[str, object]:
-    username = canonical_username(username)
-    session_id = build_session_id(username)
+    identity = build_lab_identity(username)
 
     try:
         api = get_core_v1_api()
-        pod = _read_pod(api, settings.k8s_namespace, pod_name(session_id))
+        launch_image, _snapshot = resolve_launch_image_for_identity(settings, identity)
+        pod = _read_pod(api, settings.k8s_namespace, identity.pod_name)
         if pod and pod.status and pod.status.phase in {"Failed", "Succeeded"}:
-            api.delete_namespaced_pod(name=pod_name(session_id), namespace=settings.k8s_namespace)
+            api.delete_namespaced_pod(name=identity.pod_name, namespace=settings.k8s_namespace)
             pod = None
 
         if pod is None:
-            _create_pod(api, settings, username, session_id)
+            _create_pod(api, settings, identity, launch_image)
 
-        service = _read_service(api, settings.k8s_namespace, service_name(session_id))
+        service = _read_service(api, settings.k8s_namespace, identity.service_name)
         if service is None:
-            _create_service(api, settings, session_id)
+            _create_service(api, settings, identity)
 
-        pod = _read_pod(api, settings.k8s_namespace, pod_name(session_id))
-        service = _read_service(api, settings.k8s_namespace, service_name(session_id))
-        return _session_summary(settings, username, pod, service)
+        pod = _read_pod(api, settings.k8s_namespace, identity.pod_name)
+        service = _read_service(api, settings.k8s_namespace, identity.service_name)
+        return _session_summary(settings, identity, pod, service, launch_image)
     except ConfigException as exc:
         raise RuntimeError("Kubernetes client configuration is unavailable.") from exc
     except ApiException as exc:
@@ -259,21 +298,20 @@ def ensure_lab_session(settings: Settings, username: str) -> dict[str, object]:
 
 
 def delete_lab_session(settings: Settings, username: str) -> dict[str, object]:
-    username = canonical_username(username)
-    session_id = build_session_id(username)
+    identity = build_lab_identity(username)
 
     try:
         api = get_core_v1_api()
-        summary = get_lab_session(settings, username)
+        summary = get_lab_session(settings, identity.username)
 
         try:
-            api.delete_namespaced_service(name=service_name(session_id), namespace=settings.k8s_namespace)
+            api.delete_namespaced_service(name=identity.service_name, namespace=settings.k8s_namespace)
         except ApiException as exc:
             if exc.status != 404:
                 raise
 
         try:
-            api.delete_namespaced_pod(name=pod_name(session_id), namespace=settings.k8s_namespace)
+            api.delete_namespaced_pod(name=identity.pod_name, namespace=settings.k8s_namespace)
         except ApiException as exc:
             if exc.status != 404:
                 raise

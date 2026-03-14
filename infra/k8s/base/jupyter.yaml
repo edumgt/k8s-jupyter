@@ -36,9 +36,31 @@ spec:
       labels:
         app: jupyter
     spec:
+      initContainers:
+        - name: seed-shared-workspace
+          image: docker.io/edumgt/k8s-data-platform-jupyter:latest
+          imagePullPolicy: IfNotPresent
+          command:
+            - /bin/sh
+            - -c
+            - |
+              set -eu
+              mkdir -p /workspace-volume/shared
+              if [ -z "$(find /workspace-volume/shared -mindepth 1 -maxdepth 1 2>/dev/null | head -n 1)" ] && [ -d "${JUPYTER_BOOTSTRAP_DIR}" ]; then
+                cp -a "${JUPYTER_BOOTSTRAP_DIR}"/. /workspace-volume/shared/ 2>/dev/null || true
+              fi
+          env:
+            - name: JUPYTER_BOOTSTRAP_DIR
+              valueFrom:
+                configMapKeyRef:
+                  name: platform-config
+                  key: PLATFORM_JUPYTER_BOOTSTRAP_DIR
+          volumeMounts:
+            - name: jupyter-workspace
+              mountPath: /workspace-volume
       containers:
         - name: jupyter
-          image: harbor.local/data-platform/jupyter:latest
+          image: docker.io/edumgt/k8s-data-platform-jupyter:latest
           imagePullPolicy: IfNotPresent
           ports:
             - containerPort: 8888
@@ -58,9 +80,20 @@ spec:
                 configMapKeyRef:
                   name: platform-config
                   key: PLATFORM_REDIS_URL
+            - name: JUPYTER_ROOT_DIR
+              valueFrom:
+                configMapKeyRef:
+                  name: platform-config
+                  key: PLATFORM_JUPYTER_WORKSPACE_ROOT
+            - name: JUPYTER_BOOTSTRAP_DIR
+              valueFrom:
+                configMapKeyRef:
+                  name: platform-config
+                  key: PLATFORM_JUPYTER_BOOTSTRAP_DIR
           volumeMounts:
             - name: jupyter-workspace
-              mountPath: /workspace/notebooks
+              mountPath: /workspace/user-home
+              subPath: shared
       volumes:
         - name: jupyter-workspace
           persistentVolumeClaim:

@@ -4,7 +4,7 @@
 
 ## 전체 관점
 
-이 레포는 `Ubuntu 24 OVA -> k3s 호스트 -> Kubernetes workload -> GitLab CI/CD -> Harbor` 흐름을 하나의 실습 환경으로 만든 구조입니다. 실행과 운영의 기준점은 `kubectl`, `manifest`, `kustomize` 이며, `dev` 와 `prod` 는 overlay로 구분합니다.
+이 레포는 `Ubuntu 24 OVA -> Docker Engine + k3s 호스트 -> Kubernetes workload -> Docker Hub/GitHub Actions + Harbor snapshot` 흐름을 하나의 실습 환경으로 만든 구조입니다. 실행과 운영의 기준점은 `kubectl`, `manifest`, `kustomize` 이며, `dev` 와 `prod` 는 overlay로 구분합니다.
 
 ## 솔루션별 역할
 
@@ -14,7 +14,7 @@
 | Packer | Ubuntu 24 VM 이미지를 반복 가능하게 생성 | VM 구축 과정을 코드화하기 좋음 | [packer/k8s-data-platform.pkr.hcl](/home/Kubernetes-OVA-SRE-Archi/packer/k8s-data-platform.pkr.hcl#L1) 기준 |
 | Ansible | OVA 내부에 k3s, 도구 체인, manifest 파일을 배치 | 이미지 내부 구성을 재현 가능하게 유지 | [ansible/playbook.yml](/home/Kubernetes-OVA-SRE-Archi/ansible/playbook.yml#L1) 참조 |
 | Kubernetes(k3s) | 전체 플랫폼의 실제 실행 환경 | 단일 노드로도 pod/service/pvc/NodePort 구조를 실습 가능 | [infra/k8s/base/kustomization.yaml](/home/Kubernetes-OVA-SRE-Archi/infra/k8s/base/kustomization.yaml#L1) + [infra/k8s/overlays/dev/kustomization.yaml](/home/Kubernetes-OVA-SRE-Archi/infra/k8s/overlays/dev/kustomization.yaml#L1) 기준 |
-| Docker/OCI image | 앱 이미지를 패키징하는 형식 | Harbor 와 GitLab CI 파이프라인에서 표준적으로 사용 | 런타임은 Docker Compose 가 아니라 Kubernetes deployment |
+| Docker/OCI image | 앱 이미지를 패키징하는 형식 | Docker Hub mirror, local Docker build, GitHub Actions 배포 경로를 통일하기 좋음 | 런타임은 Docker Compose 가 아니라 Kubernetes deployment |
 | Kaniko | Docker daemon 없이 이미지를 build/push 하는 CI 빌더 | Kubernetes executor 와 궁합이 좋고 dind 의존도를 줄임 | [.gitlab-ci.yml](/home/Kubernetes-OVA-SRE-Archi/.gitlab-ci.yml#L1) 에서 사용 |
 | Python 3.12 | Backend API, Jupyter, Airflow DAG 생태계의 공통 언어 | 데이터/분석/운영 자동화를 한 언어로 다루기 좋음 | FastAPI, Jupyter, Airflow 검증에 재사용 |
 | FastAPI | 플랫폼 상태와 데이터 접근을 제공하는 Backend | Python 친화적이고 OpenAPI 제공이 쉬움 | [apps/backend/app/main.py](/home/Kubernetes-OVA-SRE-Archi/apps/backend/app/main.py#L13) |
@@ -27,7 +27,7 @@
 | Teradata SQL(ANSI SQL) | 기업 DW 질의 계층 예시 | 레거시 DW 와 현대 앱/노트북의 접점을 보여주기 위함 | 접속 정보가 없으면 mock 모드 |
 | GitLab | 소스 관리와 CI/CD 오케스트레이션 | self-hosted CI 흐름을 k8s 위에서 실습 가능 | GitLab CE 자체도 k8s Deployment 로 배포하고 app source 는 개별 GitLab repo 로 분리 |
 | GitLab Runner | GitLab job 실행기 | pipeline job 을 cluster 내부 pod 로 실행 | `k8s executor` 오버레이로 분리하고 app repo 배포를 수행 |
-| Harbor | 컨테이너 이미지 레지스트리 | 이미지 저장, 릴리스, 보안 스캔 관점에서 유용 | 이 레포에서는 외부 Harbor 연계를 기본 가정 |
+| Harbor | per-user Jupyter snapshot 레지스트리 | 사용자 workspace 를 이미지화해서 다음 로그인에 재사용 가능 | 플랫폼 공통 이미지는 Docker Hub `edumgt/*`, Harbor 는 snapshot 전용 |
 
 ## 레이어별 설명
 
@@ -43,7 +43,7 @@
 
 ### 3. 배포/운영 레이어
 
-- `GitLab + GitLab Runner + Harbor` 가 이미지 빌드와 배포 자동화 레이어입니다.
+- `Docker Hub + GitHub Actions + GitLab Runner + Harbor snapshot` 이 이미지 빌드와 배포 자동화 레이어입니다.
 - Runner 는 Docker executor 대신 Kubernetes executor 기준으로 설계했습니다.
 - 이미지 빌드는 `Kaniko` 로 수행해 non-k8s 실행 경로를 줄였습니다.
 - 배포 환경은 `infra/k8s/overlays/dev` 와 `infra/k8s/overlays/prod` 로 분기합니다.
@@ -56,6 +56,9 @@
 | [scripts/apply_k8s.sh](/home/Kubernetes-OVA-SRE-Archi/scripts/apply_k8s.sh#L1) | `--env dev|prod` 기준 플랫폼 overlay 적용 |
 | [scripts/reset_k8s.sh](/home/Kubernetes-OVA-SRE-Archi/scripts/reset_k8s.sh#L1) | 선택한 환경의 k8s 리소스 삭제 |
 | [scripts/status_k8s.sh](/home/Kubernetes-OVA-SRE-Archi/scripts/status_k8s.sh#L1) | 선택한 환경의 node/pod/service/pvc 상태 확인 |
+| [scripts/build_k8s_images.sh](/home/Kubernetes-OVA-SRE-Archi/scripts/build_k8s_images.sh#L1) | Docker Hub mirror + local k3s image import |
+| [scripts/publish_dockerhub.sh](/home/Kubernetes-OVA-SRE-Archi/scripts/publish_dockerhub.sh#L1) | 현재 Docker login 기준 Docker Hub push |
+| [scripts/prepare_offline_bundle.sh](/home/Kubernetes-OVA-SRE-Archi/scripts/prepare_offline_bundle.sh#L1) | 폐쇄망용 image/wheel/npm cache 준비 |
 | [scripts/run_wsl.sh](/home/Kubernetes-OVA-SRE-Archi/scripts/run_wsl.sh#L1) | OVA 빌드 자동화 |
 
 ## 정리 기준

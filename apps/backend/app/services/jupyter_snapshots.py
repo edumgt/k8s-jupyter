@@ -9,15 +9,10 @@ from kubernetes.config.config_exception import ConfigException
 
 from app.config import Settings
 from app.services.kube_client import get_batch_v1_api
-from app.services.lab_identity import build_session_id, canonical_username, workspace_subpath
+from app.services.lab_identity import LabIdentity, build_lab_identity, snapshot_image
 
 SNAPSHOT_COMPONENT = "jupyter-snapshot"
 SESSION_LABEL_KEY = "platform.dev/session-id"
-
-
-def snapshot_image(settings: Settings, session_id: str) -> str:
-    registry = settings.harbor_registry.rstrip("/")
-    return f"{registry}/{settings.harbor_project}/jupyter-user-{session_id}:latest"
 
 
 def _job_label_selector(session_id: str) -> str:
@@ -54,14 +49,12 @@ def _list_session_jobs(api: client.BatchV1Api, settings: Settings, session_id: s
     return sorted(jobs, key=_job_sort_key, reverse=True)
 
 
-def get_snapshot_status(settings: Settings, username: str) -> dict[str, object]:
-    username = canonical_username(username)
-    session_id = build_session_id(username)
-    image = snapshot_image(settings, session_id)
+def get_snapshot_status_for_identity(settings: Settings, identity: LabIdentity) -> dict[str, object]:
+    image = snapshot_image(settings, identity.session_id)
 
     try:
         api = get_batch_v1_api()
-        jobs = _list_session_jobs(api, settings, session_id)
+        jobs = _list_session_jobs(api, settings, identity.session_id)
         latest_job = jobs[0] if jobs else None
         latest_succeeded_job = next((job for job in jobs if _job_state(job) == "ready"), None)
 
@@ -80,8 +73,9 @@ def get_snapshot_status(settings: Settings, username: str) -> dict[str, object]:
                 detail = "Harbor publish job is pending."
 
         return {
-            "username": username,
-            "session_id": session_id,
+            "username": identity.username,
+            "session_id": identity.session_id,
+            "workspace_subpath": identity.workspace_subpath,
             "image": image,
             "status": status,
             "job_name": latest_job.metadata.name if latest_job else None,
@@ -97,34 +91,41 @@ def get_snapshot_status(settings: Settings, username: str) -> dict[str, object]:
         raise RuntimeError(f"Kubernetes API error while reading Harbor snapshot status: {exc.reason}") from exc
 
 
-def resolve_launch_image(settings: Settings, username: str) -> tuple[str, dict[str, object]]:
-    snapshot = get_snapshot_status(settings, username)
+def get_snapshot_status(settings: Settings, username: str) -> dict[str, object]:
+    return get_snapshot_status_for_identity(settings, build_lab_identity(username))
+
+
+def resolve_launch_image_for_identity(settings: Settings, identity: LabIdentity) -> tuple[str, dict[str, object]]:
+    snapshot = get_snapshot_status_for_identity(settings, identity)
     if snapshot["restorable"]:
         return str(snapshot["image"]), snapshot
     return settings.jupyter_image, snapshot
 
 
+def resolve_launch_image(settings: Settings, username: str) -> tuple[str, dict[str, object]]:
+    return resolve_launch_image_for_identity(settings, build_lab_identity(username))
+
+
 def create_snapshot_publish_job(settings: Settings, username: str) -> dict[str, object]:
-    username = canonical_username(username)
-    session_id = build_session_id(username)
+    identity = build_lab_identity(username)
 
     if not settings.harbor_user or not settings.harbor_password:
         raise ValueError("Harbor credentials are required to publish a user snapshot image.")
 
     try:
         api = get_batch_v1_api()
-        jobs = _list_session_jobs(api, settings, session_id)
+        jobs = _list_session_jobs(api, settings, identity.session_id)
         active_job = next((job for job in jobs if _job_state(job) == "building"), None)
         if active_job is not None:
-            return get_snapshot_status(settings, username)
+            return get_snapshot_status_for_identity(settings, identity)
 
         timestamp = datetime.now(timezone.utc).strftime("%Y%m%d%H%M%S")
-        job_name = f"publish-{session_id}-{timestamp}"[:63]
-        image = snapshot_image(settings, session_id)
+        job_name = f"publish-{identity.session_id}-{timestamp}"[:63]
+        image = snapshot_image(settings, identity.session_id)
         encoded_auth = base64.b64encode(
             f"{settings.harbor_user}:{settings.harbor_password}".encode("utf-8"),
         ).decode("utf-8")
-        subpath = workspace_subpath(session_id)
+        subpath = identity.workspace_subpath
 
         kaniko_args = [
             "--dockerfile=/context/Dockerfile",
@@ -149,7 +150,8 @@ cp -R /workspace-data/{subpath}/. /context/workspace/ 2>/dev/null || true
 cat > /context/Dockerfile <<'EOF'
 FROM {settings.jupyter_image}
 ENV JUPYTER_ROOT_DIR={settings.jupyter_workspace_root}
-COPY workspace/ {settings.jupyter_workspace_root}/
+ENV JUPYTER_BOOTSTRAP_DIR={settings.jupyter_bootstrap_dir}
+COPY workspace/ {settings.jupyter_bootstrap_dir}/
 EOF
 cat > /docker-config/config.json <<'EOF'
 {{"auths":{{"{settings.harbor_registry}":{{"auth":"{encoded_auth}"}}}}}}
@@ -162,21 +164,22 @@ EOF
                 labels={
                     "app.kubernetes.io/name": SNAPSHOT_COMPONENT,
                     "app.kubernetes.io/component": SNAPSHOT_COMPONENT,
-                    SESSION_LABEL_KEY: session_id,
+                    SESSION_LABEL_KEY: identity.session_id,
                 },
                 annotations={
-                    "platform.dev/username": username,
+                    "platform.dev/username": identity.username,
                     "platform.dev/published-image": image,
                 },
             ),
             spec=client.V1JobSpec(
                 backoff_limit=0,
+                ttl_seconds_after_finished=86400,
                 template=client.V1PodTemplateSpec(
                     metadata=client.V1ObjectMeta(
                         labels={
                             "app.kubernetes.io/name": SNAPSHOT_COMPONENT,
                             "app.kubernetes.io/component": SNAPSHOT_COMPONENT,
-                            SESSION_LABEL_KEY: session_id,
+                            SESSION_LABEL_KEY: identity.session_id,
                         },
                     ),
                     spec=client.V1PodSpec(
@@ -184,7 +187,7 @@ EOF
                         init_containers=[
                             client.V1Container(
                                 name="prepare-context",
-                                image="busybox:1.36",
+                                image="docker.io/edumgt/platform-busybox:1.36",
                                 command=["/bin/sh", "-c", prepare_script],
                                 volume_mounts=[
                                     client.V1VolumeMount(name="context", mount_path="/context"),
@@ -219,7 +222,7 @@ EOF
             ),
         )
         api.create_namespaced_job(namespace=settings.k8s_namespace, body=job)
-        return get_snapshot_status(settings, username)
+        return get_snapshot_status_for_identity(settings, identity)
     except ConfigException as exc:
         raise RuntimeError("Kubernetes client configuration is unavailable.") from exc
     except ApiException as exc:

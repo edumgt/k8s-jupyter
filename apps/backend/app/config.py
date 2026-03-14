@@ -21,12 +21,13 @@ class Settings(BaseSettings):
     harbor_user: str | None = None
     harbor_password: str | None = None
     harbor_insecure_registry: bool = True
-    notebooks_path: str = "/workspace/notebooks"
+    notebooks_path: str = "/workspace/notebooks/shared"
     k8s_namespace: str = "data-platform"
-    jupyter_image: str = "harbor.local/data-platform/jupyter:latest"
+    jupyter_image: str = "docker.io/edumgt/k8s-data-platform-jupyter:latest"
     jupyter_workspace_pvc: str = "jupyter-workspace"
     jupyter_workspace_root: str = "/workspace/user-home"
-    jupyter_snapshot_builder_image: str = "gcr.io/kaniko-project/executor:v1.23.2-debug"
+    jupyter_bootstrap_dir: str = "/opt/platform/bootstrap-workspace"
+    jupyter_snapshot_builder_image: str = "docker.io/edumgt/platform-kaniko-executor:v1.23.2-debug"
     jupyter_token: str = Field(default="platform123", validation_alias="JUPYTER_TOKEN")
     control_plane_username: str = "platform-admin"
     control_plane_password: str = "controlplane123!"

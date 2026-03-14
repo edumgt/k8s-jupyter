@@ -54,6 +54,8 @@ class LabSessionResponse(BaseModel):
     namespace: str
     pod_name: str
     service_name: str
+    workspace_subpath: str
+    image: str
     status: str
     phase: str
     ready: bool
@@ -61,6 +63,18 @@ class LabSessionResponse(BaseModel):
     token: str
     node_port: int | None = None
     created_at: str | None = None
+
+
+class SnapshotStatusResponse(BaseModel):
+    username: str
+    session_id: str
+    workspace_subpath: str
+    image: str
+    status: str
+    job_name: str | None = None
+    published_at: str | None = None
+    restorable: bool
+    detail: str
 
 
 class ControlPlaneLoginRequest(BaseModel):

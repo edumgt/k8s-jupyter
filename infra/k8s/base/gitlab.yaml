@@ -65,7 +65,7 @@ spec:
     spec:
       containers:
         - name: gitlab
-          image: gitlab/gitlab-ce:17.10.0-ce.0
+          image: docker.io/edumgt/platform-gitlab-ce:17.10.0-ce.0
           imagePullPolicy: IfNotPresent
           ports:
             - containerPort: 80

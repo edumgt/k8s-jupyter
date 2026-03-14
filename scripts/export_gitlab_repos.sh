@@ -90,30 +90,30 @@ stages:
 
 python_sanity:
   stage: test
-  image: python:3.12
+  image: docker.io/edumgt/platform-python:3.12
   script:
     - python -m compileall app
 
 kaniko_build:
   stage: build
   image:
-    name: gcr.io/kaniko-project/executor:v1.23.2-debug
+    name: docker.io/edumgt/platform-kaniko-executor:v1.23.2-debug
     entrypoint: [""]
   script:
-    - export IMAGE_NAME="${HARBOR_REGISTRY}/${HARBOR_PROJECT}/backend"
+    - export IMAGE_NAME="docker.io/${DOCKERHUB_NAMESPACE:-edumgt}/k8s-data-platform-backend"
     - mkdir -p /kaniko/.docker
     - >
-      printf '{"auths":{"%s":{"username":"%s","password":"%s"}}}'
-      "$HARBOR_REGISTRY" "$HARBOR_USER" "$HARBOR_PASSWORD" > /kaniko/.docker/config.json
+      printf '{"auths":{"https://index.docker.io/v1/":{"username":"%s","password":"%s"}}}'
+      "$DOCKERHUB_USERNAME" "$DOCKERHUB_TOKEN" > /kaniko/.docker/config.json
     - /kaniko/executor --context "${CI_PROJECT_DIR}" --dockerfile "${CI_PROJECT_DIR}/Dockerfile" --destination "${IMAGE_NAME}:${CI_COMMIT_SHORT_SHA}" --destination "${IMAGE_NAME}:latest"
 
 deploy_backend:
   stage: deploy
-  image: bitnami/kubectl:1.32
+  image: docker.io/edumgt/platform-kubectl:latest
   needs:
     - kaniko_build
   script:
-    - export IMAGE_NAME="${HARBOR_REGISTRY}/${HARBOR_PROJECT}/backend"
+    - export IMAGE_NAME="docker.io/${DOCKERHUB_NAMESPACE:-edumgt}/k8s-data-platform-backend"
     - export DEPLOY_ENV="${DEPLOY_ENV:-dev}"
     - export DEPLOY_NAMESPACE="data-platform-${DEPLOY_ENV}"
     - echo "$KUBECONFIG_B64" | base64 -d > kubeconfig
@@ -134,24 +134,24 @@ stages:
 kaniko_build:
   stage: build
   image:
-    name: gcr.io/kaniko-project/executor:v1.23.2-debug
+    name: docker.io/edumgt/platform-kaniko-executor:v1.23.2-debug
     entrypoint: [""]
   script:
-    - export IMAGE_NAME="${HARBOR_REGISTRY}/${HARBOR_PROJECT}/frontend"
+    - export IMAGE_NAME="docker.io/${DOCKERHUB_NAMESPACE:-edumgt}/k8s-data-platform-frontend"
     - export VITE_API_BASE_URL="${VITE_API_BASE_URL:-http://localhost:30081}"
     - mkdir -p /kaniko/.docker
     - >
-      printf '{"auths":{"%s":{"username":"%s","password":"%s"}}}'
-      "$HARBOR_REGISTRY" "$HARBOR_USER" "$HARBOR_PASSWORD" > /kaniko/.docker/config.json
+      printf '{"auths":{"https://index.docker.io/v1/":{"username":"%s","password":"%s"}}}'
+      "$DOCKERHUB_USERNAME" "$DOCKERHUB_TOKEN" > /kaniko/.docker/config.json
     - /kaniko/executor --context "${CI_PROJECT_DIR}" --dockerfile "${CI_PROJECT_DIR}/Dockerfile" --build-arg "VITE_API_BASE_URL=${VITE_API_BASE_URL}" --destination "${IMAGE_NAME}:${CI_COMMIT_SHORT_SHA}" --destination "${IMAGE_NAME}:latest"
 
 deploy_frontend:
   stage: deploy
-  image: bitnami/kubectl:1.32
+  image: docker.io/edumgt/platform-kubectl:latest
   needs:
     - kaniko_build
   script:
-    - export IMAGE_NAME="${HARBOR_REGISTRY}/${HARBOR_PROJECT}/frontend"
+    - export IMAGE_NAME="docker.io/${DOCKERHUB_NAMESPACE:-edumgt}/k8s-data-platform-frontend"
     - export DEPLOY_ENV="${DEPLOY_ENV:-dev}"
     - export DEPLOY_NAMESPACE="data-platform-${DEPLOY_ENV}"
     - echo "$KUBECONFIG_B64" | base64 -d > kubeconfig
@@ -172,30 +172,30 @@ stages:
 
 python_sanity:
   stage: test
-  image: python:3.12
+  image: docker.io/edumgt/platform-python:3.12
   script:
     - python -m compileall dags
 
 kaniko_build:
   stage: build
   image:
-    name: gcr.io/kaniko-project/executor:v1.23.2-debug
+    name: docker.io/edumgt/platform-kaniko-executor:v1.23.2-debug
     entrypoint: [""]
   script:
-    - export IMAGE_NAME="${HARBOR_REGISTRY}/${HARBOR_PROJECT}/airflow"
+    - export IMAGE_NAME="docker.io/${DOCKERHUB_NAMESPACE:-edumgt}/k8s-data-platform-airflow"
     - mkdir -p /kaniko/.docker
     - >
-      printf '{"auths":{"%s":{"username":"%s","password":"%s"}}}'
-      "$HARBOR_REGISTRY" "$HARBOR_USER" "$HARBOR_PASSWORD" > /kaniko/.docker/config.json
+      printf '{"auths":{"https://index.docker.io/v1/":{"username":"%s","password":"%s"}}}'
+      "$DOCKERHUB_USERNAME" "$DOCKERHUB_TOKEN" > /kaniko/.docker/config.json
     - /kaniko/executor --context "${CI_PROJECT_DIR}" --dockerfile "${CI_PROJECT_DIR}/Dockerfile" --destination "${IMAGE_NAME}:${CI_COMMIT_SHORT_SHA}" --destination "${IMAGE_NAME}:latest"
 
 deploy_airflow:
   stage: deploy
-  image: bitnami/kubectl:1.32
+  image: docker.io/edumgt/platform-kubectl:latest
   needs:
     - kaniko_build
   script:
-    - export IMAGE_NAME="${HARBOR_REGISTRY}/${HARBOR_PROJECT}/airflow"
+    - export IMAGE_NAME="docker.io/${DOCKERHUB_NAMESPACE:-edumgt}/k8s-data-platform-airflow"
     - export DEPLOY_ENV="${DEPLOY_ENV:-dev}"
     - export DEPLOY_NAMESPACE="data-platform-${DEPLOY_ENV}"
     - echo "$KUBECONFIG_B64" | base64 -d > kubeconfig
@@ -216,23 +216,23 @@ stages:
 kaniko_build:
   stage: build
   image:
-    name: gcr.io/kaniko-project/executor:v1.23.2-debug
+    name: docker.io/edumgt/platform-kaniko-executor:v1.23.2-debug
     entrypoint: [""]
   script:
-    - export IMAGE_NAME="${HARBOR_REGISTRY}/${HARBOR_PROJECT}/jupyter"
+    - export IMAGE_NAME="docker.io/${DOCKERHUB_NAMESPACE:-edumgt}/k8s-data-platform-jupyter"
     - mkdir -p /kaniko/.docker
     - >
-      printf '{"auths":{"%s":{"username":"%s","password":"%s"}}}'
-      "$HARBOR_REGISTRY" "$HARBOR_USER" "$HARBOR_PASSWORD" > /kaniko/.docker/config.json
+      printf '{"auths":{"https://index.docker.io/v1/":{"username":"%s","password":"%s"}}}'
+      "$DOCKERHUB_USERNAME" "$DOCKERHUB_TOKEN" > /kaniko/.docker/config.json
     - /kaniko/executor --context "${CI_PROJECT_DIR}" --dockerfile "${CI_PROJECT_DIR}/Dockerfile" --destination "${IMAGE_NAME}:${CI_COMMIT_SHORT_SHA}" --destination "${IMAGE_NAME}:latest"
 
 deploy_jupyter:
   stage: deploy
-  image: bitnami/kubectl:1.32
+  image: docker.io/edumgt/platform-kubectl:latest
   needs:
     - kaniko_build
   script:
-    - export IMAGE_NAME="${HARBOR_REGISTRY}/${HARBOR_PROJECT}/jupyter"
+    - export IMAGE_NAME="docker.io/${DOCKERHUB_NAMESPACE:-edumgt}/k8s-data-platform-jupyter"
     - export DEPLOY_ENV="${DEPLOY_ENV:-dev}"
     - export DEPLOY_NAMESPACE="data-platform-${DEPLOY_ENV}"
     - echo "$KUBECONFIG_B64" | base64 -d > kubeconfig
@@ -256,21 +256,20 @@ write_repo_readme() {
 ## CI/CD 흐름
 
 - GitLab Runner 가 pipeline 을 실행
-- Kaniko 로 Harbor 이미지 빌드/푸시
+- Kaniko 로 Docker Hub `edumgt/*` 이미지 빌드/푸시
 - \`kubectl set image\` 로 Kubernetes deployment \`${deployment_name}\` 갱신
 
 ## 필요한 GitLab CI 변수
 
-- \`HARBOR_REGISTRY\`
-- \`HARBOR_PROJECT\`
-- \`HARBOR_USER\`
-- \`HARBOR_PASSWORD\`
+- \`DOCKERHUB_NAMESPACE\`
+- \`DOCKERHUB_USERNAME\`
+- \`DOCKERHUB_TOKEN\`
 - \`KUBECONFIG_B64\`
 - \`DEPLOY_ENV\` (\`dev\` 또는 \`prod\`)
 
 ## 배포 대상
 
-- Harbor image: \`${image_name}\`
+- Docker Hub image: \`${image_name}\`
 - Kubernetes deployment: \`${deployment_name}\`
 EOF
 }
@@ -297,7 +296,7 @@ export_backend_repo() {
   copy_app_contents "backend" "${repo_dir}"
   write_repo_gitignore "${repo_dir}"
   write_backend_ci "${repo_dir}"
-  write_repo_readme "${repo_dir}" "platform-backend" '${HARBOR_REGISTRY}/${HARBOR_PROJECT}/backend' "backend"
+  write_repo_readme "${repo_dir}" "platform-backend" 'docker.io/${DOCKERHUB_NAMESPACE:-edumgt}/k8s-data-platform-backend' "backend"
 }
 
 export_frontend_repo() {
@@ -305,7 +304,7 @@ export_frontend_repo() {
   copy_app_contents "frontend" "${repo_dir}"
   write_repo_gitignore "${repo_dir}"
   write_frontend_ci "${repo_dir}"
-  write_repo_readme "${repo_dir}" "platform-frontend" '${HARBOR_REGISTRY}/${HARBOR_PROJECT}/frontend' "frontend"
+  write_repo_readme "${repo_dir}" "platform-frontend" 'docker.io/${DOCKERHUB_NAMESPACE:-edumgt}/k8s-data-platform-frontend' "frontend"
 }
 
 export_airflow_repo() {
@@ -313,7 +312,7 @@ export_airflow_repo() {
   copy_app_contents "airflow" "${repo_dir}"
   write_repo_gitignore "${repo_dir}"
   write_airflow_ci "${repo_dir}"
-  write_repo_readme "${repo_dir}" "platform-airflow" '${HARBOR_REGISTRY}/${HARBOR_PROJECT}/airflow' "airflow"
+  write_repo_readme "${repo_dir}" "platform-airflow" 'docker.io/${DOCKERHUB_NAMESPACE:-edumgt}/k8s-data-platform-airflow' "airflow"
 }
 
 export_jupyter_repo() {
@@ -321,7 +320,7 @@ export_jupyter_repo() {
   copy_app_contents "jupyter" "${repo_dir}"
   write_repo_gitignore "${repo_dir}"
   write_jupyter_ci "${repo_dir}"
-  write_repo_readme "${repo_dir}" "platform-jupyter" '${HARBOR_REGISTRY}/${HARBOR_PROJECT}/jupyter' "jupyter"
+  write_repo_readme "${repo_dir}" "platform-jupyter" 'docker.io/${DOCKERHUB_NAMESPACE:-edumgt}/k8s-data-platform-jupyter' "jupyter"
 }
 
 clean_output_dir

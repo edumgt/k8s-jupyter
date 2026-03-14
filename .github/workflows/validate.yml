@@ -32,6 +32,8 @@ jobs:
           bash -n scripts/status_k8s.sh
           bash -n scripts/healthcheck.sh
           bash -n scripts/verify.sh
+          bash -n scripts/publish_dockerhub.sh
+          bash -n scripts/prepare_offline_bundle.sh
           bash -n scripts/export_gitlab_repos.sh
           bash -n tests/test_gitlab_repo_export.sh
           bash -n tests/test_wsl_scripts.sh

@@ -12,12 +12,14 @@
       - logrotate
       - make
       - net-tools
+      - rsync
       - software-properties-common
       - tar
       - unzip
       - unattended-upgrades
       - vim
       - wget
+      - zip
     state: present
     update_cache: true
 

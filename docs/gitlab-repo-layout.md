@@ -24,7 +24,7 @@
 
 - Runner 는 Kubernetes executor 로 `data-platform-dev` 또는 `data-platform-prod` namespace 에 배포
 - 각 app repo 의 pipeline 을 실행
-- Kaniko 로 Harbor 이미지를 build/push
+- Kaniko 로 Docker Hub `edumgt/*` 이미지를 build/push
 - `kubectl set image` 로 대상 deployment 를 갱신
 
 ## repo export
@@ -52,10 +52,9 @@ bash scripts/export_gitlab_repos.sh --force
 
 ## app repo pipeline 공통 변수
 
-- `HARBOR_REGISTRY`
-- `HARBOR_PROJECT`
-- `HARBOR_USER`
-- `HARBOR_PASSWORD`
+- `DOCKERHUB_NAMESPACE`
+- `DOCKERHUB_USERNAME`
+- `DOCKERHUB_TOKEN`
 - `KUBECONFIG_B64`
 - `DEPLOY_ENV`
 
@@ -67,5 +66,5 @@ bash scripts/export_gitlab_repos.sh --force
 
 1. `platform-infra` repo pipeline 또는 `bash scripts/apply_k8s.sh --env dev --with-runner` 로 infra 와 runner 를 올립니다.
 2. app repo 를 GitLab 프로젝트로 push 합니다.
-3. 각 app repo 의 GitLab CI/CD 변수에 Harbor / kubeconfig 값을 설정합니다.
+3. 각 app repo 의 GitLab CI/CD 변수에 Docker Hub / kubeconfig 값을 설정합니다.
 4. app repo pipeline 이 Runner 위에서 실행되며 개별 app deployment 를 갱신합니다.

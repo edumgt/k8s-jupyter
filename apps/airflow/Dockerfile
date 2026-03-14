@@ -1,4 +1,4 @@
-FROM apache/airflow:2.10.5-python3.12
+FROM docker.io/edumgt/platform-airflow-base:2.10.5-python3.12
 
 USER airflow
 

@@ -16,6 +16,55 @@
     dest: /opt/k8s-data-platform/infra/
     mode: preserve
 
+- name: Copy operational scripts to host
+  copy:
+    src: "{{ playbook_dir }}/../scripts/"
+    dest: /opt/k8s-data-platform/scripts/
+    mode: preserve
+
+- name: Copy documentation to host
+  copy:
+    src: "{{ playbook_dir }}/../docs/"
+    dest: /opt/k8s-data-platform/docs/
+    mode: preserve
+
+- name: Copy root README to host
+  copy:
+    src: "{{ playbook_dir }}/../README.md"
+    dest: /opt/k8s-data-platform/README.md
+    mode: '0644'
+
+- name: Preload platform images into Docker and k3s
+  command:
+    argv:
+      - bash
+      - /opt/k8s-data-platform/scripts/build_k8s_images.sh
+      - --namespace
+      - edumgt
+      - --tag
+      - latest
+  args:
+    chdir: /opt/k8s-data-platform
+    creates: /opt/k8s-data-platform/.image-cache-ready
+
+- name: Mark image cache ready
+  file:
+    path: /opt/k8s-data-platform/.image-cache-ready
+    state: touch
+    mode: '0644'
+
+- name: Prepare offline dependency bundle
+  command:
+    argv:
+      - bash
+      - /opt/k8s-data-platform/scripts/prepare_offline_bundle.sh
+      - --out-dir
+      - /opt/k8s-data-platform/offline-bundle
+      - --skip-images
+  args:
+    chdir: /opt/k8s-data-platform
+    creates: /opt/k8s-data-platform/offline-bundle/frontend-package-lock.json
+
 - name: Install platform apply helper
   copy:
     dest: /usr/local/bin/platform-apply.sh
@@ -83,3 +132,5 @@
       kubectl get pods -n data-platform-dev
       kubectl get svc -n data-platform-dev
       kubectl get pvc -n data-platform-dev
+      bash /opt/k8s-data-platform/scripts/publish_dockerhub.sh --namespace edumgt --tag latest
+      bash /opt/k8s-data-platform/scripts/prepare_offline_bundle.sh --out-dir /opt/k8s-data-platform/offline-bundle --skip-images

@@ -19,6 +19,15 @@ rules:
       - create
       - delete
       - watch
+  - apiGroups:
+      - batch
+    resources:
+      - jobs
+    verbs:
+      - get
+      - list
+      - create
+      - watch
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: RoleBinding
@@ -91,7 +100,7 @@ spec:
       serviceAccountName: backend
       containers:
         - name: backend
-          image: harbor.local/data-platform/backend:latest
+          image: docker.io/edumgt/k8s-data-platform-backend:latest
           imagePullPolicy: IfNotPresent
           ports:
             - containerPort: 8000

@@ -43,9 +43,10 @@
               </div>
 
               <p class="muted">
-                사용자명을 입력하면 backend가 현재 namespace에 전용 Jupyter pod를 생성합니다.
-                준비가 끝나면 새 탭으로 열어서 Notebook, Console, Terminal 기반으로 Python을
-                연습할 수 있습니다.
+                사용자명을 입력하면 backend가 현재 namespace에 전용 Jupyter pod를 생성하고,
+                사용자별 PVC subPath와 최근 Harbor snapshot 이미지를 우선 연결합니다. 준비가
+                끝나면 새 탭으로 열어서 Notebook, Console, Terminal 기반으로 Python을 연습할
+                수 있습니다.
               </p>
 
               <div class="lab-form">
@@ -111,7 +112,9 @@
                 <div><strong>Status</strong> {{ labSession.detail }}</div>
                 <div v-if="labSession.pod_name">Pod: {{ labSession.pod_name }}</div>
                 <div v-if="labSession.service_name">Service: {{ labSession.service_name }}</div>
+                <div v-if="labSession.workspace_subpath">Workspace: {{ labSession.workspace_subpath }}</div>
                 <div v-if="labSession.node_port">NodePort: {{ labSession.node_port }}</div>
+                <div v-if="labSession.image" class="lab-url">Image: {{ labSession.image }}</div>
                 <div v-if="labLaunchUrl" class="lab-url">{{ labLaunchUrl }}</div>
               </q-banner>
             </q-card-section>
@@ -119,18 +122,65 @@
 
           <q-card flat class="surface-card">
             <q-card-section>
-              <div class="section-title">Lab Guide</div>
-              <div class="card-title">열리면 바로 Python 연습</div>
+              <div class="row items-center justify-between q-col-gutter-md">
+                <div>
+                  <div class="section-title">Workspace Snapshot</div>
+                  <div class="card-title">Harbor publish / restore 흐름</div>
+                </div>
+                <q-badge :color="snapshotStatusColor" rounded>
+                  {{ snapshotState.status }}
+                </q-badge>
+              </div>
               <p class="muted">
-                세션이 준비되면 JupyterLab Launcher에서 <strong>Notebook</strong> 또는
-                <strong>Console</strong>을 선택하면 됩니다. 이미지에는 샘플 notebook이 포함되어
-                있고, 세션 파일은 pod 삭제 시 함께 정리됩니다.
+                현재 세션 파일은 PVC `users/&lt;session-id&gt;` 경로에 유지되고, Publish Snapshot
+                버튼을 누르면 Kaniko Job이 Harbor에 사용자 이미지를 생성합니다. 다음 로그인부터는
+                backend가 그 이미지를 우선 선택해 세션을 다시 띄웁니다.
               </p>
+              <div class="lab-form">
+                <q-btn
+                  color="dark"
+                  unelevated
+                  no-caps
+                  icon="cloud_upload"
+                  label="Publish Snapshot"
+                  :loading="snapshotLoading"
+                  :disable="!trimmedLabUsername"
+                  @click="publishSnapshot"
+                />
+                <q-btn
+                  outline
+                  color="dark"
+                  no-caps
+                  icon="inventory_2"
+                  label="Refresh Snapshot"
+                  :loading="snapshotLoading"
+                  :disable="!trimmedLabUsername"
+                  @click="refreshSnapshotStatus"
+                />
+              </div>
+              <q-linear-progress
+                v-if="snapshotState.status === 'building'"
+                indeterminate
+                color="dark"
+                class="lab-progress"
+              />
+              <q-banner rounded class="banner-note lab-banner">
+                <div><strong>Status</strong> {{ snapshotState.detail }}</div>
+                <div v-if="snapshotState.job_name">Job: {{ snapshotState.job_name }}</div>
+                <div v-if="snapshotState.workspace_subpath">
+                  Workspace: {{ snapshotState.workspace_subpath }}
+                </div>
+                <div v-if="snapshotState.published_at">Published: {{ snapshotState.published_at }}</div>
+                <div v-if="snapshotState.image" class="lab-url">
+                  Snapshot Image: {{ snapshotState.image }}
+                </div>
+              </q-banner>
               <div class="chip-grid">
                 <q-chip color="white" text-color="dark" square>Python 3.12</q-chip>
                 <q-chip color="white" text-color="dark" square>JupyterLab</q-chip>
                 <q-chip color="white" text-color="dark" square>Kubernetes Pod per User</q-chip>
-                <q-chip color="white" text-color="dark" square>Ephemeral Practice Workspace</q-chip>
+                <q-chip color="white" text-color="dark" square>PVC Workspace Restore</q-chip>
+                <q-chip color="white" text-color="dark" square>Harbor Snapshot Publish</q-chip>
               </div>
             </q-card-section>
           </q-card>
@@ -439,7 +489,7 @@
 
 <script setup>
 import { Notify } from "quasar";
-import { computed, onMounted, onUnmounted, ref } from "vue";
+import { computed, onMounted, onUnmounted, ref, watch } from "vue";
 
 const browserProtocol = typeof window !== "undefined" ? window.location.protocol : "http:";
 const browserHost = typeof window !== "undefined" ? window.location.hostname : "localhost";
@@ -455,8 +505,10 @@ const savedControlPlaneUsername =
 const loading = ref(true);
 const queryLoading = ref(false);
 const sessionLoading = ref(false);
+const snapshotLoading = ref(false);
 const labUsername = ref(savedLabUsername);
 const labSession = ref(emptyLabSession());
+const snapshotState = ref(emptySnapshotState());
 const controlPlaneLogin = ref({
   username: savedControlPlaneUsername || "platform-admin",
   password: "",
@@ -486,6 +538,18 @@ const labLaunchUrl = computed(() => {
     `${browserProtocol}//${browserHost}:${labSession.value.node_port}/lab` +
     `?token=${encodeURIComponent(labSession.value.token)}`
   );
+});
+const snapshotStatusColor = computed(() => {
+  if (snapshotState.value.status === "ready") {
+    return "positive";
+  }
+  if (snapshotState.value.status === "building" || snapshotState.value.status === "pending") {
+    return "warning";
+  }
+  if (snapshotState.value.status === "failed") {
+    return "negative";
+  }
+  return "grey-7";
 });
 const controlPlaneSummaryItems = computed(() => [
   {
@@ -564,6 +628,8 @@ function emptyLabSession() {
     namespace: "",
     pod_name: "",
     service_name: "",
+    workspace_subpath: "",
+    image: "",
     status: "idle",
     phase: "Idle",
     ready: false,
@@ -571,6 +637,20 @@ function emptyLabSession() {
     token: "",
     node_port: null,
     created_at: null,
+  };
+}
+
+function emptySnapshotState() {
+  return {
+    username: "",
+    session_id: "",
+    workspace_subpath: "",
+    image: "",
+    status: "idle",
+    job_name: "",
+    published_at: "",
+    restorable: false,
+    detail: "Publish a workspace snapshot to Harbor after saving your work.",
   };
 }
 
@@ -636,6 +716,13 @@ function applyLabSession(payload, options = {}) {
       message: `JupyterLab is ready for ${labSession.value.username}.`,
     });
   }
+}
+
+function applySnapshotState(payload) {
+  snapshotState.value = {
+    ...emptySnapshotState(),
+    ...payload,
+  };
 }
 
 function applyControlPlaneDashboard(payload) {
@@ -737,6 +824,7 @@ async function refreshLabSession(options = {}) {
     if (!trimmedLabUsername.value) {
       stopPolling();
       applyLabSession(emptyLabSession());
+      applySnapshotState(emptySnapshotState());
     }
     return;
   }
@@ -748,6 +836,9 @@ async function refreshLabSession(options = {}) {
     );
     const payload = await parseJson(response);
     applyLabSession(payload, { notifyReady: true });
+    if (!options.skipSnapshotRefresh) {
+      void refreshSnapshotStatus({ silent: true });
+    }
     if (!options.silent && payload.status === "missing") {
       Notify.create({
         type: "info",
@@ -787,6 +878,7 @@ async function startLabSession() {
     });
     const payload = await parseJson(response);
     applyLabSession(payload);
+    void refreshSnapshotStatus({ silent: true });
     Notify.create({
       type: payload.status === "ready" ? "positive" : "info",
       message:
@@ -821,6 +913,7 @@ async function stopLabSession() {
     const payload = await parseJson(response);
     applyLabSession(payload);
     stopPolling();
+    void refreshSnapshotStatus({ silent: true });
     Notify.create({
       type: "warning",
       message: `Removed personal JupyterLab resources for ${payload.username}.`,
@@ -832,6 +925,72 @@ async function stopLabSession() {
     });
   } finally {
     sessionLoading.value = false;
+  }
+}
+
+async function refreshSnapshotStatus(options = {}) {
+  if (!trimmedLabUsername.value || snapshotLoading.value) {
+    if (!trimmedLabUsername.value) {
+      applySnapshotState(emptySnapshotState());
+    }
+    return;
+  }
+
+  snapshotLoading.value = true;
+  try {
+    const response = await fetch(
+      `${apiBaseUrl}/api/jupyter/snapshots/${encodeURIComponent(trimmedLabUsername.value)}`,
+    );
+    const payload = await parseJson(response);
+    applySnapshotState(payload);
+    if (!options.silent && payload.status === "missing") {
+      Notify.create({
+        type: "info",
+        message: "No Harbor snapshot exists for this user yet.",
+      });
+    }
+  } catch (error) {
+    Notify.create({
+      type: "negative",
+      message: error.message,
+    });
+  } finally {
+    snapshotLoading.value = false;
+  }
+}
+
+async function publishSnapshot() {
+  if (!trimmedLabUsername.value || snapshotLoading.value) {
+    return;
+  }
+
+  snapshotLoading.value = true;
+  try {
+    const response = await fetch(`${apiBaseUrl}/api/jupyter/snapshots`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        username: trimmedLabUsername.value,
+      }),
+    });
+    const payload = await parseJson(response);
+    applySnapshotState(payload);
+    Notify.create({
+      type: payload.status === "building" ? "info" : "positive",
+      message:
+        payload.status === "building"
+          ? `Publishing Harbor snapshot for ${payload.username}.`
+          : `Latest Harbor snapshot is ready for ${payload.username}.`,
+    });
+  } catch (error) {
+    Notify.create({
+      type: "negative",
+      message: error.message,
+    });
+  } finally {
+    snapshotLoading.value = false;
   }
 }
 
@@ -959,6 +1118,7 @@ onMounted(async () => {
   await runFirstQuery();
   if (trimmedLabUsername.value) {
     await refreshLabSession({ silent: true });
+    await refreshSnapshotStatus({ silent: true });
   }
   if (controlPlane.value.authenticated) {
     await loadControlPlaneDashboard();
@@ -967,5 +1127,14 @@ onMounted(async () => {
 
 onUnmounted(() => {
   stopPolling();
+});
+
+watch(trimmedLabUsername, (value, previousValue) => {
+  if (value === previousValue) {
+    return;
+  }
+  stopPolling();
+  applyLabSession(emptyLabSession());
+  applySnapshotState(emptySnapshotState());
 });
 </script>

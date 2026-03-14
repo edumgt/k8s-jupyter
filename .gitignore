@@ -1,4 +1,5 @@
 dist/
+.tmp-k8s-images/
 packer/output-*/
 apps/frontend/node_modules/
 apps/frontend/dist/

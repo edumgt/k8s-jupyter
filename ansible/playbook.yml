@@ -6,5 +6,6 @@
     - base
     - security
     - toolchains
+    - container_runtime
     - k3s
     - platform_bootstrap
