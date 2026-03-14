@@ -256,6 +256,25 @@ bash scripts/prepare_offline_bundle.sh --out-dir dist/offline-bundle
 
 검증 workflow 는 새 스크립트까지 shell syntax 검사를 수행합니다.
 
+## Git Hooks
+
+대용량 산출물과 오프라인 번들이 다시 커밋에 섞이지 않도록 repo 전용 `pre-commit` 훅을 추가했습니다.
+
+한 번만 설치하면 됩니다.
+
+```bash
+bash scripts/install_git_hooks.sh
+```
+
+이 훅은 아래 항목을 커밋 단계에서 차단합니다.
+
+- `.tmp-k8s-images/*`
+- `dist/offline-bundle/*`
+- `packer/output-*/*`
+- `*.tar`, `*.tar.gz`, `*.tgz`, `*.zip`, `*.whl`
+- `*.ova`, `*.qcow2`, `*.vmdk`, `*.vdi`
+- 50 MiB 이상으로 stage 된 파일
+
 ## 주요 NodePort
 
 - Frontend: `30080`
