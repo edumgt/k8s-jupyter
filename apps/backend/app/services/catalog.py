@@ -9,9 +9,10 @@ def runtime_profile(settings: Settings) -> dict[str, str]:
         "containers": "OCI images on Kubernetes",
         "backend": "Python 3.12 / FastAPI",
         "frontend": "Node 22.22 / Quasar Vue 3",
-        "orchestration": "Apache Airflow",
+        "orchestration": "Apache Airflow (optional health-check scheduler)",
         "workbench": "JupyterLab pod",
         "data": "MongoDB, Redis, Teradata ANSI SQL",
+        "artifact_repositories": "Nexus (PyPI/npm offline cache), Harbor (Jupyter snapshot only)",
         "cicd": "Docker Hub(edumgt), GitHub Actions, GitLab Runner(k8s executor), Harbor snapshot",
     }
 
@@ -51,7 +52,7 @@ def sample_queries() -> list[dict[str, str]]:
 
 
 def quick_links(settings: Settings) -> list[dict[str, str]]:
-    return [
+    links = [
         {
             "name": "Backend API",
             "url": settings.backend_url,
@@ -73,11 +74,6 @@ def quick_links(settings: Settings) -> list[dict[str, str]]:
             "description": "Admin monitoring for demo user Jupyter sandbox usage, launch counts, and active sessions.",
         },
         {
-            "name": "Airflow",
-            "url": settings.airflow_url,
-            "description": "Workflow orchestration UI.",
-        },
-        {
             "name": "Jupyter",
             "url": settings.jupyter_url,
             "description": "Shared JupyterLab entrypoint. Personal labs launch from the frontend session module.",
@@ -93,3 +89,24 @@ def quick_links(settings: Settings) -> list[dict[str, str]]:
             "description": "Per-user Jupyter snapshot registry target.",
         },
     ]
+
+    if settings.airflow_url:
+        links.insert(
+            4,
+            {
+                "name": "Airflow",
+                "url": settings.airflow_url,
+                "description": "Optional workflow orchestration UI.",
+            },
+        )
+
+    if settings.nexus_url:
+        links.append(
+            {
+                "name": "Nexus",
+                "url": settings.nexus_url,
+                "description": "Offline package repository for PyPI and npm caches.",
+            }
+        )
+
+    return links

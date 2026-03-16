@@ -12,6 +12,9 @@ data:
   PLATFORM_AIRFLOW_URL: http://localhost:30090
   PLATFORM_JUPYTER_URL: http://localhost:30088/lab
   PLATFORM_GITLAB_URL: http://localhost:30089
+  PLATFORM_NEXUS_URL: http://localhost:30091
+  PLATFORM_PYPI_INDEX_URL: http://localhost:30091/repository/pypi-all/simple
+  PLATFORM_NPM_REGISTRY: http://localhost:30091/repository/npm-all/
   PLATFORM_HARBOR_URL: http://harbor.local:30083
   PLATFORM_HARBOR_REGISTRY: harbor.local
   PLATFORM_HARBOR_PROJECT: data-platform

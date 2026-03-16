@@ -18,7 +18,7 @@
 - 호스트 런타임: `Ubuntu 24`
 - 클러스터: `kubeadm` 기반 single-node Kubernetes
 - 배포 기준: `infra/k8s/base` + `infra/k8s/overlays/dev|prod`
-- 워크로드: `backend`, `frontend`, `mongodb`, `redis`, `airflow`, `jupyter`, `gitlab`, `gitlab-runner`
+- 워크로드: `backend`, `frontend`, `mongodb`, `redis`, `airflow(optional)`, `jupyter`, `gitlab`, `gitlab-runner`, `nexus`
 - 사용자 Jupyter 세션: backend 가 Kubernetes API 로 per-user Pod/Service 생성
 
 즉, 이 저장소는 이미 Kubernetes 중심 구조였고, 이번 변경은 그 위에 `PVC subPath + snapshot publish/restore + registry/offline` 레이어를 보강한 것입니다.
@@ -54,8 +54,9 @@ flowchart TD
   F --> H[backend NodePort 30081]
   F --> I[shared jupyter NodePort 30088]
   F --> J[gitlab NodePort 30089]
-  F --> K[airflow NodePort 30090]
+  F --> K[airflow NodePort 30090 optional]
   F --> L[mongodb + redis + pvc]
+  F --> T[nexus NodePort 30091]
 
   H --> M[per-user session manager]
   M --> N[user Jupyter Pod/Service]
@@ -143,7 +144,7 @@ sequenceDiagram
   - `docker.io/edumgt/platform-gitlab-runner:*`
   - `docker.io/edumgt/platform-kaniko-executor:*`
 
-Harbor 는 플랫폼 공통 이미지 레지스트리가 아니라 `per-user Jupyter snapshot registry` 로만 사용합니다.
+Harbor 는 플랫폼 공통 이미지 레지스트리가 아니라 `per-user Jupyter snapshot registry` 로만 사용합니다. Docker Hub `edumgt/*` 로 push 한 app/runtime 이미지를 Harbor 에 1:1 동기화하는 구조는 현재 포함되어 있지 않고, 대신 폐쇄망 패키지 저장소는 Nexus 를 추가했습니다.
 
 ## 빠른 시작
 
@@ -206,6 +207,21 @@ bash scripts/apply_k8s.sh --env dev --with-runner
 kubectl scale deployment/gitlab-runner -n data-platform-dev --replicas=1
 ```
 
+### 6. Nexus Offline Repository
+
+PyPI 와 npm 의 폐쇄망 캐시는 Nexus 로 관리하도록 보강했습니다.
+
+```bash
+bash scripts/apply_k8s.sh --env dev
+bash scripts/setup_nexus_offline.sh --namespace data-platform-dev --nexus-url http://127.0.0.1:30091
+```
+
+코드 기준으로 Docker Hub 와 Harbor 사용 범위를 다시 확인하려면:
+
+```bash
+bash scripts/audit_registry_scope.sh
+```
+
 ## Frontend / API
 
 - Frontend 로그인 계정
@@ -226,6 +242,8 @@ kubectl scale deployment/gitlab-runner -n data-platform-dev --replicas=1
   - `GET /api/admin/sandboxes`
 
 Frontend 는 로그인 모드에 따라 사용자용 Jupyter sandbox 화면 또는 관리자용 monitoring/control-plane 화면을 보여주며, 세션 상태, snapshot 상태, 사용자별 pod 실행 여부와 사용 지표를 함께 노출합니다.
+
+Airflow 는 현재 `platform_health_check` DAG 기반의 샘플 오케스트레이션 역할이며, Jupyter sandbox / GitLab / offline bundle 핵심 경로에는 필수는 아닙니다. 폐쇄망 최소 실행용으로는 backend 와 frontend 를 하나의 pod 로 묶은 offline suite 도 추가했습니다.
 
 ### Demo Screenshots
 
@@ -302,6 +320,12 @@ bash scripts/prepare_offline_bundle.sh --out-dir dist/offline-bundle
 - `npm-cache/`: frontend npm cache
 - `frontend-package-lock.json`: frontend offline rebuild 기준 lockfile
 - `k8s/`: offline apply/import 용 manifests, helper scripts, 운영 문서
+
+폐쇄망 최소 stack(one-pod backend/frontend + Nexus cache) 을 적용하려면:
+
+```bash
+bash scripts/apply_offline_suite.sh
+```
 
 오프라인 번들로 이미지 import 와 k8s 적용까지 진행하려면:
 

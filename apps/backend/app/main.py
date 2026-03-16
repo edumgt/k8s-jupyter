@@ -201,13 +201,6 @@ def dashboard() -> DashboardResponse:
             "detail": "Frontend control-plane dashboard with node and pod inventory after admin login",
         },
         {
-            "name": "airflow",
-            "kind": "orchestrator",
-            "endpoint": settings.airflow_url,
-            "ok": True,
-            "detail": "Airflow webserver exposed on 8080 or NodePort 30090",
-        },
-        {
             "name": "jupyter",
             "kind": "workbench",
             "endpoint": settings.jupyter_url,
@@ -222,6 +215,29 @@ def dashboard() -> DashboardResponse:
             "detail": "GitLab CE exposed on NodePort 30089 and SSH NodePort 30224",
         },
     ]
+
+    if settings.airflow_url:
+        services.insert(
+            4,
+            {
+                "name": "airflow",
+                "kind": "orchestrator",
+                "endpoint": settings.airflow_url,
+                "ok": True,
+                "detail": "Optional Airflow webserver for scheduled health checks and DAG demos",
+            },
+        )
+
+    if settings.nexus_url:
+        services.append(
+            {
+                "name": "nexus",
+                "kind": "artifact-repository",
+                "endpoint": settings.nexus_url,
+                "ok": True,
+                "detail": "Offline npm and PyPI cache for closed-network rebuilds and one-pod runtime prep",
+            }
+        )
 
     return DashboardResponse(
         runtime=runtime_profile(settings),

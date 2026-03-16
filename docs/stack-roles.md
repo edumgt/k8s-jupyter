@@ -22,11 +22,12 @@
 | Quasar Framework(Vue 3) | 운영 대시보드형 Frontend | 카드, 배너, 테이블 UI 를 빠르게 구성 가능 | [apps/frontend/src/App.vue](../apps/frontend/src/App.vue) |
 | MongoDB | 문서형 메타데이터 저장소 예시 | 작업 정의, 노트북 메타, 비정형 데이터 저장에 적합 | StatefulSet + PVC 로 배포 |
 | Redis | 캐시와 빠른 상태 저장소 | health, 세션, 빠른 키-값 저장 흐름을 보여주기 좋음 | 단일 Deployment 로 배포 |
-| Apache Airflow | 스케줄링과 오케스트레이션 | DAG 기반 파이프라인 실습에 적합 | [apps/airflow/dags/platform_health_dag.py](../apps/airflow/dags/platform_health_dag.py) |
+| Apache Airflow | 선택형 스케줄링과 오케스트레이션 | DAG 기반 파이프라인 실습에 적합하지만 현재 핵심 런타임 경로에는 필수는 아님 | [apps/airflow/dags/platform_health_dag.py](../apps/airflow/dags/platform_health_dag.py) |
 | JupyterLab | 분석/실험용 워크벤치 pod | 분석가가 cluster 안에서 바로 notebook 을 실행 가능 | Deployment + PVC 로 구성 |
 | Teradata SQL(ANSI SQL) | 기업 DW 질의 계층 예시 | 레거시 DW 와 현대 앱/노트북의 접점을 보여주기 위함 | 접속 정보가 없으면 mock 모드 |
 | GitLab | 소스 관리와 CI/CD 오케스트레이션 | self-hosted CI 흐름을 k8s 위에서 실습 가능 | GitLab CE 자체도 k8s Deployment 로 배포하고 app source 는 개별 GitLab repo 로 분리 |
 | GitLab Runner | GitLab job 실행기 | pipeline job 을 cluster 내부 pod 로 실행 | `k8s executor` 오버레이로 분리하고 app repo 배포를 수행 |
+| Nexus Repository | PyPI/npm 폐쇄망 패키지 저장소 | Python + Node 패키지를 한 저장소에서 proxy/group 으로 관리 가능 | `scripts/setup_nexus_offline.sh` 로 repo bootstrap + cache warm-up |
 | Harbor | per-user Jupyter snapshot 레지스트리 | 사용자 workspace 를 이미지화해서 다음 로그인에 재사용 가능 | 플랫폼 공통 이미지는 Docker Hub `edumgt/*`, Harbor 는 snapshot 전용 |
 
 ## 레이어별 설명
@@ -43,10 +44,12 @@
 
 ### 3. 배포/운영 레이어
 
-- `Docker Hub + GitHub Actions + GitLab Runner + Harbor snapshot` 이 이미지 빌드와 배포 자동화 레이어입니다.
+- `Docker Hub + GitHub Actions + GitLab Runner + Nexus + Harbor snapshot` 이 이미지 빌드와 배포 자동화 레이어입니다.
 - Runner 는 Docker executor 대신 Kubernetes executor 기준으로 설계했습니다.
 - 이미지 빌드는 `Kaniko` 로 수행해 non-k8s 실행 경로를 줄였습니다.
+- 폐쇄망 패키지 캐시는 `Nexus` 가 맡고, Harbor 는 계속 Jupyter snapshot 전용으로 남깁니다.
 - 배포 환경은 `infra/k8s/overlays/dev` 와 `infra/k8s/overlays/prod` 로 분기합니다.
+- backend 와 frontend 를 하나의 pod 로 묶은 최소 profile 은 `infra/k8s/offline-suite` 에 별도 정의했습니다.
 - 오프라인 번들은 image tar 뿐 아니라 `k8s manifests + helper scripts + 운영 문서` 를 함께 묶어 폐쇄망에서도 같은 Kubernetes 적용 흐름을 유지합니다.
 - app source 는 `platform-backend`, `platform-frontend`, `platform-airflow`, `platform-jupyter` 같은 개별 GitLab repo 로 분리하는 운영 모델을 기준으로 합니다.
 

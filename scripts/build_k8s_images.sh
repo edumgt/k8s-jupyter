@@ -161,6 +161,7 @@ SUPPORT_IMAGES=(
   "redis:7-alpine|docker.io/${IMAGE_NAMESPACE}/platform-redis:7-alpine"
   "gitlab/gitlab-ce:17.10.0-ce.0|docker.io/${IMAGE_NAMESPACE}/platform-gitlab-ce:17.10.0-ce.0"
   "gitlab/gitlab-runner:alpine-v17.10.0|docker.io/${IMAGE_NAMESPACE}/platform-gitlab-runner:alpine-v17.10.0"
+  "sonatype/nexus3:3.90.1-alpine|docker.io/${IMAGE_NAMESPACE}/platform-nexus3:3.90.1-alpine"
   "gcr.io/kaniko-project/executor:v1.23.2-debug|docker.io/${IMAGE_NAMESPACE}/platform-kaniko-executor:v1.23.2-debug"
   "bitnami/kubectl:latest|docker.io/${IMAGE_NAMESPACE}/platform-kubectl:latest"
   "bash:5.2|docker.io/${IMAGE_NAMESPACE}/platform-bash:5.2"

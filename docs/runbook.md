@@ -90,6 +90,18 @@ bash scripts/prepare_offline_bundle.sh --out-dir dist/offline-bundle
 bash scripts/import_offline_bundle.sh --bundle-dir dist/offline-bundle --apply --env dev
 ```
 
+Nexus 기반 패키지 저장소까지 같이 준비하려면:
+
+```bash
+bash scripts/setup_nexus_offline.sh --namespace data-platform-dev --nexus-url http://127.0.0.1:30091
+```
+
+backend 와 frontend 를 하나의 pod 로 묶은 최소 폐쇄망 profile:
+
+```bash
+bash scripts/apply_offline_suite.sh
+```
+
 OVA 내부 기본 경로:
 
 ```bash

@@ -43,6 +43,11 @@ make_fixture_repo() {
   cp "${REPO_ROOT}/scripts/status_k8s.sh" "${target}/scripts/status_k8s.sh"
   cp "${REPO_ROOT}/scripts/healthcheck.sh" "${target}/scripts/healthcheck.sh"
   cp "${REPO_ROOT}/scripts/verify.sh" "${target}/scripts/verify.sh"
+  cp "${REPO_ROOT}/scripts/apply_offline_suite.sh" "${target}/scripts/apply_offline_suite.sh"
+  cp "${REPO_ROOT}/scripts/audit_registry_scope.sh" "${target}/scripts/audit_registry_scope.sh"
+  cp "${REPO_ROOT}/scripts/bootstrap_nexus_repos.sh" "${target}/scripts/bootstrap_nexus_repos.sh"
+  cp "${REPO_ROOT}/scripts/prime_nexus_caches.sh" "${target}/scripts/prime_nexus_caches.sh"
+  cp "${REPO_ROOT}/scripts/setup_nexus_offline.sh" "${target}/scripts/setup_nexus_offline.sh"
   chmod +x "${target}/scripts/"*.sh
 
   mkdir -p "${target}/apps/backend" "${target}/apps/jupyter" "${target}/apps/airflow" "${target}/apps/frontend"
@@ -56,6 +61,7 @@ make_fixture_repo() {
   cp "${REPO_ROOT}/docs/sre-checklist.md" "${target}/docs/sre-checklist.md"
   cp "${REPO_ROOT}/docs/stack-roles.md" "${target}/docs/stack-roles.md"
   cp "${REPO_ROOT}/docs/gitlab-repo-layout.md" "${target}/docs/gitlab-repo-layout.md"
+  cp "${REPO_ROOT}/docs/offline-repository.md" "${target}/docs/offline-repository.md"
   cp "${REPO_ROOT}/README.md" "${target}/README.md"
 }
 
@@ -114,7 +120,9 @@ EOF
   assert_file_exists "${tmp_dir}/dist/offline-bundle/k8s/infra/k8s/base/kustomization.yaml"
   assert_file_exists "${tmp_dir}/dist/offline-bundle/k8s/scripts/import_offline_bundle.sh"
   assert_file_exists "${tmp_dir}/dist/offline-bundle/k8s/scripts/lib/kubernetes_runtime.sh"
+  assert_file_exists "${tmp_dir}/dist/offline-bundle/k8s/scripts/setup_nexus_offline.sh"
   assert_file_exists "${tmp_dir}/dist/offline-bundle/k8s/docs/runbook.md"
+  assert_file_exists "${tmp_dir}/dist/offline-bundle/k8s/docs/offline-repository.md"
   assert_file_exists "${tmp_dir}/dist/offline-bundle/k8s/README.offline.md"
 )
 
