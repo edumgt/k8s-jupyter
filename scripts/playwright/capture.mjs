@@ -1,4 +1,4 @@
-import { mkdir } from "node:fs/promises";
+import { mkdir, readFile } from "node:fs/promises";
 import { chromium } from "playwright";
 
 const outputDir = process.env.OUTPUT_DIR ?? "/workspace/docs/screenshots";
@@ -7,7 +7,19 @@ const backendUrl = (process.env.BACKEND_URL ?? "http://127.0.0.1:30081").replace
 const airflowUrl = (process.env.AIRFLOW_URL ?? "http://127.0.0.1:30090").replace(/\/$/, "");
 const jupyterUrl = (process.env.JUPYTER_URL ?? "http://127.0.0.1:30088").replace(/\/$/, "");
 const gitlabUrl = (process.env.GITLAB_URL ?? "http://127.0.0.1:30089").replace(/\/$/, "");
+const gitlabUsername = process.env.GITLAB_USERNAME ?? "root";
+const gitlabPassword =
+  process.env.GITLAB_PASSWORD ?? process.env.GITLAB_ROOT_PASSWORD ?? "CHANGE_ME";
+const gitlabDev1Username = process.env.GITLAB_DEV1_USERNAME ?? "dev1";
+const gitlabDev1Password = process.env.GITLAB_DEV1_PASSWORD ?? "123456";
+const gitlabDev2Username = process.env.GITLAB_DEV2_USERNAME ?? "dev2";
+const gitlabDev2Password = process.env.GITLAB_DEV2_PASSWORD ?? "123456";
+const backendGitFlowFile =
+  process.env.BACKEND_GIT_FLOW_FILE ?? "/workspace/dist/gitlab-demo/captures/backend-git-flow.txt";
+const frontendGitFlowFile =
+  process.env.FRONTEND_GIT_FLOW_FILE ?? "/workspace/dist/gitlab-demo/captures/frontend-git-flow.txt";
 const test1LabUrl = process.env.TEST1_LAB_URL ?? "";
+const browserExecutablePath = process.env.PLAYWRIGHT_EXECUTABLE_PATH ?? "";
 const test1Username = process.env.TEST1_USERNAME ?? "test1@test.com";
 const test1Password = process.env.TEST1_PASSWORD ?? "123456";
 const adminUsername = process.env.ADMIN_USERNAME ?? process.env.CONTROL_PLANE_USERNAME ?? "admin@test.com";
@@ -17,7 +29,7 @@ const browserCdpUrl = process.env.BROWSER_CDP_URL ?? "";
 const targetSet = new Set(
   (
     process.env.CAPTURE_TARGETS ??
-    "frontend,backend,airflow,jupyter,gitlab,control-plane-login,control-plane-nodes,control-plane-pods,user-jupyter-hello,admin-active-users"
+    "frontend,backend,airflow,jupyter,gitlab,control-plane-login,control-plane-nodes,control-plane-pods,user-jupyter-hello,admin-active-users,gitlab-backend-repo,gitlab-frontend-repo,backend-git-flow,frontend-git-flow"
   )
     .split(",")
     .map((value) => value.trim().toLowerCase())
@@ -59,6 +71,17 @@ async function createPage(browser, height = 1200) {
   return browser.newPage({
     viewport: { width: 1440, height },
   });
+}
+
+async function loginGitLab(page, username, password) {
+  await page.goto(`${gitlabUrl}/users/sign_in`, {
+    waitUntil: "domcontentloaded",
+    timeout: 480000,
+  });
+  await page.getByLabel(/username or primary email/i).fill(username);
+  await page.getByLabel(/^password$/i).fill(password);
+  await page.getByRole("button", { name: /sign in/i }).click();
+  await page.waitForLoadState("networkidle", { timeout: 480000 }).catch(() => {});
 }
 
 async function loginApp(page, username, password) {
@@ -120,12 +143,109 @@ async function captureGitLab(browser) {
   const loginUrl = `${gitlabUrl}/users/sign_in`;
   await waitForHttp(loginUrl, { timeoutMs: 600000 });
   const page = await createPage(browser, 1024);
-  await page.goto(loginUrl, { waitUntil: "domcontentloaded", timeout: 480000 });
-  await page.getByLabel(/username or primary email/i).fill("root");
-  await page.getByLabel(/^password$/i).fill("v7Q#2mL!9xC@4pR%8tZ");
-  await page.getByRole("button", { name: /sign in/i }).click();
-  await page.waitForLoadState("networkidle", { timeout: 480000 });
+  await loginGitLab(page, gitlabUsername, gitlabPassword);
   await page.screenshot({ path: `${outputDir}/gitlab-dashboard.png`, fullPage: true });
+  await page.close();
+}
+
+async function captureGitLabProject(browser, projectPath, outputName) {
+  const projectUrl = `${gitlabUrl}/${projectPath}`;
+  await waitForHttp(projectUrl, { timeoutMs: 600000 });
+  const page = await createPage(browser, 1200);
+  await page.goto(projectUrl, { waitUntil: "domcontentloaded", timeout: 480000 });
+  await page.getByTestId("project-name-content").waitFor({ timeout: 480000 });
+  await page.waitForTimeout(1000);
+  await page.screenshot({ path: `${outputDir}/${outputName}`, fullPage: true });
+  await page.close();
+}
+
+function escapeHtml(text) {
+  return text
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;");
+}
+
+async function captureTerminalFile(browser, inputPath, title, outputName) {
+  const page = await createPage(browser, 1200);
+  const content = await readFile(inputPath, "utf8");
+  const escapedContent = escapeHtml(content);
+  const escapedTitle = escapeHtml(title);
+  await page.setContent(
+    `<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <style>
+      :root {
+        color-scheme: dark;
+        --bg: #09111f;
+        --panel: #101b2f;
+        --line: #1d2a44;
+        --text: #d8e2ff;
+        --muted: #8ea2cf;
+        --accent: #4bd0ff;
+      }
+      body {
+        margin: 0;
+        padding: 40px;
+        background:
+          radial-gradient(circle at top left, rgba(75, 208, 255, 0.12), transparent 32%),
+          linear-gradient(180deg, #08101d 0%, #0d1527 100%);
+        color: var(--text);
+        font-family: "IBM Plex Mono", "Fira Code", monospace;
+      }
+      main {
+        max-width: 1280px;
+        margin: 0 auto;
+        border: 1px solid var(--line);
+        border-radius: 24px;
+        overflow: hidden;
+        background: rgba(10, 18, 33, 0.92);
+        box-shadow: 0 24px 80px rgba(0, 0, 0, 0.45);
+      }
+      header {
+        padding: 22px 28px;
+        border-bottom: 1px solid var(--line);
+        display: flex;
+        justify-content: space-between;
+        align-items: baseline;
+        gap: 16px;
+      }
+      h1 {
+        margin: 0;
+        font-size: 24px;
+      }
+      span {
+        color: var(--muted);
+        font-size: 13px;
+      }
+      pre {
+        margin: 0;
+        padding: 28px;
+        white-space: pre-wrap;
+        word-break: break-word;
+        line-height: 1.55;
+        font-size: 17px;
+      }
+      strong {
+        color: var(--accent);
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <header>
+        <h1>${escapedTitle}</h1>
+        <span>Kubernetes sandbox GitLab demo</span>
+      </header>
+      <pre>${escapedContent}</pre>
+    </main>
+  </body>
+</html>`,
+    { waitUntil: "load" },
+  );
+  await page.screenshot({ path: `${outputDir}/${outputName}`, fullPage: true });
   await page.close();
 }
 
@@ -205,6 +325,40 @@ async function captureAdminActiveUsers(browser) {
   await page.close();
 }
 
+async function captureGitLabBackendRepo(browser) {
+  await captureGitLabProject(
+    browser,
+    "dev1/platform-backend",
+    "gitlab-backend-public-repo.png",
+  );
+}
+
+async function captureGitLabFrontendRepo(browser) {
+  await captureGitLabProject(
+    browser,
+    "dev2/platform-frontend",
+    "gitlab-frontend-public-repo.png",
+  );
+}
+
+async function captureBackendGitFlow(browser) {
+  await captureTerminalFile(
+    browser,
+    backendGitFlowFile,
+    "Backend public repo push/pull flow",
+    "gitlab-backend-git-flow.png",
+  );
+}
+
+async function captureFrontendGitFlow(browser) {
+  await captureTerminalFile(
+    browser,
+    frontendGitFlowFile,
+    "Frontend public repo push/pull flow",
+    "gitlab-frontend-git-flow.png",
+  );
+}
+
 const captures = [
   ["frontend", captureFrontend],
   ["backend", captureBackend],
@@ -216,11 +370,19 @@ const captures = [
   ["control-plane-pods", captureControlPlanePods],
   ["user-jupyter-hello", captureUserJupyterHello],
   ["admin-active-users", captureAdminActiveUsers],
+  ["gitlab-backend-repo", captureGitLabBackendRepo],
+  ["gitlab-frontend-repo", captureGitLabFrontendRepo],
+  ["backend-git-flow", captureBackendGitFlow],
+  ["frontend-git-flow", captureFrontendGitFlow],
 ];
 
 const browser = browserCdpUrl
   ? await chromium.connectOverCDP(browserCdpUrl)
-  : await chromium.launch({ headless: true });
+  : await chromium.launch(
+      browserExecutablePath
+        ? { executablePath: browserExecutablePath, headless: true }
+        : { headless: true },
+    );
 
 try {
   await ensureDir();

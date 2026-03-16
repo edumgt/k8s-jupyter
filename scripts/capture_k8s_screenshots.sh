@@ -13,6 +13,15 @@ ENV_VARS=(
   AIRFLOW_URL
   JUPYTER_URL
   GITLAB_URL
+  GITLAB_USERNAME
+  GITLAB_PASSWORD
+  GITLAB_ROOT_PASSWORD
+  GITLAB_DEV1_USERNAME
+  GITLAB_DEV1_PASSWORD
+  GITLAB_DEV2_USERNAME
+  GITLAB_DEV2_PASSWORD
+  BACKEND_GIT_FLOW_FILE
+  FRONTEND_GIT_FLOW_FILE
   BROWSER_CDP_URL
   ADMIN_USERNAME
   ADMIN_PASSWORD
@@ -95,4 +104,4 @@ run_cmd docker run --rm \
   -e "OUTPUT_DIR=${CONTAINER_OUTPUT_DIR}" \
   "${DOCKER_ENV_ARGS[@]}" \
   "${PLAYWRIGHT_IMAGE}" \
-  bash -lc 'if [[ ! -e /workspace/node_modules && -d /opt/playwright-runner/node_modules ]]; then ln -s /opt/playwright-runner/node_modules /workspace/node_modules; fi; node scripts/playwright/capture.mjs'
+  bash -lc 'created_link=0; if [[ ! -e /workspace/node_modules && -d /opt/playwright-runner/node_modules ]]; then ln -s /opt/playwright-runner/node_modules /workspace/node_modules; created_link=1; fi; node scripts/playwright/capture.mjs; status=$?; if [[ "${created_link}" == "1" ]]; then rm -f /workspace/node_modules; fi; exit "${status}"'
