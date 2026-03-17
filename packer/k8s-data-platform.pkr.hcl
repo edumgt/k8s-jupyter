@@ -66,13 +66,5 @@ build {
     ]
   }
 
-  provisioner "ansible" {
-    playbook_file = "../ansible/playbook.yml"
-    user          = var.ssh_username
-    extra_arguments = [
-      "--inventory", "../ansible/inventory.ini",
-      "--extra-vars", "ansible_ssh_pass=${var.ssh_password}",
-      "--ssh-extra-args", "-o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null"
-    ]
-  }
+  
 }
