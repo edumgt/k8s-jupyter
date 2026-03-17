@@ -11,3 +11,4 @@ __pycache__/
 *.log
 infra/k8s/runner/secret.local.yaml
 .venv*
+*.iso

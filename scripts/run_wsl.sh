@@ -4,7 +4,7 @@ set -euo pipefail
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 PACKER_DIR="${ROOT_DIR}/packer"
 PACKER_TEMPLATE="k8s-data-platform.pkr.hcl"
-PACKER_VARS="${PACKER_VARS:-${PACKER_DIR}/variables.pkr.hcl}"
+PACKER_VARS="${PACKER_VARS:-${PACKER_DIR}/variables.auto.pkrvars.hcl}"
 DIST_DIR="${DIST_DIR:-${ROOT_DIR}/dist}"
 SKIP_EXPORT=0
 DRY_RUN="${DRY_RUN:-0}"

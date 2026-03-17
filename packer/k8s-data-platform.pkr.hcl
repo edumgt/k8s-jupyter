@@ -29,6 +29,7 @@ source "vmware-iso" "k8s_data_platform" {
   memory           = var.memory
   disk_size        = var.disk_size
   headless         = var.headless
+  network_adapter_type = "vmxnet3"
   output_directory = var.output_directory
   vmx_data = {
     "displayName" = var.vm_name
