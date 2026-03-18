@@ -21,3 +21,15 @@ autoinstall:
     - ca-certificates
   user-data:
     disable_root: true
+    ssh_pwauth: true
+    chpasswd:
+      expire: false
+      users:
+        - name: ubuntu
+          password: ubuntu
+          type: text
+  late-commands:
+    - curtin in-target --target=/target -- bash -c "echo 'ubuntu:ubuntu' | chpasswd"
+    - curtin in-target --target=/target -- install -d -m 0755 /etc/ssh/sshd_config.d
+    - curtin in-target --target=/target -- bash -c "printf '%s\n' 'PasswordAuthentication yes' 'KbdInteractiveAuthentication no' 'PermitRootLogin no' > /etc/ssh/sshd_config.d/99-packer.conf"
+    - curtin in-target --target=/target -- systemctl enable ssh

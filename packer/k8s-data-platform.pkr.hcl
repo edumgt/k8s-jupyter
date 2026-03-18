@@ -99,11 +99,12 @@ build {
   }
 
   provisioner "shell" {
+    execute_command = "echo '${var.ssh_password}' | {{ .Vars }} sudo -S -E bash '{{ .Path }}'"
     inline = [
-      "sudo apt-get update",
-      "sudo DEBIAN_FRONTEND=noninteractive apt-get install -y ansible",
-      "sudo ansible-playbook -i 'localhost,' -c local /tmp/k8s-data-platform-src/ansible/playbook.yml",
-      "sudo rm -rf /tmp/k8s-data-platform-src"
+      "apt-get update",
+      "DEBIAN_FRONTEND=noninteractive apt-get install -y ansible",
+      "ansible-playbook -i 'localhost,' -c local /tmp/k8s-data-platform-src/ansible/playbook.yml",
+      "rm -rf /tmp/k8s-data-platform-src"
     ]
   }
 }
