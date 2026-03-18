@@ -62,40 +62,48 @@ build {
   sources = ["source.virtualbox-iso.k8s_data_platform"]
 
   provisioner "shell" {
+    execute_command = "echo '${var.ssh_password}' | {{ .Vars }} sudo -S -E bash '{{ .Path }}'"
     inline = [
       "echo 'Waiting for cloud-init to finish'",
-      "while [ ! -f /var/lib/cloud/instance/boot-finished ]; do sleep 5; done"
+      "while [ ! -f /var/lib/cloud/instance/boot-finished ]; do sleep 5; done",
+      "install -d -m 0755 /home/${var.ssh_username}/k8s-data-platform-src",
+      "install -d -m 0755 /home/${var.ssh_username}/k8s-data-platform-src/ansible",
+      "install -d -m 0755 /home/${var.ssh_username}/k8s-data-platform-src/apps",
+      "install -d -m 0755 /home/${var.ssh_username}/k8s-data-platform-src/infra",
+      "install -d -m 0755 /home/${var.ssh_username}/k8s-data-platform-src/scripts",
+      "install -d -m 0755 /home/${var.ssh_username}/k8s-data-platform-src/docs",
+      "chown -R ${var.ssh_username}:${var.ssh_username} /home/${var.ssh_username}/k8s-data-platform-src"
     ]
   }
 
   provisioner "file" {
     source      = "${path.root}/../ansible"
-    destination = "/tmp/k8s-data-platform-src/"
+    destination = "/home/${var.ssh_username}/k8s-data-platform-src/ansible"
   }
 
   provisioner "file" {
     source      = "${path.root}/../apps"
-    destination = "/tmp/k8s-data-platform-src/"
+    destination = "/home/${var.ssh_username}/k8s-data-platform-src/apps"
   }
 
   provisioner "file" {
     source      = "${path.root}/../infra"
-    destination = "/tmp/k8s-data-platform-src/"
+    destination = "/home/${var.ssh_username}/k8s-data-platform-src/infra"
   }
 
   provisioner "file" {
     source      = "${path.root}/../scripts"
-    destination = "/tmp/k8s-data-platform-src/"
+    destination = "/home/${var.ssh_username}/k8s-data-platform-src/scripts"
   }
 
   provisioner "file" {
     source      = "${path.root}/../docs"
-    destination = "/tmp/k8s-data-platform-src/"
+    destination = "/home/${var.ssh_username}/k8s-data-platform-src/docs"
   }
 
   provisioner "file" {
     source      = "${path.root}/../README.md"
-    destination = "/tmp/k8s-data-platform-src/README.md"
+    destination = "/home/${var.ssh_username}/k8s-data-platform-src/README.md"
   }
 
   provisioner "shell" {
@@ -103,8 +111,8 @@ build {
     inline = [
       "apt-get update",
       "DEBIAN_FRONTEND=noninteractive apt-get install -y ansible",
-      "ansible-playbook -i 'localhost,' -c local /tmp/k8s-data-platform-src/ansible/playbook.yml",
-      "rm -rf /tmp/k8s-data-platform-src"
+      "ansible-playbook -i 'localhost,' -c local /home/${var.ssh_username}/k8s-data-platform-src/ansible/playbook.yml",
+      "rm -rf /home/${var.ssh_username}/k8s-data-platform-src"
     ]
   }
 }

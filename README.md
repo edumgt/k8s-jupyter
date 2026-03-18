@@ -744,3 +744,47 @@ False
 - 기존 생성 OVA/VM 부재
 
 따라서 본 README의 이 섹션은 **실제 검증을 위한 준비 상태와 차단 원인**을 기록한 것이며, 위 선행 조건이 충족되면 곧바로 실기 캡처 증빙으로 확장할 수 있습니다.
+## Packer Watchdog
+
+Packer build 가 장시간 진행되다가 installer 오류 화면에서 멈춘 것처럼 보일 수 있으므로, 로그가 일정 시간 변하지 않으면 자동으로 중단하고 마지막 로그를 출력하는 watchdog 스크립트를 사용할 수 있습니다.
+
+실행 예시:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\scripts\run_packer_with_watchdog.ps1 -Force -IdleMinutes 20
+```
+
+동작:
+
+- `packer build` 실행
+- `packer-build-watchdog.log` 변경 여부를 주기적으로 확인
+- 20분 동안 로그 변화가 없으면 build 중단
+- 마지막 `packer` 로그 tail 출력
+
+기본 로그 파일:
+
+- `packer/packer-build-watchdog.log`
+- `packer/packer-build-watchdog.stdout.log`
+- `packer/packer-build-watchdog.stderr.log`
+
+## Manual VM Bootstrap
+
+Packer build 가 Ubuntu 설치까지는 성공하지만 provisioning 단계에서 실패하는 경우, `-on-error=abort` 로 VM을 남겨둔 뒤 VirtualBox guestcontrol 로 repo 자산을 VM 안에 복사하고 수동 bootstrap 할 수 있습니다.
+
+watchdog 실행 예시:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\scripts\run_packer_with_watchdog.ps1 -Force -IdleMinutes 20 -OnError abort
+```
+
+Ubuntu VM 이 남아 있는 상태에서 수동 bootstrap 실행:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\scripts\bootstrap_virtualbox_vm.ps1 -VmName k8s-data-platform -Username ubuntu -Password ubuntu
+```
+
+VM 내부에서 직접 실행하고 싶다면:
+
+```bash
+sudo bash /tmp/k8s-data-platform-src/scripts/bootstrap_local_vm.sh --repo-root /tmp/k8s-data-platform-src
+```
