@@ -1,7 +1,9 @@
 - name: Install Python 3.12 tooling
   apt:
     name:
+      - build-essential
       - python3-pip
+      - python3-venv
       - python3.12-venv
     state: present
 
@@ -32,3 +34,9 @@
   command: corepack enable
   args:
     creates: /usr/bin/pnpm
+
+- name: Install code-server globally
+  npm:
+    name: code-server
+    global: true
+    state: present

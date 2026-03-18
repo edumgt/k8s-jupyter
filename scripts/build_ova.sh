@@ -5,6 +5,8 @@ ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 PACKER_VARS="${PACKER_VARS:-${ROOT_DIR}/packer/variables.pkr.hcl}"
 DIST_DIR="${DIST_DIR:-${ROOT_DIR}/dist}"
 POWERSHELL_BIN="${POWERSHELL_BIN:-powershell.exe}"
+EXPORTER="${EXPORTER:-auto}"
+DEFAULT_VBOXMANAGE_WINDOWS="/mnt/c/Program Files/Oracle/VirtualBox/VBoxManage.exe"
 DRY_RUN=0
 
 usage() {
@@ -12,10 +14,11 @@ usage() {
 Usage: bash scripts/build_ova.sh [options]
 
 Options:
-  --vars FILE       Override the packer variables file
-  --dist-dir DIR    Override the export output directory
-  --dry-run         Print the export command without running it
-  -h, --help        Show this help message
+  --vars FILE              Override the packer variables file.
+  --dist-dir DIR           Override the export output directory.
+  --exporter NAME          One of: auto, vboxmanage, ovftool.
+  --dry-run                Print the export command without running it.
+  -h, --help               Show this help message.
 EOF
 }
 
@@ -56,6 +59,15 @@ resolve_from_root() {
 
 read_packer_var() {
   local key="$1"
+  local value
+
+  value="$(read_optional_packer_var "${key}")"
+  [[ -n "${value}" ]] || die "Required setting not found or empty in ${PACKER_VARS}: ${key}"
+  printf '%s' "${value}"
+}
+
+read_optional_packer_var() {
+  local key="$1"
   local raw_value
 
   raw_value="$(
@@ -70,8 +82,6 @@ read_packer_var() {
   raw_value="$(trim "${raw_value}")"
   raw_value="${raw_value#\"}"
   raw_value="${raw_value%\"}"
-
-  [[ -n "${raw_value}" ]] || die "Required setting not found or empty in ${PACKER_VARS}: ${key}"
   printf '%s' "${raw_value}"
 }
 
@@ -92,37 +102,33 @@ require_wslpath() {
   command -v wslpath >/dev/null 2>&1 || die "wslpath is required to bridge WSL paths for Windows tools."
 }
 
-resolve_ovftool_path() {
+resolve_windows_tool_path() {
   local candidate="$1"
+
+  [[ -n "${candidate}" ]] || return 1
+
+  if command -v "${candidate}" >/dev/null 2>&1; then
+    command -v "${candidate}"
+    return 0
+  fi
 
   if is_wsl && is_windows_style_path "${candidate}"; then
     require_wslpath
-    wslpath -u "${candidate}"
-    return
+    candidate="$(wslpath -u "${candidate}")"
   fi
 
+  [[ -f "${candidate}" ]] || return 1
   printf '%s' "${candidate}"
 }
 
-to_ovftool_arg() {
-  local path="$1"
+to_tool_arg() {
+  local tool="$1"
+  local path="$2"
 
-  if is_wsl && is_windows_executable "${OVFTOOL}"; then
+  if is_wsl && is_windows_executable "${tool}" && [[ "${path}" = /* ]]; then
     require_wslpath
     wslpath -w "${path}"
-    return
-  fi
-
-  printf '%s' "${path}"
-}
-
-to_windows_path() {
-  local path="$1"
-
-  if is_wsl && [[ "${path}" = /* ]]; then
-    require_wslpath
-    wslpath -w "${path}"
-    return
+    return 0
   fi
 
   printf '%s' "${path}"
@@ -132,16 +138,56 @@ invoke_via_powershell() {
   command -v "${POWERSHELL_BIN}" >/dev/null 2>&1 || die "PowerShell not found: ${POWERSHELL_BIN}"
 
   local powershell_script
-  powershell_script="$(to_windows_path "${ROOT_DIR}/scripts/export_ova.ps1")"
+  powershell_script="$(to_tool_arg "${POWERSHELL_BIN}" "${ROOT_DIR}/scripts/export_ova.ps1")"
 
   run_cmd "${POWERSHELL_BIN}" \
     -NoProfile \
     -ExecutionPolicy Bypass \
     -File "${powershell_script}" \
     -VmName "${VM_NAME}" \
-    -OutputDir "$(to_windows_path "${VMX_DIR}")" \
-    -DistDir "$(to_windows_path "${DIST_DIR}")" \
-    -OvfTool "$(to_windows_path "${OVFTOOL}")"
+    -OutputDir "$(to_tool_arg "${POWERSHELL_BIN}" "${VMX_DIR}")" \
+    -DistDir "$(to_tool_arg "${POWERSHELL_BIN}" "${DIST_DIR}")" \
+    -Exporter "${EXPORTER}" \
+    -VBoxManage "${VBOXMANAGE_TOOL}" \
+    -OvfTool "${OVFTOOL}"
+}
+
+resolve_exporter_tools() {
+  local ovftool_candidate
+  local vboxmanage_candidate
+  local packer_vboxmanage
+
+  packer_vboxmanage="$(read_optional_packer_var vboxmanage_path_windows)"
+  ovftool_candidate="${OVFTOOL_PATH:-$(read_optional_packer_var ovftool_path_windows)}"
+
+  for vboxmanage_candidate in \
+    "${VBOXMANAGE_PATH:-}" \
+    "${packer_vboxmanage}" \
+    "${DEFAULT_VBOXMANAGE_WINDOWS}" \
+    "VBoxManage.exe" \
+    "VBoxManage"
+  do
+    if VBOXMANAGE_TOOL="$(resolve_windows_tool_path "${vboxmanage_candidate}")"; then
+      break
+    fi
+  done
+
+  if [[ -n "${ovftool_candidate}" ]]; then
+    OVFTOOL="$(resolve_windows_tool_path "${ovftool_candidate}" || true)"
+  else
+    OVFTOOL=""
+  fi
+}
+
+run_vboxmanage_export() {
+  [[ -n "${VBOXMANAGE_TOOL:-}" ]] || return 1
+  run_cmd "${VBOXMANAGE_TOOL}" export "${VM_NAME}" --output "$(to_tool_arg "${VBOXMANAGE_TOOL}" "${OVA_PATH}")"
+}
+
+run_ovftool_export() {
+  [[ -n "${OVFTOOL:-}" ]] || return 1
+  [[ -f "${VMX_PATH}" ]] || die "VMX not found: ${VMX_PATH}"
+  run_cmd "${OVFTOOL}" --acceptAllEulas --skipManifestCheck "$(to_tool_arg "${OVFTOOL}" "${VMX_PATH}")" "$(to_tool_arg "${OVFTOOL}" "${OVA_PATH}")"
 }
 
 while [[ $# -gt 0 ]]; do
@@ -154,6 +200,11 @@ while [[ $# -gt 0 ]]; do
     --dist-dir)
       [[ $# -ge 2 ]] || die "--dist-dir requires a value"
       DIST_DIR="$2"
+      shift 2
+      ;;
+    --exporter)
+      [[ $# -ge 2 ]] || die "--exporter requires a value"
+      EXPORTER="$2"
       shift 2
       ;;
     --dry-run)
@@ -170,17 +221,17 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 
-if [[ ! -f "${PACKER_VARS}" ]]; then
-  die "packer variables file not found: ${PACKER_VARS}"
-fi
+[[ -f "${PACKER_VARS}" ]] || die "packer variables file not found: ${PACKER_VARS}"
+case "${EXPORTER}" in
+  auto|vboxmanage|ovftool) ;;
+  *) die "Unsupported exporter: ${EXPORTER}" ;;
+esac
 
 DIST_DIR="$(resolve_from_root "${DIST_DIR}")"
 mkdir -p "${DIST_DIR}"
 
 VM_NAME="${VM_NAME:-$(read_packer_var vm_name)}"
 OUTPUT_DIR="${OUTPUT_DIR:-$(read_packer_var output_directory)}"
-OVFTOOL_RAW="${OVFTOOL_PATH:-$(read_packer_var ovftool_path_windows)}"
-OVFTOOL="$(resolve_ovftool_path "${OVFTOOL_RAW}")"
 
 if [[ "${OUTPUT_DIR}" = /* ]]; then
   VMX_DIR="${OUTPUT_DIR}"
@@ -190,25 +241,34 @@ fi
 
 VMX_PATH="${VMX_DIR}/${VM_NAME}.vmx"
 OVA_PATH="${DIST_DIR}/${VM_NAME}.ova"
+VBOXMANAGE_TOOL=""
+OVFTOOL=""
+resolve_exporter_tools
 
-if [[ ! -f "${VMX_PATH}" ]]; then
-  die "VMX not found: ${VMX_PATH}"
-fi
-
-if [[ ! -f "${OVFTOOL}" ]]; then
-  die "OVF Tool not found: ${OVFTOOL}. Update packer/variables.pkr.hcl or OVFTOOL_PATH."
-fi
-
-VMX_ARG="$(to_ovftool_arg "${VMX_PATH}")"
-OVA_ARG="$(to_ovftool_arg "${OVA_PATH}")"
-
-if run_cmd "${OVFTOOL}" --acceptAllEulas --skipManifestCheck "${VMX_ARG}" "${OVA_ARG}"; then
+if [[ "${EXPORTER}" == "vboxmanage" ]]; then
+  run_vboxmanage_export || die "VBoxManage export failed for ${VM_NAME}"
   echo "OVA exported: ${OVA_PATH}"
   exit 0
 fi
 
+if [[ "${EXPORTER}" == "ovftool" ]]; then
+  run_ovftool_export || die "OVF Tool export failed for ${VM_NAME}"
+  echo "OVA exported: ${OVA_PATH}"
+  exit 0
+fi
+
+if run_vboxmanage_export; then
+  echo "OVA exported with VBoxManage: ${OVA_PATH}"
+  exit 0
+fi
+
+if run_ovftool_export; then
+  echo "OVA exported with OVF Tool: ${OVA_PATH}"
+  exit 0
+fi
+
 if is_wsl; then
-  echo "Direct OVF Tool execution failed. Retrying with PowerShell." >&2
+  echo "Direct OVA export failed. Retrying with PowerShell." >&2
   invoke_via_powershell
   echo "OVA exported: ${OVA_PATH}"
   exit 0

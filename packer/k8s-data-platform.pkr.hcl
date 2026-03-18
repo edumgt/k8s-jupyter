@@ -20,6 +20,14 @@ variable "ssh_password" { type = string }
 variable "output_directory" { type = string }
 variable "http_directory" { type = string }
 variable "headless" { type = bool }
+variable "ovftool_path_windows" {
+  type    = string
+  default = ""
+}
+variable "vmware_workstation_path" {
+  type    = string
+  default = ""
+}
 
 source "virtualbox-iso" "k8s_data_platform" {
   vm_name          = var.vm_name
@@ -56,6 +64,45 @@ build {
     inline = [
       "echo 'Waiting for cloud-init to finish'",
       "while [ ! -f /var/lib/cloud/instance/boot-finished ]; do sleep 5; done"
+    ]
+  }
+
+  provisioner "file" {
+    source      = "${path.root}/../ansible"
+    destination = "/tmp/k8s-data-platform-src/"
+  }
+
+  provisioner "file" {
+    source      = "${path.root}/../apps"
+    destination = "/tmp/k8s-data-platform-src/"
+  }
+
+  provisioner "file" {
+    source      = "${path.root}/../infra"
+    destination = "/tmp/k8s-data-platform-src/"
+  }
+
+  provisioner "file" {
+    source      = "${path.root}/../scripts"
+    destination = "/tmp/k8s-data-platform-src/"
+  }
+
+  provisioner "file" {
+    source      = "${path.root}/../docs"
+    destination = "/tmp/k8s-data-platform-src/"
+  }
+
+  provisioner "file" {
+    source      = "${path.root}/../README.md"
+    destination = "/tmp/k8s-data-platform-src/README.md"
+  }
+
+  provisioner "shell" {
+    inline = [
+      "sudo apt-get update",
+      "sudo DEBIAN_FRONTEND=noninteractive apt-get install -y ansible",
+      "sudo ansible-playbook -i 'localhost,' -c local /tmp/k8s-data-platform-src/ansible/playbook.yml",
+      "sudo rm -rf /tmp/k8s-data-platform-src"
     ]
   }
 }

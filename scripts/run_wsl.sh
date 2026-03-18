@@ -6,6 +6,7 @@ PACKER_DIR="${ROOT_DIR}/packer"
 PACKER_TEMPLATE="k8s-data-platform.pkr.hcl"
 PACKER_VARS="${PACKER_VARS:-${PACKER_DIR}/variables.auto.pkrvars.hcl}"
 DIST_DIR="${DIST_DIR:-${ROOT_DIR}/dist}"
+EXPORTER="${EXPORTER:-auto}"
 SKIP_EXPORT=0
 DRY_RUN="${DRY_RUN:-0}"
 
@@ -50,6 +51,7 @@ Usage: bash scripts/run_wsl.sh [options]
 
 Options:
   --vars-file PATH      Use a specific Packer vars file.
+  --exporter NAME       One of: auto, vboxmanage, ovftool.
   --skip-export         Skip the final OVA export step.
   --dry-run             Print the commands without executing them.
   -h, --help            Show this help.
@@ -61,6 +63,11 @@ while [[ $# -gt 0 ]]; do
     --vars-file)
       [[ $# -ge 2 ]] || die "--vars-file requires a value"
       PACKER_VARS="$2"
+      shift 2
+      ;;
+    --exporter)
+      [[ $# -ge 2 ]] || die "--exporter requires a value"
+      EXPORTER="$2"
       shift 2
       ;;
     --skip-export)
@@ -101,10 +108,10 @@ if [[ "${SKIP_EXPORT}" != "1" ]]; then
   log "Running OVA export"
   if [[ "${DRY_RUN}" == "1" ]]; then
     printf '+ '
-    printf '%q ' "PACKER_VARS=${PACKER_VARS}" "DIST_DIR=${DIST_DIR}" "${ROOT_DIR}/scripts/build_ova.sh"
+    printf '%q ' "PACKER_VARS=${PACKER_VARS}" "DIST_DIR=${DIST_DIR}" "EXPORTER=${EXPORTER}" "${ROOT_DIR}/scripts/build_ova.sh"
     printf '\n'
   else
-    PACKER_VARS="${PACKER_VARS}" DIST_DIR="${DIST_DIR}" "${ROOT_DIR}/scripts/build_ova.sh"
+    PACKER_VARS="${PACKER_VARS}" DIST_DIR="${DIST_DIR}" EXPORTER="${EXPORTER}" "${ROOT_DIR}/scripts/build_ova.sh"
   fi
 fi
 

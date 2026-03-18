@@ -63,6 +63,30 @@
     port: '30090'
     proto: tcp
 
+- name: Allow Nexus NodePort
+  community.general.ufw:
+    rule: allow
+    port: '30091'
+    proto: tcp
+
+- name: Allow Harbor NodePort
+  community.general.ufw:
+    rule: allow
+    port: '30092'
+    proto: tcp
+
+- name: Allow code-server NodePort
+  community.general.ufw:
+    rule: allow
+    port: '30100'
+    proto: tcp
+
+- name: Allow frontend Vite dev NodePort
+  community.general.ufw:
+    rule: allow
+    port: '31080'
+    proto: tcp
+
 - name: Allow GitLab SSH NodePort
   community.general.ufw:
     rule: allow

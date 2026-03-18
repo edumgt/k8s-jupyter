@@ -4,6 +4,16 @@
     state: directory
     mode: '0755'
 
+- name: Ensure platform runtime directories exist
+  file:
+    path: "{{ item }}"
+    state: directory
+    mode: '0755'
+  loop:
+    - /opt/k8s-data-platform/offline-bundle
+    - /opt/k8s-data-platform/logs
+    - /etc/k8s-data-platform
+
 - name: Copy application sources to host
   copy:
     src: "{{ playbook_dir }}/../apps/"
@@ -33,6 +43,58 @@
     src: "{{ playbook_dir }}/../README.md"
     dest: /opt/k8s-data-platform/README.md
     mode: '0644'
+
+- name: Ensure platform scripts are executable
+  file:
+    path: "{{ item }}"
+    mode: '0755'
+  loop:
+    - /opt/k8s-data-platform/scripts/apply_k8s.sh
+    - /opt/k8s-data-platform/scripts/reset_k8s.sh
+    - /opt/k8s-data-platform/scripts/status_k8s.sh
+    - /opt/k8s-data-platform/scripts/import_offline_bundle.sh
+    - /opt/k8s-data-platform/scripts/prepare_offline_bundle.sh
+    - /opt/k8s-data-platform/scripts/frontend_dev_setup.sh
+    - /opt/k8s-data-platform/scripts/run_frontend_dev.sh
+    - /opt/k8s-data-platform/scripts/run_frontend_build.sh
+    - /opt/k8s-data-platform/scripts/verify.sh
+
+- name: Configure code-server environment
+  copy:
+    dest: /etc/k8s-data-platform/code-server.env
+    mode: '0644'
+    content: |
+      PASSWORD=k8s-data-platform
+      LOG_LEVEL=info
+
+- name: Install code-server systemd unit
+  copy:
+    dest: /etc/systemd/system/code-server.service
+    mode: '0644'
+    content: |
+      [Unit]
+      Description=code-server
+      After=network.target
+
+      [Service]
+      Type=simple
+      User=ubuntu
+      Group=ubuntu
+      EnvironmentFile=/etc/k8s-data-platform/code-server.env
+      WorkingDirectory=/opt/k8s-data-platform
+      ExecStart=/usr/bin/env code-server --bind-addr 0.0.0.0:30100 /opt/k8s-data-platform
+      Restart=always
+      RestartSec=5
+
+      [Install]
+      WantedBy=multi-user.target
+
+- name: Enable code-server service
+  systemd:
+    name: code-server.service
+    enabled: true
+    state: restarted
+    daemon_reload: true
 
 - name: Preload platform images into Docker and Kubernetes runtime
   command:
@@ -65,6 +127,25 @@
     chdir: /opt/k8s-data-platform
     creates: /opt/k8s-data-platform/offline-bundle/k8s/README.offline.md
 
+- name: Apply default dev platform overlay
+  command:
+    argv:
+      - bash
+      - /opt/k8s-data-platform/scripts/apply_k8s.sh
+      - --env
+      - dev
+  environment:
+    KUBECONFIG: /etc/kubernetes/admin.conf
+  args:
+    chdir: /opt/k8s-data-platform
+    creates: /opt/k8s-data-platform/.platform-dev-applied
+
+- name: Mark default dev platform overlay applied
+  file:
+    path: /opt/k8s-data-platform/.platform-dev-applied
+    state: touch
+    mode: '0644'
+
 - name: Install platform offline bundle import helper
   copy:
     dest: /usr/local/bin/platform-import-bundle.sh
@@ -81,16 +162,7 @@
     content: |
       #!/usr/bin/env bash
       set -euo pipefail
-      ENVIRONMENT="${1:-dev}"
-      case "${ENVIRONMENT}" in
-        dev|prod) ;;
-        *)
-          printf 'Unsupported environment: %s\n' "${ENVIRONMENT}" >&2
-          exit 1
-          ;;
-      esac
-      sudo kubectl apply -k "/opt/k8s-data-platform/infra/k8s/overlays/${ENVIRONMENT}"
-      sudo kubectl get pods -n "data-platform-${ENVIRONMENT}"
+      exec bash /opt/k8s-data-platform/scripts/apply_k8s.sh "$@"
 
 - name: Install platform reset helper
   copy:
@@ -99,16 +171,7 @@
     content: |
       #!/usr/bin/env bash
       set -euo pipefail
-      ENVIRONMENT="${1:-dev}"
-      case "${ENVIRONMENT}" in
-        dev|prod) ;;
-        *)
-          printf 'Unsupported environment: %s\n' "${ENVIRONMENT}" >&2
-          exit 1
-          ;;
-      esac
-      sudo kubectl delete -k "/opt/k8s-data-platform/infra/k8s/runner/overlays/${ENVIRONMENT}" --ignore-not-found
-      sudo kubectl delete -k "/opt/k8s-data-platform/infra/k8s/overlays/${ENVIRONMENT}" --ignore-not-found
+      exec bash /opt/k8s-data-platform/scripts/reset_k8s.sh "$@"
 
 - name: Install platform status helper
   copy:
@@ -117,19 +180,45 @@
     content: |
       #!/usr/bin/env bash
       set -euo pipefail
-      ENVIRONMENT="${1:-dev}"
-      case "${ENVIRONMENT}" in
-        dev|prod) ;;
-        *)
-          printf 'Unsupported environment: %s\n' "${ENVIRONMENT}" >&2
-          exit 1
-          ;;
-      esac
-      echo '[kubernetes]'
-      sudo kubectl get nodes
-      sudo kubectl get pods -n "data-platform-${ENVIRONMENT}"
-      sudo kubectl get svc -n "data-platform-${ENVIRONMENT}"
-      sudo kubectl get pvc -n "data-platform-${ENVIRONMENT}"
+      exec bash /opt/k8s-data-platform/scripts/status_k8s.sh "$@"
+
+- name: Install platform verify helper
+  copy:
+    dest: /usr/local/bin/platform-verify-ova.sh
+    mode: '0755'
+    content: |
+      #!/usr/bin/env bash
+      set -euo pipefail
+      TARGET_HOST="${1:-127.0.0.1}"
+      shift || true
+      exec bash /opt/k8s-data-platform/scripts/verify.sh --host "${TARGET_HOST}" "$@"
+
+- name: Install platform frontend setup helper
+  copy:
+    dest: /usr/local/bin/platform-frontend-setup.sh
+    mode: '0755'
+    content: |
+      #!/usr/bin/env bash
+      set -euo pipefail
+      exec bash /opt/k8s-data-platform/scripts/frontend_dev_setup.sh "$@"
+
+- name: Install platform frontend dev helper
+  copy:
+    dest: /usr/local/bin/platform-frontend-dev.sh
+    mode: '0755'
+    content: |
+      #!/usr/bin/env bash
+      set -euo pipefail
+      exec bash /opt/k8s-data-platform/scripts/run_frontend_dev.sh "$@"
+
+- name: Install platform frontend build helper
+  copy:
+    dest: /usr/local/bin/platform-frontend-build.sh
+    mode: '0755'
+    content: |
+      #!/usr/bin/env bash
+      set -euo pipefail
+      exec bash /opt/k8s-data-platform/scripts/run_frontend_build.sh "$@"
 
 - name: Write host bootstrap note
   copy:
@@ -142,5 +231,6 @@
       kubectl get svc -n data-platform-dev
       kubectl get pvc -n data-platform-dev
       platform-import-bundle.sh --apply --env dev
-      bash /opt/k8s-data-platform/scripts/publish_dockerhub.sh --namespace edumgt --tag latest
-      bash /opt/k8s-data-platform/scripts/prepare_offline_bundle.sh --out-dir /opt/k8s-data-platform/offline-bundle --skip-images
+      platform-frontend-setup.sh
+      platform-frontend-dev.sh
+      platform-verify-ova.sh 127.0.0.1

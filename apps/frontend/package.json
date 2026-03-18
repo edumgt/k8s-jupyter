@@ -6,7 +6,7 @@
     "node": "22.22.x"
   },
   "scripts": {
-    "dev": "vite --host 0.0.0.0 --port 9000",
+    "dev": "vite --host 0.0.0.0 --port 31080 --strictPort",
     "build": "vite build",
     "preview": "vite preview --host 0.0.0.0 --port 4173"
   },
