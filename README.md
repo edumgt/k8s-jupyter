@@ -1,5 +1,7 @@
 # k8s-data-platform-ova
 
+🌐 [English](README.en.md) | [中文](README.zh.md) | [日本語](README.ja.md) | **한국어**
+
 이 저장소는 `Ubuntu 24 OVA -> kubeadm single-node Kubernetes -> platform workloads` 구조를 기준으로 만든 실습/운영용 플랫폼입니다. 현재 실행 기준은 Docker Compose 가 아니라 `Kubernetes manifest + kustomize overlay + kubeadm/bootstrap` 이며, OVA 안에 Docker Engine, containerd, kubeadm, kubelet, kubectl, vim, curl, Node.js, Python, 이미지 캐시, 오프라인 번들까지 미리 넣는 방향으로 정리했습니다.
 
 추가로, 이 README는 기존 Kubernetes 중심 설명 위에 다음 운영 관점을 더 잘 보이도록 보강했습니다.
@@ -1061,4 +1063,22 @@ KUBECONFIG=/etc/kubernetes/admin.conf kubectl get pods -n data-platform-dev -o w
 
 ---
 
-![alt text](image.png)
+![Architecture Overview](docs/screenshots/architecture-overview.png)
+
+---
+
+## 💖 Sponsor / 후원
+
+이 프로젝트가 도움이 되셨다면 후원을 통해 개발을 지속할 수 있도록 도와주세요.
+
+[![GitHub Sponsors](https://img.shields.io/badge/Sponsor-GitHub%20Sponsors-pink?logo=github)](https://github.com/sponsors/edumgt)
+[![Buy Me a Coffee](https://img.shields.io/badge/Buy%20Me%20a%20Coffee-☕-yellow?logo=buy-me-a-coffee)](https://buymeacoffee.com/edumgt)
+
+후원금은 다음 목적에 사용됩니다:
+
+- 클라우드 인프라 운영 비용 (CI/CD, 이미지 레지스트리, 테스트 환경)
+- 신규 기능 개발 및 유지 관리
+- 문서 개선 및 다국어 지원
+- 교육 콘텐츠 및 튜토리얼 제작
+
+> 감사합니다! 여러분의 지원이 이 프로젝트를 계속 발전시킬 수 있게 합니다.

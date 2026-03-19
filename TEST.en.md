@@ -1,6 +1,6 @@
 # Kubernetes Test Snapshot (2026-03-19)
 
-🌐 [English](TEST.en.md) | [中文](TEST.zh.md) | [日本語](TEST.ja.md) | **한국어**
+🌐 **English** | [中文](TEST.zh.md) | [日本語](TEST.ja.md) | [한국어](TEST.md)
 
 ## 1) Current VM and Node IP Summary
 
@@ -149,18 +149,6 @@ Recommended method: export/import OVA.
 
 1. Power off VMs.
 2. Export OVA files:
-
-```powershell
-& "C:\Program Files\Oracle\VirtualBox\VBoxManage.exe" controlvm k8s-data-platform poweroff
-& "C:\Program Files\Oracle\VirtualBox\VBoxManage.exe" controlvm k8s-worker-1 poweroff
-& "C:\Program Files\Oracle\VirtualBox\VBoxManage.exe" controlvm k8s-worker-2 poweroff
-
-& "C:\Program Files\Oracle\VirtualBox\VBoxManage.exe" export k8s-data-platform --output C:\tmp\k8s-data-platform.ova
-& "C:\Program Files\Oracle\VirtualBox\VBoxManage.exe" export k8s-worker-1 --output C:\tmp\k8s-worker-1.ova
-& "C:\Program Files\Oracle\VirtualBox\VBoxManage.exe" export k8s-worker-2 --output C:\tmp\k8s-worker-2.ova
-```
-
-Quick copy block (PowerShell):
 
 ```powershell
 & "C:\Program Files\Oracle\VirtualBox\VBoxManage.exe" controlvm k8s-data-platform poweroff
