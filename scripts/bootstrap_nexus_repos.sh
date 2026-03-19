@@ -4,6 +4,8 @@ set -euo pipefail
 NAMESPACE="${NAMESPACE:-data-platform-dev}"
 NEXUS_URL="${NEXUS_URL:-http://127.0.0.1:30091}"
 TARGET_PASSWORD="${TARGET_PASSWORD:-nexus123!}"
+CURRENT_PASSWORD="${CURRENT_PASSWORD:-}"
+AUTH_PASSWORD="${TARGET_PASSWORD}"
 DRY_RUN=0
 
 usage() {
@@ -13,6 +15,7 @@ Usage: bash scripts/bootstrap_nexus_repos.sh [options]
 Options:
   --namespace <name>       Kubernetes namespace where Nexus is deployed.
   --nexus-url <url>        Reachable Nexus base URL. Defaults to http://127.0.0.1:30091.
+  --current-password <pw>  Current admin password (useful when Nexus was already initialized).
   --target-password <pw>   Password to set for the admin account after bootstrap.
   --dry-run                Print API calls without executing them.
   -h, --help               Show this help.
@@ -40,7 +43,7 @@ require_command() {
 
 repo_exists() {
   local name="$1"
-  curl -fsS -u "admin:${TARGET_PASSWORD}" "${NEXUS_URL}/service/rest/v1/repositories" | jq -e --arg name "${name}" '.[] | select(.name == $name)' >/dev/null
+  curl -fsS -u "admin:${AUTH_PASSWORD}" "${NEXUS_URL}/service/rest/v1/repositories" | jq -e --arg name "${name}" '.[] | select(.name == $name)' >/dev/null
 }
 
 create_repo() {
@@ -57,11 +60,70 @@ create_repo() {
     return 0
   fi
 
-  curl -fsS -u "admin:${TARGET_PASSWORD}" \
+  curl -fsS -u "admin:${AUTH_PASSWORD}" \
     -H 'Content-Type: application/json' \
     -X POST \
     "${NEXUS_URL}/service/rest/v1/repositories/${endpoint}" \
     -d "${payload}" >/dev/null
+}
+
+ensure_eula_accepted() {
+  local endpoint="${NEXUS_URL}/service/rest/v1/system/eula"
+  local eula_json
+  local accepted
+
+  if [[ "${DRY_RUN}" == "1" ]]; then
+    printf '+ POST %s/service/rest/v1/system/eula (accepted=true)\n' "${NEXUS_URL}"
+    return 0
+  fi
+
+  if ! eula_json="$(curl -sS -u "admin:${AUTH_PASSWORD}" "${endpoint}" 2>/dev/null)"; then
+    return 0
+  fi
+
+  if ! accepted="$(printf '%s' "${eula_json}" | jq -r '.accepted // empty' 2>/dev/null)"; then
+    return 0
+  fi
+
+  if [[ "${accepted}" == "true" ]]; then
+    return 0
+  fi
+
+  eula_json="$(printf '%s' "${eula_json}" | jq '.accepted = true')"
+  curl -fsS -u "admin:${AUTH_PASSWORD}" \
+    -H 'Content-Type: application/json' \
+    -X POST \
+    "${endpoint}" \
+    -d "${eula_json}" >/dev/null
+}
+
+resolve_auth_password() {
+  local pod_initial_password="$1"
+  local candidate
+
+  if curl -fsS -u "admin:${TARGET_PASSWORD}" "${NEXUS_URL}/service/rest/v1/status" >/dev/null 2>&1; then
+    AUTH_PASSWORD="${TARGET_PASSWORD}"
+    return 0
+  fi
+
+  for candidate in "${CURRENT_PASSWORD}" "${pod_initial_password}"; do
+    [[ -n "${candidate}" ]] || continue
+    if curl -fsS -u "admin:${candidate}" "${NEXUS_URL}/service/rest/v1/status" >/dev/null 2>&1; then
+      if [[ "${candidate}" != "${TARGET_PASSWORD}" ]]; then
+        curl -fsS -u "admin:${candidate}" \
+          -H 'Content-Type: text/plain' \
+          -X PUT \
+          "${NEXUS_URL}/service/rest/v1/security/users/admin/change-password" \
+          --data "${TARGET_PASSWORD}" >/dev/null
+        AUTH_PASSWORD="${TARGET_PASSWORD}"
+      else
+        AUTH_PASSWORD="${candidate}"
+      fi
+      return 0
+    fi
+  done
+
+  die "Unable to authenticate Nexus admin account. Provide --current-password or ensure /nexus-data/admin.password is readable."
 }
 
 while [[ $# -gt 0 ]]; do
@@ -74,6 +136,11 @@ while [[ $# -gt 0 ]]; do
     --nexus-url)
       [[ $# -ge 2 ]] || die "--nexus-url requires a value"
       NEXUS_URL="$2"
+      shift 2
+      ;;
+    --current-password)
+      [[ $# -ge 2 ]] || die "--current-password requires a value"
+      CURRENT_PASSWORD="$2"
       shift 2
       ;;
     --target-password)
@@ -100,17 +167,13 @@ require_command curl
 require_command jq
 
 run_cmd kubectl rollout status deployment/nexus -n "${NAMESPACE}" --timeout=900s
-pod_name="$(kubectl get pod -n "${NAMESPACE}" -l app=nexus -o jsonpath='{.items[0].metadata.name}')"
-[[ -n "${pod_name}" ]] || die "Unable to find Nexus pod in namespace ${NAMESPACE}"
-
 if [[ "${DRY_RUN}" == "1" ]]; then
-  initial_password='dry-run-password'
+  AUTH_PASSWORD="${TARGET_PASSWORD}"
+  printf '+ kubectl get pod -n %q -l app=nexus -o jsonpath=%q\n' "${NAMESPACE}" '{.items[0].metadata.name}'
 else
+  pod_name="$(kubectl get pod -n "${NAMESPACE}" -l app=nexus -o jsonpath='{.items[0].metadata.name}')"
+  [[ -n "${pod_name}" ]] || die "Unable to find Nexus pod in namespace ${NAMESPACE}"
   initial_password="$(kubectl exec -n "${NAMESPACE}" "${pod_name}" -- cat /nexus-data/admin.password 2>/dev/null || true)"
-  [[ -n "${initial_password}" ]] || initial_password="${TARGET_PASSWORD}"
-fi
-
-if [[ "${DRY_RUN}" != "1" ]]; then
   for _ in $(seq 1 120); do
     if curl -fsS "${NEXUS_URL}/service/rest/v1/status" >/dev/null 2>&1; then
       break
@@ -118,14 +181,10 @@ if [[ "${DRY_RUN}" != "1" ]]; then
     sleep 5
   done
 
-  if ! curl -fsS -u "admin:${TARGET_PASSWORD}" "${NEXUS_URL}/service/rest/v1/status" >/dev/null 2>&1; then
-    curl -fsS -u "admin:${initial_password}" \
-      -H 'Content-Type: text/plain' \
-      -X PUT \
-      "${NEXUS_URL}/service/rest/v1/security/users/admin/change-password" \
-      --data "${TARGET_PASSWORD}" >/dev/null
-  fi
+  resolve_auth_password "${initial_password}"
 fi
+
+ensure_eula_accepted
 
 create_repo "raw/hosted" "offline-bundle" '{
   "name": "offline-bundle",

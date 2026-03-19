@@ -1,8 +1,10 @@
 from app.config import Settings
+from app.version import BACKEND_APP_VERSION
 
 
 def runtime_profile(settings: Settings) -> dict[str, str]:
     return {
+        "backend_version": BACKEND_APP_VERSION,
         "environment": settings.env,
         "host_os": "Ubuntu 24",
         "cluster": "Kubernetes single-node control plane",

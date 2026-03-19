@@ -42,8 +42,9 @@ from app.services.lab_identity import canonical_username
 from app.services.mongo import get_mongo_status
 from app.services.redis_store import get_redis_status
 from app.services.teradata import run_ansi_query, teradata_summary
+from app.version import BACKEND_APP_VERSION
 
-app = FastAPI(title="k8s-data-platform-api", version="0.1.0")
+app = FastAPI(title="k8s-data-platform-api", version=BACKEND_APP_VERSION)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -106,6 +107,7 @@ def healthz() -> dict[str, object]:
     overall_status = "ok" if mongo_ok and redis_ok else "degraded"
     return {
         "status": overall_status,
+        "backend_version": BACKEND_APP_VERSION,
         "checks": {
             "mongodb": {"ok": mongo_ok, "detail": mongo_detail},
             "redis": {"ok": redis_ok, "detail": redis_detail},

@@ -101,7 +101,7 @@ copy_k8s_assets() {
   run_cmd mkdir -p "${bundle_k8s_dir}" "${bundle_k8s_dir}/infra" "${bundle_k8s_dir}/scripts" "${bundle_k8s_dir}/scripts/lib" "${bundle_k8s_dir}/docs"
   run_cmd cp -R "${ROOT_DIR}/infra/k8s" "${bundle_k8s_dir}/infra/"
 
-  for script_name in apply_k8s.sh reset_k8s.sh status_k8s.sh healthcheck.sh verify.sh import_offline_bundle.sh apply_offline_suite.sh audit_registry_scope.sh bootstrap_nexus_repos.sh prime_nexus_caches.sh setup_nexus_offline.sh frontend_dev_setup.sh run_frontend_dev.sh run_frontend_build.sh generate_join_command.sh join_worker_node.sh configure_multinode_cluster.sh; do
+  for script_name in apply_k8s.sh reset_k8s.sh status_k8s.sh healthcheck.sh verify.sh verify_nexus_dependencies.sh import_offline_bundle.sh apply_offline_suite.sh audit_registry_scope.sh bootstrap_nexus_repos.sh prime_nexus_caches.sh setup_nexus_offline.sh frontend_dev_setup.sh run_frontend_dev.sh run_frontend_build.sh generate_join_command.sh join_worker_node.sh configure_multinode_cluster.sh; do
     run_cmd cp "${ROOT_DIR}/scripts/${script_name}" "${bundle_k8s_dir}/scripts/${script_name}"
   done
   run_cmd cp "${ROOT_DIR}/scripts/lib/kubernetes_runtime.sh" "${bundle_k8s_dir}/scripts/lib/kubernetes_runtime.sh"
@@ -128,6 +128,7 @@ copy_k8s_assets() {
 - \`./infra/k8s\`: dev/prod overlay 와 runner overlay 를 포함한 Kubernetes manifests
 - \`./scripts/import_offline_bundle.sh\`: 이미지 import 와 overlay apply helper
 - \`./scripts/frontend_dev_setup.sh\`: Nexus/offline npm cache 기반 frontend 의존성 설치
+- \`./scripts/verify_nexus_dependencies.sh\`: Nexus(PyPI/npm) 의존성 접근 검증
 - \`./scripts/run_frontend_dev.sh\`: Vite 개발 서버 실행
 - \`./docs\`: runbook, SRE checklist, stack roles, GitLab repo layout
 
@@ -142,6 +143,7 @@ OVA 내부 기본 경로에서는 아래 명령을 그대로 사용할 수 있�
 \`\`\`bash
 bash /opt/k8s-data-platform/scripts/import_offline_bundle.sh --bundle-dir /opt/k8s-data-platform/offline-bundle --apply --env dev
 bash /opt/k8s-data-platform/scripts/frontend_dev_setup.sh
+bash /opt/k8s-data-platform/scripts/verify_nexus_dependencies.sh --nexus-url http://127.0.0.1:30091 --username admin --password '<nexus-password>'
 bash /opt/k8s-data-platform/scripts/run_frontend_dev.sh
 \`\`\`
 EOF

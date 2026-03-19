@@ -28,6 +28,14 @@
               @click="runFirstQuery"
             />
           </div>
+          <div class="chip-grid">
+            <q-chip color="white" text-color="dark" square>
+              <strong>frontend</strong>&nbsp;v{{ frontendAppVersion }}
+            </q-chip>
+            <q-chip color="white" text-color="dark" square>
+              <strong>backend</strong>&nbsp;v{{ backendAppVersion }}
+            </q-chip>
+          </div>
         </section>
 
         <section class="content-grid">
@@ -633,11 +641,13 @@
 <script setup>
 import { Notify } from "quasar";
 import { computed, onMounted, onUnmounted, ref } from "vue";
+import frontendPackage from "../package.json";
 
 const browserProtocol = typeof window !== "undefined" ? window.location.protocol : "http:";
 const browserHost = typeof window !== "undefined" ? window.location.hostname : "localhost";
 const apiBaseUrl =
   import.meta.env.VITE_API_BASE_URL || `${browserProtocol}//${browserHost}:30081`;
+const frontendAppVersion = frontendPackage.version;
 
 const savedAuthToken =
   typeof window !== "undefined" ? window.localStorage.getItem("appAuthToken") || "" : "";
@@ -694,6 +704,7 @@ const isAuthenticated = computed(() => appSession.value.authenticated);
 const isAdmin = computed(() => appSession.value.user?.role === "admin");
 const isUser = computed(() => appSession.value.user?.role === "user");
 const managedUsername = computed(() => (isUser.value ? appSession.value.user.username : ""));
+const backendAppVersion = computed(() => dashboard.value.runtime.backend_version || "-");
 
 const labStatusColor = computed(() => {
   if (labSession.value.status === "ready") {

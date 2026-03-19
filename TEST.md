@@ -249,11 +249,80 @@ KUBECONFIG=/etc/kubernetes/admin.conf kubectl delete node k8s-worker-3 --ignore-
 
 ---
 
-## 8) VMware Import (Settings and Cautions)
+## 8) Add New Worker Node to Existing Cluster
+
+아래는 `k8s-worker-3` 같은 새 worker VM 을 추가해 기존 control-plane(`k8s-data-platform`) 클러스터에 조인시키는 절차입니다.
+
+### 8.1 VM 생성/네트워크 연결 (VirtualBox)
+
+1. 새 VM 준비 (clone/import 중 택1).
+2. NIC1 을 기존 NAT network(`k8s-data-platform-net`)에 연결.
+3. 필요 시 SSH 포워딩 규칙 추가 (예: `2203 -> 10.77.0.7:22`).
+
+```powershell
+& "C:\Program Files\Oracle\VirtualBox\VBoxManage.exe" modifyvm k8s-worker-3 --nic1 natnetwork --nat-network1 k8s-data-platform-net --cableconnected1 on
+& "C:\Program Files\Oracle\VirtualBox\VBoxManage.exe" natnetwork modify --netname k8s-data-platform-net --port-forward-4 "ssh-w3:tcp:[127.0.0.1]:2203:[10.77.0.7]:22"
+& "C:\Program Files\Oracle\VirtualBox\VBoxManage.exe" startvm k8s-worker-3 --type headless
+```
+
+### 8.2 control-plane 에서 join 명령 생성
+
+`k8s-data-platform`(control-plane) 안에서 실행:
+
+```bash
+sudo KUBECONFIG=/etc/kubernetes/admin.conf bash /opt/k8s-data-platform/scripts/generate_join_command.sh 10.77.0.4
+```
+
+- 출력되는 `kubeadm join ...` 명령은 기본 TTL(`2h`)이므로 만료 전에 worker에서 실행해야 합니다.
+- 토큰 만료 시 위 명령을 다시 실행해 새 join 명령을 발급하면 됩니다.
+
+### 8.3 새 worker 에서 join 실행
+
+새 worker VM 안에서 실행:
+
+```bash
+sudo bash /opt/k8s-data-platform/scripts/join_worker_node.sh \
+  --hostname k8s-worker-3 \
+  --join-command "<control-plane에서 생성한 kubeadm join ...>"
+```
+
+### 8.4 조인 확인 및 worker 라벨 정리
+
+다시 control-plane 에서 실행:
+
+```bash
+sudo KUBECONFIG=/etc/kubernetes/admin.conf kubectl get nodes -o wide
+sudo KUBECONFIG=/etc/kubernetes/admin.conf kubectl label node k8s-worker-3 node-role.kubernetes.io/worker=worker --overwrite
+```
+
+선택 사항(멀티노드 오버레이 라벨 일괄 정리):
+
+```bash
+bash /opt/k8s-data-platform/scripts/configure_multinode_cluster.sh \
+  --env dev \
+  --overlay dev-multinode \
+  --workers k8s-worker-1,k8s-worker-2,k8s-worker-3 \
+  --skip-reset
+```
+
+### 8.5 트러블슈팅
+
+- `preflight` 충돌/재조인 문제 시 worker에서 reset 후 재시도:
+
+```bash
+sudo kubeadm reset -f --cri-socket=unix:///run/containerd/containerd.sock
+sudo systemctl restart containerd kubelet
+```
+
+- control-plane에서 `NotReady`로 보이면 worker의 시간 동기화, 네트워크(10.77.0.0/24), `kubelet/containerd` 상태를 우선 확인.
+
+---
+
+## 9) VMware Import (Settings and Cautions)
 
 Use this section when importing the same OVA into VMware Workstation/Player.
 
-### 8.1 Recommended VMware VM Settings
+### 9.1 Recommended VMware VM Settings
 
 - vCPU: 4 or more
 - Memory: 16 GB or more
@@ -261,7 +330,7 @@ Use this section when importing the same OVA into VMware Workstation/Player.
 - Firmware: keep default from imported OVA (change only if boot fails)
 - Network Adapter: `Bridged` recommended for direct NodePort access from host browser
 
-### 8.2 Import Steps (VMware)
+### 9.2 Import Steps (VMware)
 
 1. Open VMware Workstation/Player.
 2. Import/Open `k8s-data-platform.ova`.
@@ -270,7 +339,7 @@ Use this section when importing the same OVA into VMware Workstation/Player.
    - username: `ubuntu`
    - password: `ubuntu`
 
-### 8.3 First Checks After Boot
+### 9.3 First Checks After Boot
 
 Inside VM:
 
@@ -281,7 +350,7 @@ sudo KUBECONFIG=/etc/kubernetes/admin.conf kubectl get pods -n data-platform-dev
 sudo KUBECONFIG=/etc/kubernetes/admin.conf kubectl get svc -n data-platform-dev
 ```
 
-### 8.4 Host Browser Access (VMware)
+### 9.4 Host Browser Access (VMware)
 
 In VMware mode, prefer direct `VM_IP + NodePort` access.
 
@@ -291,7 +360,7 @@ Examples:
 - `http://<VM_IP>:30088` (jupyter shared)
 - `http://<VM_IP>:30089` (gitlab web)
 
-### 8.5 Important Cautions
+### 9.5 Important Cautions
 
 - VirtualBox NAT forwarding commands in this document (`VBoxManage natnetwork ... --port-forward-4`) do not apply to VMware.
 - `127.0.0.1:2222`, `2201`, `2202` SSH forwarding examples are VirtualBox-specific.
@@ -303,6 +372,6 @@ Examples:
   - `scripts/bootstrap_virtualbox_multinode.ps1`
   - For VMware multi-node, worker clone/join/network setup is manual.
 
-### 8.6 Reference
+### 9.6 Reference
 
 - VMware detailed guide: `docs/vmware/README.md`

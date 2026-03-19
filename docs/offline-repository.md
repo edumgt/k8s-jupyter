@@ -33,11 +33,32 @@ bash scripts/apply_k8s.sh --env dev
 bash scripts/setup_nexus_offline.sh --namespace data-platform-dev --nexus-url http://127.0.0.1:30091
 ```
 
+Nexus 가 이미 초기화되어 admin 비밀번호가 바뀐 경우:
+
+```bash
+bash scripts/setup_nexus_offline.sh \
+  --namespace data-platform-dev \
+  --nexus-url http://127.0.0.1:30091 \
+  --current-password '<current-admin-password>' \
+  --target-password '<new-admin-password>' \
+  --username admin \
+  --password '<new-admin-password>'
+```
+
 생성되는 주요 endpoint:
 
 - `http://127.0.0.1:30091/repository/pypi-all/simple`
 - `http://127.0.0.1:30091/repository/npm-all/`
 - `http://127.0.0.1:30091/repository/offline-bundle/`
+
+재부팅 후 의존성 접근 검증:
+
+```bash
+bash scripts/verify_nexus_dependencies.sh \
+  --nexus-url http://127.0.0.1:30091 \
+  --username admin \
+  --password '<nexus-password>'
+```
 
 ## 폐쇄망 one-pod app profile
 
