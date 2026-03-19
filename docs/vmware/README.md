@@ -51,10 +51,14 @@ bash scripts/run_wsl.sh
 
 1. VMware Workstation 실행
 2. `File > Open` 또는 `Import`로 `k8s-data-platform.ova` 선택
-3. VM 이름/저장 경로 지정
-4. CPU/Memory 조정 (권장: CPU 4+, Memory 16GB+)
-5. Network Adapter를 `Bridged` 권장
-6. VM 부팅
+3. 아래와 같은 경고가 나오면 `Retry`를 눌러 import를 다시 진행
+   - `The import failed because ... did not pass OVF specification conformance or virtual hardware compliance checks.`
+   - 이 OVA는 VirtualBox 계열 export 결과물이라 VMware가 OVF/가상 하드웨어 호환성 검사를 엄격하게 볼 때 이 경고가 나올 수 있음
+   - 일반적으로 `Retry`를 누르면 검사를 완화하고 계속 import 가능
+4. VM 이름/저장 경로 지정
+5. CPU/Memory 조정 (권장: CPU 4+, Memory 16GB+)
+6. Network Adapter를 `Bridged` 권장
+7. VM 부팅
 
 ## 5) VM 내부 상태 확인
 
@@ -85,6 +89,28 @@ sudo KUBECONFIG=/etc/kubernetes/admin.conf kubectl get svc -n data-platform-dev
 - admin: `admin@test.com / 123456`
 
 ## 7) 자주 발생하는 이슈
+
+### VMware import 중 OVF compliance 오류가 뜨는 경우
+
+- 예시 메시지:
+  - `The import failed because ... did not pass OVF specification conformance or virtual hardware compliance checks.`
+- 우선 `Retry`를 눌러 VMware의 완화된 import 모드로 다시 시도합니다.
+- 이 경고는 OVA 자체가 완전히 깨졌다는 뜻보다는, VMware가 OVF/가상 하드웨어 메타데이터를 엄격하게 검사하면서 발생하는 경우가 많습니다.
+- `Retry` 후 import가 완료되면 그대로 사용해도 됩니다.
+- 그래도 실패하면 다음 순서로 확인합니다.
+  - OVA 파일 경로를 영문/짧은 경로로 옮긴 뒤 다시 import
+  - OVA를 다시 export 또는 다시 build
+  - VMware import 완료 후 부팅이 안 되면 firmware 설정을 기본값 유지한 상태로 다시 import
+
+### VMware import는 됐지만 부팅/동작이 이상한 경우
+
+- CPU 4개 이상, Memory 16GB 이상으로 올린 뒤 다시 부팅합니다.
+- Network Adapter는 우선 `Bridged`로 두고 VM 내부에서 `hostname -I`로 IP를 확인합니다.
+- `kubectl` 확인 시 반드시 관리자 kubeconfig를 사용합니다.
+
+```bash
+sudo KUBECONFIG=/etc/kubernetes/admin.conf kubectl get nodes -o wide
+```
 
 ### kubectl이 `localhost:8080`으로 붙는 경우
 
