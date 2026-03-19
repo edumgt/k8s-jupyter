@@ -149,6 +149,61 @@ sudo KUBECONFIG=/etc/kubernetes/admin.conf kubectl get nodes -o wide
 sudo KUBECONFIG=/etc/kubernetes/admin.conf kubectl get pods -n data-platform-dev -o wide
 ```
 
+### `ip -br a`에서 `ens32`가 `DOWN`으로 나오는 경우
+
+- 이 상태에서는 VM이 네트워크를 못 잡아서 `hostname -I`가 비거나, 호스트에서 NodePort 접근이 모두 실패합니다.
+- 먼저 VMware VM 설정에서 아래 항목을 확인합니다.
+  - `Network Adapter > Connected` 체크
+  - `Network Adapter > Connect at power on` 체크
+  - 우선 `Bridged` 사용 (필요하면 `Configure Adapters`에서 실제 사용 중인 호스트 NIC를 명시)
+- 회사/학교망 정책으로 Bridged가 막히는 환경이면 일단 `NAT`로 전환해 통신 여부를 먼저 확인합니다.
+
+VM 내부에서:
+
+```bash
+ip -br a
+sudo ip link set ens32 up
+sudo systemctl restart systemd-networkd
+sudo networkctl reconfigure ens32
+ip -4 addr show ens32
+ip route
+```
+
+- `ens32`에 IPv4가 생기면 정상입니다.
+- Ubuntu 24.04 이미지에 따라 `dhclient`가 기본 미설치일 수 있습니다. (`sudo: dhclient: command not found` 정상 가능)
+- 그 다음 control-plane에서 `kubectl`이 정상인지 확인합니다.
+
+```bash
+sudo KUBECONFIG=/etc/kubernetes/admin.conf kubectl get nodes -o wide
+sudo KUBECONFIG=/etc/kubernetes/admin.conf kubectl get pods -n data-platform-dev -o wide
+```
+
+- 위 절차 후에도 계속 IP가 안 생기면 netplan에 DHCP를 명시하고 재적용합니다.
+
+```bash
+sudo tee /etc/netplan/01-vmware-dhcp.yaml >/dev/null <<'EOF'
+network:
+  version: 2
+  renderer: networkd
+  ethernets:
+    ens32:
+      dhcp4: true
+EOF
+sudo netplan generate
+sudo netplan apply
+sudo systemctl restart systemd-networkd
+ip -4 addr show ens32
+```
+
+- 그래도 DHCP 임대가 안 잡히면(특히 Bridged/사내망 환경) VMware 네트워크를 `NAT`로 바꿔 우선 연결 여부를 확인합니다.
+- `dhclient`를 꼭 써야 하면 아래 패키지를 설치합니다.
+
+```bash
+sudo apt-get update
+sudo apt-get install -y isc-dhcp-client
+sudo dhclient -v ens32
+```
+
 ### kubectl이 `localhost:8080`으로 붙는 경우
 
 ```bash
