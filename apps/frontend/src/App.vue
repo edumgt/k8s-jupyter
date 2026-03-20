@@ -2,6 +2,61 @@
   <q-layout view="lHh Lpr lFf">
     <q-page-container>
       <q-page class="page-shell">
+        <q-dialog v-model="loginModalOpen" :persistent="!isAuthenticated">
+          <q-card class="login-modal-card">
+            <q-card-section>
+              <div class="section-title">JWT Login</div>
+              <div class="card-title">먼저 로그인하세요</div>
+              <p class="muted">
+                로그인 후 role 기반으로 화면이 분기됩니다. user는 본인 Jupyter 사용 이력과 sandbox
+                작업 화면을, admin은 사용자 목록(AG Grid CE)과 모니터링 화면을 확인합니다.
+              </p>
+              <div class="admin-login-grid">
+                <q-input
+                  v-model="loginForm.username"
+                  dense
+                  outlined
+                  color="dark"
+                  label="Email"
+                  class="admin-input"
+                  @keyup.enter="loginApp"
+                />
+                <q-input
+                  v-model="loginForm.password"
+                  dense
+                  outlined
+                  color="dark"
+                  type="password"
+                  label="Password"
+                  class="admin-input"
+                  @keyup.enter="loginApp"
+                />
+                <q-btn
+                  color="dark"
+                  unelevated
+                  no-caps
+                  icon="login"
+                  label="Login"
+                  :loading="authLoading"
+                  :disable="!loginForm.username || !loginForm.password"
+                  @click="loginApp"
+                />
+              </div>
+              <div class="demo-account-grid modal-account-grid">
+                <q-btn
+                  v-for="account in demoAccounts"
+                  :key="account.username"
+                  outline
+                  color="dark"
+                  no-caps
+                  :label="`${account.display_name} (${account.username})`"
+                  @click="applyDemoAccount(account)"
+                />
+              </div>
+            </q-card-section>
+          </q-card>
+        </q-dialog>
+
         <section class="hero-panel">
           <div class="eyebrow">K8s Data Platform OVA</div>
           <h1>데모 사용자 로그인부터 Jupyter sandbox, 관리자 모니터링까지 한 화면에서</h1>
@@ -56,35 +111,17 @@
                 모드에서 사용자 sandbox 사용 현황과 control plane을 모니터링합니다.
               </p>
 
-              <div v-if="!isAuthenticated" class="admin-login-grid">
-                <q-input
-                  v-model="loginForm.username"
-                  dense
-                  outlined
-                  color="dark"
-                  label="Email"
-                  class="admin-input"
-                  @keyup.enter="loginApp"
-                />
-                <q-input
-                  v-model="loginForm.password"
-                  dense
-                  outlined
-                  color="dark"
-                  type="password"
-                  label="Password"
-                  class="admin-input"
-                  @keyup.enter="loginApp"
-                />
+              <div v-if="!isAuthenticated" class="auth-session-bar">
+                <q-chip color="white" text-color="dark" square>
+                  <strong>Status</strong>&nbsp;login required
+                </q-chip>
                 <q-btn
+                  outline
                   color="dark"
-                  unelevated
                   no-caps
                   icon="login"
-                  label="Login"
-                  :loading="authLoading"
-                  :disable="!loginForm.username || !loginForm.password"
-                  @click="loginApp"
+                  label="Open Login Modal"
+                  @click="openLoginModal"
                 />
               </div>
 
@@ -241,6 +278,44 @@
             <q-card-section>
               <div class="row items-center justify-between q-col-gutter-md">
                 <div>
+                  <div class="section-title">My Jupyter Usage History</div>
+                  <div class="card-title">내 계정 사용 이력</div>
+                </div>
+                <q-badge :color="usageSummary.current_status === 'ready' ? 'positive' : 'grey-7'" rounded>
+                  {{ usageSummary.current_status }}
+                </q-badge>
+              </div>
+
+              <q-linear-progress v-if="usageLoading" indeterminate color="dark" class="lab-progress" />
+
+              <div class="chip-grid">
+                <q-chip color="white" text-color="dark" square>
+                  <strong>logins</strong>&nbsp;{{ usageSummary.login_count }}
+                </q-chip>
+                <q-chip color="white" text-color="dark" square>
+                  <strong>launches</strong>&nbsp;{{ usageSummary.launch_count }}
+                </q-chip>
+                <q-chip color="white" text-color="dark" square>
+                  <strong>current use</strong>&nbsp;{{ formatDuration(usageSummary.current_session_seconds) }}
+                </q-chip>
+                <q-chip color="white" text-color="dark" square>
+                  <strong>total use</strong>&nbsp;{{ formatDuration(usageSummary.total_session_seconds) }}
+                </q-chip>
+              </div>
+
+              <q-banner rounded class="banner-note lab-banner">
+                <div><strong>Last Login</strong> {{ formatDateTime(usageSummary.last_login_at) }}</div>
+                <div><strong>Last Launch</strong> {{ formatDateTime(usageSummary.last_launch_at) }}</div>
+                <div><strong>Last Stop</strong> {{ formatDateTime(usageSummary.last_stop_at) }}</div>
+                <div v-if="usageSummary.pod_name"><strong>Pod</strong> {{ usageSummary.pod_name }}</div>
+              </q-banner>
+            </q-card-section>
+          </q-card>
+
+          <q-card flat class="surface-card">
+            <q-card-section>
+              <div class="row items-center justify-between q-col-gutter-md">
+                <div>
                   <div class="section-title">Workspace Snapshot</div>
                   <div class="card-title">개인 sandbox 복원 이미지</div>
                 </div>
@@ -335,48 +410,24 @@
 
           <q-card flat class="surface-card inventory-card">
             <q-card-section>
-              <q-table
-                flat
-                :rows="adminOverview.users"
-                :columns="adminUserColumns"
-                row-key="username"
-                :rows-per-page-options="[0]"
-                hide-pagination
-                :loading="adminLoading"
-              >
-                <template #body-cell-status="props">
-                  <q-td :props="props">
-                    <q-badge :color="sandboxStatusColor(props.value, props.row.ready)" rounded>
-                      {{ props.value }}
-                    </q-badge>
-                  </q-td>
-                </template>
-                <template #body-cell-current_session_seconds="props">
-                  <q-td :props="props">
-                    {{ formatDuration(props.value) }}
-                  </q-td>
-                </template>
-                <template #body-cell-total_session_seconds="props">
-                  <q-td :props="props">
-                    {{ formatDuration(props.value) }}
-                  </q-td>
-                </template>
-                <template #body-cell-last_login_at="props">
-                  <q-td :props="props">
-                    {{ formatDateTime(props.value) }}
-                  </q-td>
-                </template>
-                <template #body-cell-last_launch_at="props">
-                  <q-td :props="props">
-                    {{ formatDateTime(props.value) }}
-                  </q-td>
-                </template>
-              </q-table>
+              <div class="section-title">User List (AG Grid CE)</div>
+              <q-linear-progress v-if="adminLoading" indeterminate color="dark" class="inventory-separator" />
+              <div class="ag-theme-quartz admin-user-grid">
+                <AgGridVue
+                  :rowData="adminOverview.users"
+                  :columnDefs="adminUserGridColumns"
+                  :defaultColDef="adminUserGridDefaultColDef"
+                  :pagination="true"
+                  :paginationPageSize="8"
+                  :animateRows="true"
+                  domLayout="autoHeight"
+                />
+              </div>
             </q-card-section>
           </q-card>
         </section>
 
-        <section class="content-grid control-plane-anchor">
+        <section v-if="isAdmin" class="content-grid control-plane-anchor">
           <q-card flat class="surface-card">
             <q-card-section>
               <div class="row items-center justify-between q-col-gutter-md">
@@ -641,6 +692,7 @@
 <script setup>
 import { Notify } from "quasar";
 import { computed, onMounted, onUnmounted, ref } from "vue";
+import { AgGridVue } from "ag-grid-vue3";
 import frontendPackage from "../package.json";
 
 const browserProtocol = typeof window !== "undefined" ? window.location.protocol : "http:";
@@ -662,6 +714,7 @@ const authLoading = ref(false);
 const sessionLoading = ref(false);
 const snapshotLoading = ref(false);
 const adminLoading = ref(false);
+const usageLoading = ref(false);
 
 const demoAccounts = ref([
   { username: "test1@test.com", role: "user", display_name: "Test User 1" },
@@ -673,11 +726,13 @@ const loginForm = ref({
   username: savedAuthUser?.username || "test1@test.com",
   password: "123456",
 });
+const loginModalOpen = ref(!savedAuthToken);
 
 const appSession = ref(emptyAppSession(savedAuthToken, savedAuthUser));
 const labSession = ref(emptyLabSession());
 const snapshotState = ref(emptySnapshotState());
 const adminOverview = ref(emptyAdminOverview());
+const userUsage = ref(emptyUserUsage());
 const controlPlane = ref(emptyControlPlaneState());
 
 const dashboard = ref({
@@ -705,6 +760,7 @@ const isAdmin = computed(() => appSession.value.user?.role === "admin");
 const isUser = computed(() => appSession.value.user?.role === "user");
 const managedUsername = computed(() => (isUser.value ? appSession.value.user.username : ""));
 const backendAppVersion = computed(() => dashboard.value.runtime.backend_version || "-");
+const usageSummary = computed(() => userUsage.value.summary);
 
 const labStatusColor = computed(() => {
   if (labSession.value.status === "ready") {
@@ -829,28 +885,51 @@ const podColumns = [
   { name: "node_name", label: "Node", field: "node_name", align: "left" },
 ];
 
-const adminUserColumns = [
-  { name: "display_name", label: "User", field: "display_name", align: "left" },
-  { name: "username", label: "Email", field: "username", align: "left" },
-  { name: "status", label: "Sandbox", field: "status", align: "left" },
-  { name: "launch_count", label: "Launches", field: "launch_count", align: "right" },
-  { name: "login_count", label: "Logins", field: "login_count", align: "right" },
+const adminUserGridDefaultColDef = {
+  sortable: true,
+  filter: true,
+  resizable: true,
+  flex: 1,
+  minWidth: 130,
+};
+
+const adminUserGridColumns = [
+  { headerName: "User", field: "display_name", minWidth: 150 },
+  { headerName: "Email", field: "username", minWidth: 190 },
   {
-    name: "current_session_seconds",
-    label: "Current Use",
+    headerName: "Sandbox",
+    field: "status",
+    minWidth: 130,
+    cellClass: (params) => statusCellClass(params.value, params.data?.ready),
+  },
+  { headerName: "Logins", field: "login_count", type: "numericColumn", minWidth: 110 },
+  { headerName: "Launches", field: "launch_count", type: "numericColumn", minWidth: 110 },
+  {
+    headerName: "Current Use",
     field: "current_session_seconds",
-    align: "right",
+    valueFormatter: durationValueFormatter,
+    minWidth: 140,
   },
   {
-    name: "total_session_seconds",
-    label: "Total Use",
+    headerName: "Total Use",
     field: "total_session_seconds",
-    align: "right",
+    valueFormatter: durationValueFormatter,
+    minWidth: 130,
   },
-  { name: "pod_name", label: "Pod", field: "pod_name", align: "left" },
-  { name: "node_port", label: "NodePort", field: "node_port", align: "right" },
-  { name: "last_login_at", label: "Last Login", field: "last_login_at", align: "left" },
-  { name: "last_launch_at", label: "Last Launch", field: "last_launch_at", align: "left" },
+  { headerName: "Pod", field: "pod_name", minWidth: 180 },
+  { headerName: "NodePort", field: "node_port", type: "numericColumn", minWidth: 120 },
+  {
+    headerName: "Last Login",
+    field: "last_login_at",
+    valueFormatter: dateTimeValueFormatter,
+    minWidth: 180,
+  },
+  {
+    headerName: "Last Launch",
+    field: "last_launch_at",
+    valueFormatter: dateTimeValueFormatter,
+    minWidth: 180,
+  },
 ];
 
 function emptyAppSession(token = "", user = null) {
@@ -891,6 +970,26 @@ function emptySnapshotState() {
     published_at: "",
     restorable: false,
     detail: "Publish a workspace snapshot after your Jupyter sandbox is running.",
+  };
+}
+
+function emptyUserUsage() {
+  return {
+    summary: {
+      username: "",
+      display_name: "",
+      role: "user",
+      current_status: "idle",
+      pod_name: "",
+      node_port: null,
+      login_count: 0,
+      launch_count: 0,
+      current_session_seconds: 0,
+      total_session_seconds: 0,
+      last_login_at: null,
+      last_launch_at: null,
+      last_stop_at: null,
+    },
   };
 }
 
@@ -978,17 +1077,25 @@ function formatDateTime(value) {
   return date.toLocaleString();
 }
 
-function sandboxStatusColor(status, ready) {
+function durationValueFormatter(params) {
+  return formatDuration(params.value);
+}
+
+function dateTimeValueFormatter(params) {
+  return formatDateTime(params.value);
+}
+
+function statusCellClass(status, ready) {
   if (ready || status === "ready") {
-    return "positive";
+    return "grid-status-ready";
   }
   if (status === "provisioning") {
-    return "warning";
+    return "grid-status-provisioning";
   }
   if (status === "missing" || status === "idle") {
-    return "grey-7";
+    return "grid-status-idle";
   }
-  return "negative";
+  return "grid-status-error";
 }
 
 function podStatusColor(status) {
@@ -1009,6 +1116,10 @@ function applyDemoAccount(account) {
     username: account.username,
     password: "123456",
   };
+}
+
+function openLoginModal() {
+  loginModalOpen.value = true;
 }
 
 function persistAppSession(token, user) {
@@ -1064,6 +1175,7 @@ function resetRoleScopedState() {
   stopAdminPolling();
   labSession.value = emptyLabSession();
   snapshotState.value = emptySnapshotState();
+  userUsage.value = emptyUserUsage();
   adminOverview.value = emptyAdminOverview();
   controlPlane.value = emptyControlPlaneState();
 }
@@ -1078,6 +1190,29 @@ async function loadDemoUsers() {
   }
 }
 
+async function loadUserUsage(options = {}) {
+  if (!isUser.value || usageLoading.value) {
+    return;
+  }
+
+  usageLoading.value = true;
+  try {
+    const response = await fetch(`${apiBaseUrl}/api/users/me/usage`, {
+      headers: authHeaders(),
+    });
+    userUsage.value = await parseJson(response);
+  } catch (error) {
+    if (!options.silent) {
+      Notify.create({
+        type: "negative",
+        message: error.message,
+      });
+    }
+  } finally {
+    usageLoading.value = false;
+  }
+}
+
 async function restoreAuthSession() {
   if (!appSession.value.token) {
     return;
@@ -1089,9 +1224,11 @@ async function restoreAuthSession() {
     const payload = await parseJson(response);
     appSession.value = emptyAppSession(appSession.value.token, payload.user);
     persistAppSession(appSession.value.token, payload.user);
+    loginModalOpen.value = false;
   } catch (error) {
     clearAppSessionStorage();
     appSession.value = emptyAppSession();
+    loginModalOpen.value = true;
     Notify.create({
       type: "warning",
       message: error.message,
@@ -1116,11 +1253,13 @@ async function loginApp() {
     const payload = await parseJson(response);
     appSession.value = emptyAppSession(payload.token, payload.user);
     persistAppSession(payload.token, payload.user);
+    loginModalOpen.value = false;
     resetRoleScopedState();
 
     if (payload.user.role === "user") {
       await refreshLabSession({ silent: true, skipSnapshotRefresh: true });
       await refreshSnapshotStatus({ silent: true });
+      await loadUserUsage({ silent: true });
     } else if (payload.user.role === "admin") {
       await loadAdminOverview({ silent: true });
       await loadControlPlaneDashboard({ silent: true });
@@ -1158,6 +1297,7 @@ async function logoutApp() {
   } finally {
     clearAppSessionStorage();
     appSession.value = emptyAppSession();
+    loginModalOpen.value = true;
     resetRoleScopedState();
     authLoading.value = false;
     Notify.create({
@@ -1247,6 +1387,7 @@ async function refreshLabSession(options = {}) {
     if (!options.skipSnapshotRefresh) {
       void refreshSnapshotStatus({ silent: true });
     }
+    void loadUserUsage({ silent: true });
   } catch (error) {
     stopLabPolling();
     Notify.create({
@@ -1283,6 +1424,7 @@ async function startLabSession() {
       startLabPolling();
     }
     void refreshSnapshotStatus({ silent: true });
+    void loadUserUsage({ silent: true });
     Notify.create({
       type: payload.status === "ready" ? "positive" : "info",
       message:
@@ -1322,6 +1464,7 @@ async function stopLabSession() {
     };
     stopLabPolling();
     void refreshSnapshotStatus({ silent: true });
+    void loadUserUsage({ silent: true });
     Notify.create({
       type: "warning",
       message: "Your Jupyter sandbox resources were deleted.",
@@ -1487,10 +1630,12 @@ onMounted(async () => {
   await loadDashboard();
   await runFirstQuery();
   await restoreAuthSession();
+  loginModalOpen.value = !isAuthenticated.value;
 
   if (isUser.value) {
     await refreshLabSession({ silent: true, skipSnapshotRefresh: true });
     await refreshSnapshotStatus({ silent: true });
+    await loadUserUsage({ silent: true });
   }
 
   if (isAdmin.value) {

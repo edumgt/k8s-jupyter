@@ -192,6 +192,16 @@ body {
   justify-content: space-between;
 }
 
+.login-modal-card {
+  width: min(760px, 95vw);
+  border-radius: 24px;
+  background: rgba(255, 255, 255, 0.96);
+}
+
+.modal-account-grid {
+  margin-top: 16px;
+}
+
 .demo-account-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
@@ -215,6 +225,35 @@ body {
 
 .inventory-card {
   overflow: hidden;
+}
+
+.admin-user-grid {
+  margin-top: 12px;
+  border: 1px solid rgba(18, 34, 47, 0.12);
+  border-radius: 16px;
+  overflow: hidden;
+  --ag-font-family: "IBM Plex Sans", "Avenir Next", "Segoe UI", sans-serif;
+  --ag-header-background-color: #f2f5f8;
+  --ag-odd-row-background-color: #f8fafc;
+}
+
+.admin-user-grid .grid-status-ready {
+  color: #0f7a45;
+  font-weight: 700;
+}
+
+.admin-user-grid .grid-status-provisioning {
+  color: #8a5d0a;
+  font-weight: 700;
+}
+
+.admin-user-grid .grid-status-idle {
+  color: #4f6070;
+}
+
+.admin-user-grid .grid-status-error {
+  color: #aa1e2d;
+  font-weight: 700;
 }
 
 .inventory-separator {

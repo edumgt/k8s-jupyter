@@ -362,12 +362,15 @@ kubectl get svc -A
   - user: `test1@test.com / 123456`
   - user: `test2@test.com / 123456`
   - admin: `admin@test.com / 123456`
+- 로그인은 JWT 기반 modal UI로 먼저 수행
 - 일반 사용자는 로그인 후 본인 전용 Jupyter sandbox 만 시작/중지/복원
-- 관리자는 관리자 모드에서 사용자별 sandbox 실행 여부, 현재 사용시간, 누적 사용시간, 로그인 회수, 실행 회수를 모니터링
+- 일반 사용자는 본인 Jupyter 사용 이력(로그인/실행 횟수, 현재/누적 사용시간)을 확인
+- 관리자는 AG Grid CE 기반 사용자 목록으로 sandbox 상태/사용 지표를 모니터링
 - Backend API:
   - `POST /api/auth/login`
   - `GET /api/auth/me`
   - `POST /api/auth/logout`
+  - `GET /api/users/me/usage`
   - `POST /api/jupyter/sessions`
   - `GET /api/jupyter/sessions/{username}`
   - `DELETE /api/jupyter/sessions/{username}`
@@ -375,7 +378,7 @@ kubectl get svc -A
   - `POST /api/jupyter/snapshots`
   - `GET /api/admin/sandboxes`
 
-Frontend 는 로그인 모드에 따라 사용자용 Jupyter sandbox 화면 또는 관리자용 monitoring/control-plane 화면을 보여주며, 세션 상태, snapshot 상태, 사용자별 pod 실행 여부와 사용 지표를 함께 노출합니다.
+Frontend 는 로그인 모드에 따라 사용자용(Jupyter 작업 + 내 사용 이력) 또는 관리자용(AG Grid CE 사용자 목록 + control-plane) 화면으로 분기됩니다.
 
 Airflow 는 현재 `platform_health_check` DAG 기반의 샘플 오케스트레이션 역할이며, Jupyter sandbox / GitLab / offline bundle 핵심 경로에는 필수는 아닙니다. 폐쇄망 최소 실행용으로는 backend 와 frontend 를 하나의 pod 로 묶은 offline suite 도 추가했습니다.
 
@@ -457,6 +460,18 @@ git push origin main
 ```
 
 ### Demo Screenshots
+
+JWT modal 로그인 화면:
+
+![frontend jwt login modal](docs/screenshots/frontend-jwt-login-modal.png)
+
+`test1@test.com` 사용자의 본인 계정 Jupyter 사용 이력 카드:
+
+![user jupyter usage history](docs/screenshots/user-jupyter-usage-history.png)
+
+`admin@test.com` 관리자의 AG Grid CE 사용자 목록:
+
+![admin user list ag grid](docs/screenshots/admin-user-list-ag-grid.png)
 
 `test1@test.com` 사용자가 본인 sandbox JupyterLab에 접속해 `print("hello world")` 결과를 확인하는 화면:
 

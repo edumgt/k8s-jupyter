@@ -29,7 +29,7 @@ const browserCdpUrl = process.env.BROWSER_CDP_URL ?? "";
 const targetSet = new Set(
   (
     process.env.CAPTURE_TARGETS ??
-    "frontend,backend,airflow,jupyter,gitlab,control-plane-login,control-plane-nodes,control-plane-pods,user-jupyter-hello,admin-active-users,gitlab-backend-repo,gitlab-frontend-repo,backend-git-flow,frontend-git-flow"
+    "frontend,backend,airflow,jupyter,gitlab,jwt-login-modal,user-usage-history,admin-ag-grid-users,control-plane-login,control-plane-nodes,control-plane-pods,user-jupyter-hello,admin-active-users,gitlab-backend-repo,gitlab-frontend-repo,backend-git-flow,frontend-git-flow"
   )
     .split(",")
     .map((value) => value.trim().toLowerCase())
@@ -87,7 +87,7 @@ async function loginGitLab(page, username, password) {
 async function loginApp(page, username, password) {
   await page.getByLabel("Email").fill(username);
   await page.getByLabel("Password").fill(password);
-  await page.getByRole("button", { name: "Login" }).click();
+  await page.getByRole("button", { name: "Login", exact: true }).click();
   await page.getByRole("button", { name: "Logout" }).waitFor({ state: "visible", timeout: 180000 });
   await page.waitForLoadState("networkidle", { timeout: 180000 }).catch(() => {});
 }
@@ -101,6 +101,15 @@ async function captureFrontend(browser) {
   const page = await createPage(browser, 1300);
   await page.goto(withHash(frontendUrl), { waitUntil: "networkidle", timeout: 180000 });
   await page.screenshot({ path: `${outputDir}/frontend-dashboard.png`, fullPage: true });
+  await page.close();
+}
+
+async function captureJwtLoginModal(browser) {
+  await waitForHttp(frontendUrl, { timeoutMs: 180000 });
+  const page = await createPage(browser, 1200);
+  await page.goto(withHash(frontendUrl), { waitUntil: "networkidle", timeout: 180000 });
+  await page.getByText("JWT Login").waitFor({ timeout: 180000 });
+  await page.screenshot({ path: `${outputDir}/frontend-jwt-login-modal.png`, fullPage: true });
   await page.close();
 }
 
@@ -325,6 +334,36 @@ async function captureAdminActiveUsers(browser) {
   await page.close();
 }
 
+async function captureUserUsageHistory(browser) {
+  await waitForHttp(frontendUrl, { timeoutMs: 180000 });
+  const page = await createPage(browser, 1500);
+  await page.goto(withHash(frontendUrl), { waitUntil: "networkidle", timeout: 180000 });
+  await loginApp(page, test1Username, test1Password);
+  const section = page.locator("section").filter({ hasText: "My Jupyter Usage History" }).first();
+  await section.waitFor({ state: "visible", timeout: 180000 });
+  await section.scrollIntoViewIfNeeded();
+  await page.waitForTimeout(800);
+  await section.screenshot({ path: `${outputDir}/user-jupyter-usage-history.png` });
+  await page.close();
+}
+
+async function captureAdminAgGridUsers(browser) {
+  await waitForHttp(frontendUrl, { timeoutMs: 180000 });
+  const page = await createPage(browser, 1500);
+  await page.goto(withHash(frontendUrl, "#sandbox-admin"), {
+    waitUntil: "networkidle",
+    timeout: 180000,
+  });
+  await loginAdmin(page);
+  const section = page.locator("#sandbox-admin");
+  await section.waitFor({ state: "visible", timeout: 180000 });
+  await section.getByText("User List (AG Grid CE)").waitFor({ timeout: 180000 });
+  await section.scrollIntoViewIfNeeded();
+  await page.waitForTimeout(1000);
+  await section.screenshot({ path: `${outputDir}/admin-user-list-ag-grid.png` });
+  await page.close();
+}
+
 async function captureGitLabBackendRepo(browser) {
   await captureGitLabProject(
     browser,
@@ -361,10 +400,13 @@ async function captureFrontendGitFlow(browser) {
 
 const captures = [
   ["frontend", captureFrontend],
+  ["jwt-login-modal", captureJwtLoginModal],
   ["backend", captureBackend],
   ["airflow", captureAirflow],
   ["jupyter", captureJupyter],
   ["gitlab", captureGitLab],
+  ["user-usage-history", captureUserUsageHistory],
+  ["admin-ag-grid-users", captureAdminAgGridUsers],
   ["control-plane-login", captureControlPlaneLogin],
   ["control-plane-nodes", captureControlPlaneNodes],
   ["control-plane-pods", captureControlPlanePods],

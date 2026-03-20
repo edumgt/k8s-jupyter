@@ -11,6 +11,8 @@
     "preview": "vite preview --host 0.0.0.0 --port 4173"
   },
   "dependencies": {
+    "ag-grid-community": "^34.3.1",
+    "ag-grid-vue3": "^34.3.1",
     "@quasar/extras": "^1.16.17",
     "quasar": "^2.18.1",
     "vue": "^3.5.13"

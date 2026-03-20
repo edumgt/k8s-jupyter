@@ -97,6 +97,26 @@ class DemoUserSessionResponse(BaseModel):
     user: DemoUserInfo
 
 
+class UserUsageSummary(BaseModel):
+    username: str
+    display_name: str
+    role: str
+    current_status: str
+    pod_name: str
+    node_port: int | None = None
+    login_count: int
+    launch_count: int
+    current_session_seconds: int
+    total_session_seconds: int
+    last_login_at: str | None = None
+    last_launch_at: str | None = None
+    last_stop_at: str | None = None
+
+
+class UserUsageResponse(BaseModel):
+    summary: UserUsageSummary
+
+
 class AdminSandboxSummary(BaseModel):
     sandbox_user_count: int
     running_user_count: int

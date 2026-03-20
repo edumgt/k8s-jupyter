@@ -36,6 +36,7 @@ class Settings(BaseSettings):
     control_plane_username: str = "admin@test.com"
     control_plane_password: str = "123456"
     control_plane_session_secret: str = "controlplane-session"
+    auth_jwt_secret: str = "platform-auth-jwt"
     teradata_host: str | None = None
     teradata_user: str | None = None
     teradata_password: str | None = None

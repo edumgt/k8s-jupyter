@@ -1,9 +1,12 @@
 from __future__ import annotations
 
+import base64
 import json
-import secrets
+import hmac
+import hashlib
 from dataclasses import dataclass
 from datetime import datetime, timezone
+import time
 from typing import Any
 
 from redis import Redis
@@ -58,6 +61,50 @@ def _utcnow() -> datetime:
 
 def _iso_now() -> str:
     return _utcnow().isoformat()
+
+
+def _b64url_encode(raw: bytes) -> str:
+    return base64.urlsafe_b64encode(raw).decode().rstrip("=")
+
+
+def _b64url_decode(raw: str) -> bytes:
+    padding = "=" * ((4 - len(raw) % 4) % 4)
+    return base64.urlsafe_b64decode(f"{raw}{padding}")
+
+
+def _jwt_sign(message: str, secret: str) -> str:
+    digest = hmac.new(secret.encode(), message.encode(), hashlib.sha256).digest()
+    return _b64url_encode(digest)
+
+
+def _jwt_encode(payload: dict[str, Any], secret: str) -> str:
+    header = {"alg": "HS256", "typ": "JWT"}
+    header_segment = _b64url_encode(json.dumps(header, separators=(",", ":"), sort_keys=True).encode())
+    payload_segment = _b64url_encode(json.dumps(payload, separators=(",", ":"), sort_keys=True).encode())
+    message = f"{header_segment}.{payload_segment}"
+    signature = _jwt_sign(message, secret)
+    return f"{message}.{signature}"
+
+
+def _jwt_decode(token: str, secret: str) -> dict[str, Any] | None:
+    parts = token.split(".")
+    if len(parts) != 3:
+        return None
+
+    header_segment, payload_segment, signature_segment = parts
+    expected_signature = _jwt_sign(f"{header_segment}.{payload_segment}", secret)
+    if not hmac.compare_digest(expected_signature, signature_segment):
+        return None
+
+    try:
+        payload = json.loads(_b64url_decode(payload_segment).decode())
+    except (ValueError, json.JSONDecodeError):
+        return None
+
+    expires_at = int(payload.get("exp", 0) or 0)
+    if expires_at <= int(time.time()):
+        return None
+    return payload
 
 
 def _parse_datetime(value: str | None) -> datetime | None:
@@ -164,23 +211,26 @@ def authenticate_demo_user(username: str, password: str) -> DemoUser:
 
 
 def store_auth_session(settings: Settings, user: DemoUser) -> dict[str, Any]:
-    token = secrets.token_urlsafe(24)
+    issued_at = int(time.time())
+    expires_at = issued_at + AUTH_TOKEN_TTL_SECONDS
+    token = _jwt_encode(
+        {
+            "sub": user.username,
+            "role": user.role,
+            "display_name": user.display_name,
+            "iat": issued_at,
+            "exp": expires_at,
+            "iss": settings.app_name,
+        },
+        settings.auth_jwt_secret,
+    )
     payload = {
         "token": token,
         "username": user.username,
         "role": user.role,
         "display_name": user.display_name,
-        "created_at": _iso_now(),
+        "created_at": datetime.fromtimestamp(issued_at, timezone.utc).isoformat(),
     }
-
-    client = _redis_client(settings)
-    if client is not None:
-        try:
-            _save_json(client, _token_key(token), payload, ttl_seconds=AUTH_TOKEN_TTL_SECONDS)
-        finally:
-            client.close()
-    else:
-        _memory_tokens[token] = payload
 
     return payload
 
@@ -188,6 +238,24 @@ def store_auth_session(settings: Settings, user: DemoUser) -> dict[str, Any]:
 def get_auth_session(settings: Settings, token: str | None) -> dict[str, Any] | None:
     if not token:
         return None
+
+    jwt_payload = _jwt_decode(token, settings.auth_jwt_secret)
+    if jwt_payload is not None:
+        username = str(jwt_payload.get("sub", ""))
+        user = DEMO_USERS_BY_NAME.get(username)
+        if user is None:
+            return None
+        role = str(jwt_payload.get("role") or user.role)
+        display_name = str(jwt_payload.get("display_name") or user.display_name)
+        issued_at = int(jwt_payload.get("iat", 0) or 0)
+        created_at = datetime.fromtimestamp(issued_at, timezone.utc).isoformat() if issued_at else _iso_now()
+        return {
+            "token": token,
+            "username": username,
+            "role": role,
+            "display_name": display_name,
+            "created_at": created_at,
+        }
 
     client = _redis_client(settings)
     if client is not None:
@@ -201,6 +269,10 @@ def get_auth_session(settings: Settings, token: str | None) -> dict[str, Any] | 
 
 def delete_auth_session(settings: Settings, token: str | None) -> None:
     if not token:
+        return
+
+    # JWT is stateless. Keep legacy store cleanup for older session tokens.
+    if _jwt_decode(token, settings.auth_jwt_secret) is not None:
         return
 
     client = _redis_client(settings)
@@ -300,6 +372,42 @@ def current_session_seconds(metrics: dict[str, Any]) -> int:
     if not metrics.get("active_since"):
         return 0
     return _seconds_between(metrics["active_since"])
+
+
+def build_user_usage(settings: Settings, username: str) -> dict[str, Any]:
+    from app.services.jupyter_sessions import get_lab_session
+
+    user = get_demo_user(username)
+    try:
+        session = get_lab_session(settings, user.username)
+        metrics = sync_session_activity(settings, user.username, session)
+    except Exception:  # noqa: BLE001 - user usage panel should remain available when k8s is unavailable
+        session = {
+            "status": "error",
+            "pod_name": "",
+            "node_port": None,
+        }
+        metrics = get_user_metrics(settings, user.username)
+
+    current_seconds = current_session_seconds(metrics)
+    total_seconds = int(metrics.get("total_session_seconds", 0)) + current_seconds
+    return {
+        "summary": {
+            "username": user.username,
+            "display_name": user.display_name,
+            "role": user.role,
+            "current_status": str(session.get("status") or "idle"),
+            "pod_name": str(session.get("pod_name") or ""),
+            "node_port": session.get("node_port"),
+            "login_count": int(metrics.get("login_count", 0)),
+            "launch_count": int(metrics.get("launch_count", 0)),
+            "current_session_seconds": current_seconds,
+            "total_session_seconds": total_seconds,
+            "last_login_at": metrics.get("last_login_at"),
+            "last_launch_at": metrics.get("last_launch_at"),
+            "last_stop_at": metrics.get("last_stop_at"),
+        }
+    }
 
 
 def build_admin_overview(settings: Settings) -> dict[str, Any]:

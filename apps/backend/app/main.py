@@ -19,6 +19,7 @@ from app.models import (
     SnapshotStatusResponse,
     TeradataQueryRequest,
     TeradataQueryResponse,
+    UserUsageResponse,
 )
 from app.services.catalog import quick_links, runtime_profile, sample_queries
 from app.services.control_plane import (
@@ -32,6 +33,7 @@ from app.services.demo_users import (
     build_admin_overview,
     delete_auth_session,
     get_auth_session,
+    build_user_usage,
     list_demo_users,
     record_demo_login,
     store_auth_session,
@@ -165,6 +167,18 @@ def logout_demo_user(
     settings = get_settings()
     delete_auth_session(settings, x_auth_token)
     return {"status": "ok"}
+
+
+@app.get("/api/users/me/usage", response_model=UserUsageResponse)
+def read_my_usage(current_user=Depends(require_authenticated_user)) -> UserUsageResponse:
+    settings = get_settings()
+    username = str(current_user["username"])
+    try:
+        return UserUsageResponse(**build_user_usage(settings, username))
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except RuntimeError as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
 
 
 @app.get("/api/dashboard", response_model=DashboardResponse)
