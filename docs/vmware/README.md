@@ -218,4 +218,12 @@ sudo KUBECONFIG=/etc/kubernetes/admin.conf kubectl get nodes
 ## 8) 멀티노드 관련 참고
 
 - `scripts/bootstrap_virtualbox_multinode.ps1`는 이름 그대로 VirtualBox 자동화 스크립트입니다.
-- VMware 멀티노드는 이 repo 기준으로 자동 스크립트가 제공되지 않으므로 수동 구성(복제/네트워크/join)이 필요합니다.
+- VMware에서도 SSH 경로가 열려 있으면 `scripts/bootstrap_3node_k8s_ova.sh`로
+  static IP + worker join + `dev-3node` overlay 적용까지 자동화할 수 있습니다.
+- 실행 예시:
+
+```bash
+cp scripts/templates/3node-cluster.env.example /tmp/3node-cluster.env
+vi /tmp/3node-cluster.env
+bash scripts/bootstrap_3node_k8s_ova.sh --config /tmp/3node-cluster.env
+```

@@ -233,6 +233,152 @@ bash scripts/build_packer_artifacts.sh --skip-packer-build --output-win-dir 'C:\
 
 AWS AMI 등록은 생성된 `*-ami.raw`, `*-ami-import.json` 파일을 사용해 VM Import로 진행합니다.
 
+### 2-3. 3-node OVA 완성 템플릿 (자동 IP + 자동 join + GitLab/Nexus 배치)
+
+3-node 기준(Control-plane 1 + Worker 2)으로 Kubernetes 클러스터를 자동 구성하는 스크립트를 추가했습니다.
+
+실제 추가된 폴더 구조:
+
+```text
+scripts/
+├── bootstrap_3node_k8s_ova.sh
+└── templates/
+    └── 3node-cluster.env.example
+
+infra/k8s/overlays/
+└── dev-3node/
+    ├── kustomization.yaml
+    ├── local-pv.yaml
+    └── node-placement-patch.yaml
+```
+
+`dev-3node` 배치 정책:
+
+- `k8s-worker-1`: `backend`, `jupyter`
+- `k8s-worker-2`: `gitlab`, `nexus`, `mongodb`, `redis`, `airflow`
+- `frontend`: worker 노드 2개에 분산되도록 `replicas: 2` + topology spread 적용
+
+#### 사전 조건
+
+- control-plane VM은 이미 `kubeadm init` 완료 상태여야 함
+- 2개 worker VM은 SSH 접속 가능해야 함
+- 실행 위치는 WSL/Linux 운영 노드
+- 비밀번호 SSH 자동화를 쓰면 `sshpass` 필요
+
+```bash
+sudo apt-get update
+sudo apt-get install -y sshpass
+```
+
+#### 실행 방법
+
+1) 템플릿 복사 후 환경값 수정
+
+```bash
+cp scripts/templates/3node-cluster.env.example /tmp/3node-cluster.env
+vi /tmp/3node-cluster.env
+```
+
+2) 자동 구성 실행
+
+```bash
+bash scripts/bootstrap_3node_k8s_ova.sh --config /tmp/3node-cluster.env
+```
+
+스크립트 동작:
+
+1. 3개 노드 netplan static IP 설정
+2. hostname + `/etc/hosts` 동기화
+3. worker 노드 `kubeadm join` 자동 수행
+4. `dev-3node` overlay 자동 적용(`APPLY_OVERLAY=1` 기본)
+5. GitLab(`:30089`), Nexus(`:30091`) 포함 서비스 배치 확인
+
+#### 자주 쓰는 옵션(환경파일 값)
+
+- `SKIP_NETWORK=1`: 이미 static IP가 설정된 경우 네트워크 단계만 건너뜀
+- `SKIP_JOIN=1`: 이미 join 완료된 경우 join 단계만 건너뜀
+- `OVERLAY=dev-3node`: 3-node 전용 오버레이 적용(기본값)
+- `REMOTE_REPO_ROOT=/opt/k8s-data-platform`: OVA 내부 repo 경로(기본값)
+
+### 2-4. 멀티 타깃 배포 가능성 기술 체크 (VMware/AWS/ISO)
+
+아래는 질문한 4가지 경로를 repo 현재 구조 기준으로 점검한 결과입니다.
+
+| 시나리오 | 결론 | 핵심 조건 |
+|---|---|---|
+| 다른 PC VMware에 OVA 3개 올려 3-node 구성 | 조건부 가능 | 3개 OVA가 각각 control-plane/worker1/worker2 역할이어야 함, IP/SSH 경로 확보 후 `bootstrap_3node_k8s_ova.sh` 실행 |
+| `*-ami.raw`를 S3 업로드 후 AMI 등록, EC2 기동 | 조건부 가능 | AWS VM Import 권한/역할(`vmimport`)과 S3 버킷 준비, import 완료 후 AMI로 인스턴스 기동 |
+| EC2 VM 3대로 kubeadm 클러스터링 | 조건부 가능 | VPC/SG에서 `6443`, `10250`, CNI 포트(Flannel 기본 `8472/udp`) 및 SSH 허용, control-plane에서 worker join 수행 |
+| ISO 3개를 VirtualBox에 올려 바로 3-node 구성 | 바로는 불가 | 현재 생성 ISO는 Ubuntu 설치 ISO 복사본이며 pre-provisioned 이미지가 아님. OS 설치 + kubeadm/init/join + overlay 적용이 추가로 필요 |
+
+중요:
+
+- `scripts/build_packer_artifacts.sh`는 기본적으로 `k8s-data-platform.ova` 1개를 생성합니다.
+- VMware에서 3 OVA를 바로 쓰려면 role별 VM(예: `k8s-data-platform`, `k8s-worker-1`, `k8s-worker-2`)을 별도로 export해 준비해야 합니다.
+
+#### 전체 판단 흐름 (Mermaid)
+
+```mermaid
+flowchart TD
+  A["Build Artifacts (OVA/ISO/RAW)"] --> B{"Target Platform?"}
+
+  B --> C["VMware (3 OVA)"]
+  B --> D["AWS (S3 + AMI)"]
+  B --> E["VirtualBox (ISO)"]
+
+  C --> C1{"3 role OVA prepared?"}
+  C1 -->|No| C2["Need separate exports per role<br/>control-plane/worker1/worker2"]
+  C1 -->|Yes| C3["Import 3 VMs on new PC"]
+  C3 --> C4["Run bootstrap_3node_k8s_ova.sh<br/>auto IP + auto join + dev-3node overlay"]
+  C4 --> C5["K8s + GitLab + Nexus Ready (Conditional Yes)"]
+
+  D --> D1["Upload *-ami.raw to S3"]
+  D1 --> D2["aws ec2 import-image (VM Import)"]
+  D2 --> D3{"AMI import completed?"}
+  D3 -->|No| D4["Fix IAM role/bucket policy/format"]
+  D3 -->|Yes| D5["Launch EC2 x3 in same VPC/subnet"]
+  D5 --> D6["Open SG ports 22,6443,10250,8472/udp,NodePort"]
+  D6 --> D7["Run join/overlay automation"]
+  D7 --> D8["K8s cluster possible (Conditional Yes)"]
+
+  E --> E1["ISO = Ubuntu installer media"]
+  E1 --> E2["Install OS manually on 3 VMs"]
+  E2 --> E3["Provision Kubernetes + repo scripts"]
+  E3 --> E4["init/join/apply overlay"]
+  E4 --> E5["Needs extra manual provisioning (Not direct)"]
+```
+
+#### 경로별 상세 체크포인트
+
+1. VMware 3 OVA
+
+- 각 VM hostname/IP가 고유해야 함 (`k8s-data-platform`, `k8s-worker-1`, `k8s-worker-2`)
+- control-plane에서 다음 확인:
+
+```bash
+sudo KUBECONFIG=/etc/kubernetes/admin.conf kubectl get nodes -o wide
+sudo KUBECONFIG=/etc/kubernetes/admin.conf kubectl get pods -n data-platform-dev -o wide
+sudo KUBECONFIG=/etc/kubernetes/admin.conf kubectl get svc -n data-platform-dev
+```
+
+2. AWS AMI/EC2
+
+- 산출물: `k8s-data-platform-ami.raw`, `k8s-data-platform-ami-import.json`
+- 예시 흐름:
+
+```bash
+aws s3 cp C:/tmp/k8s-data-platform-ami.raw s3://<bucket>/k8s-data-platform-ami.raw
+aws ec2 import-image --region <region> --disk-containers file://C:/tmp/k8s-data-platform-ami-import.json
+aws ec2 describe-import-image-tasks --region <region> --import-task-ids <task-id>
+```
+
+- AMI 생성 후 EC2 3대를 같은 VPC 네트워크에 띄운 뒤 `bootstrap_3node_k8s_ova.sh` 패턴으로 join/overlay 적용
+
+3. ISO 3개 VirtualBox
+
+- 현재 ISO는 설치 미디어 성격이라 앱/클러스터가 선탑재된 VM 이미지가 아님
+- 즉, ISO 경로는 가능은 하지만 "설치 자동화(autoinstall + ansible + kubeadm)"까지 별도로 설계해야 운영 수준 재현 가능
+
 ### 3. Docker Hub mirror + local Kubernetes runtime import
 
 로컬 Docker login 상태를 사용해서 `edumgt` 네임스페이스 기준으로 support/app 이미지를 정리합니다.
