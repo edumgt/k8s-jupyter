@@ -112,6 +112,98 @@ sudo KUBECONFIG=/etc/kubernetes/admin.conf kubectl get svc -n data-platform-dev
 sudo KUBECONFIG=/etc/kubernetes/admin.conf kubectl get nodes -o wide
 ```
 
+### 부팅 중 `Failed to fork off sandboxing environment` / `Freezing execution` 이 뜨는 경우
+
+- 예시 메시지:
+  - `Failed to fork off sandboxing environment for executing generators: Protocol error`
+  - `[!!!!!!] Failed to start up manager.`
+  - `systemd[1]: Freezing execution.`
+- 이 경우는 단순한 VMware import 경고가 아니라, Ubuntu 24.04 부팅 초기에 `systemd`가 멈춘 상태입니다.
+- 화면에 `recovering journal` 이 보였다면 비정상 종료 직후 한 번 발생했을 가능성도 있으니, 우선 VM을 완전히 종료한 뒤 다시 켜 봅니다.
+- 재부팅 후에도 같은 화면에서 멈추면 가장 확실한 복구 방법은 라이브 ISO 또는 복구 환경으로 부팅해서 `initramfs`를 다시 생성하는 것입니다.
+
+예시 절차:
+
+```bash
+sudo mount /dev/sda2 /mnt
+sudo mount --bind /dev /mnt/dev
+sudo mount --bind /dev/pts /mnt/dev/pts
+sudo mount --bind /proc /mnt/proc
+sudo mount --bind /sys /mnt/sys
+sudo mount --bind /run /mnt/run
+sudo chroot /mnt
+update-initramfs -c -k all
+exit
+sudo reboot
+```
+
+주의:
+- 루트 파티션이 `/dev/sda2`가 아닐 수 있으므로 실제 파티션명을 먼저 확인해야 합니다.
+- 가능하면 Ubuntu Server 24.04 계열 ISO의 `Try Ubuntu` 또는 recovery shell에서 작업하는 편이 안전합니다.
+- 복구 후 정상 부팅되면 아래 명령으로 상태를 다시 확인합니다.
+
+```bash
+hostname -I
+sudo systemctl is-active docker containerd kubelet
+sudo KUBECONFIG=/etc/kubernetes/admin.conf kubectl get nodes -o wide
+sudo KUBECONFIG=/etc/kubernetes/admin.conf kubectl get pods -n data-platform-dev -o wide
+```
+
+### `ip -br a`에서 `ens32`가 `DOWN`으로 나오는 경우
+
+- 이 상태에서는 VM이 네트워크를 못 잡아서 `hostname -I`가 비거나, 호스트에서 NodePort 접근이 모두 실패합니다.
+- 먼저 VMware VM 설정에서 아래 항목을 확인합니다.
+  - `Network Adapter > Connected` 체크
+  - `Network Adapter > Connect at power on` 체크
+  - 우선 `Bridged` 사용 (필요하면 `Configure Adapters`에서 실제 사용 중인 호스트 NIC를 명시)
+- 회사/학교망 정책으로 Bridged가 막히는 환경이면 일단 `NAT`로 전환해 통신 여부를 먼저 확인합니다.
+
+VM 내부에서:
+
+```bash
+ip -br a
+sudo ip link set ens32 up
+sudo systemctl restart systemd-networkd
+sudo networkctl reconfigure ens32
+ip -4 addr show ens32
+ip route
+```
+
+- `ens32`에 IPv4가 생기면 정상입니다.
+- Ubuntu 24.04 이미지에 따라 `dhclient`가 기본 미설치일 수 있습니다. (`sudo: dhclient: command not found` 정상 가능)
+- 그 다음 control-plane에서 `kubectl`이 정상인지 확인합니다.
+
+```bash
+sudo KUBECONFIG=/etc/kubernetes/admin.conf kubectl get nodes -o wide
+sudo KUBECONFIG=/etc/kubernetes/admin.conf kubectl get pods -n data-platform-dev -o wide
+```
+
+- 위 절차 후에도 계속 IP가 안 생기면 netplan에 DHCP를 명시하고 재적용합니다.
+
+```bash
+sudo tee /etc/netplan/01-vmware-dhcp.yaml >/dev/null <<'EOF'
+network:
+  version: 2
+  renderer: networkd
+  ethernets:
+    ens32:
+      dhcp4: true
+EOF
+sudo netplan generate
+sudo netplan apply
+sudo systemctl restart systemd-networkd
+ip -4 addr show ens32
+```
+
+- 그래도 DHCP 임대가 안 잡히면(특히 Bridged/사내망 환경) VMware 네트워크를 `NAT`로 바꿔 우선 연결 여부를 확인합니다.
+- `dhclient`를 꼭 써야 하면 아래 패키지를 설치합니다.
+
+```bash
+sudo apt-get update
+sudo apt-get install -y isc-dhcp-client
+sudo dhclient -v ens32
+```
+
 ### kubectl이 `localhost:8080`으로 붙는 경우
 
 ```bash
