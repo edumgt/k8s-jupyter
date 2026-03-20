@@ -194,6 +194,45 @@ OVA export 까지 한 번에 진행하려면:
 bash scripts/run_wsl.sh
 ```
 
+### 2-1. Packer 실행 환경 정리 (WSL 기준)
+
+- `scripts/run_wsl.sh`, `scripts/build_packer_artifacts.sh` 는 WSL에서 실행하도록 작성되어 있습니다.
+- `packer`는 WSL native 설치본 또는 `packer.exe`(Windows 설치본) 둘 다 사용 가능합니다.
+- OVA export는 Windows VirtualBox(`VBoxManage.exe`) 또는 OVF Tool을 WSL에서 호출하는 구조입니다.
+
+### 2-2. OVA/ISO/qcow2/AMI용 파일을 `C:\tmp`에 일괄 생성 (기존 파일 덮어쓰기)
+
+```bash
+bash scripts/build_packer_artifacts.sh --output-win-dir 'C:\tmp'
+```
+
+기본 산출물:
+
+- `C:\tmp\k8s-data-platform.ova`
+- `C:\tmp\k8s-data-platform.iso`
+- `C:\tmp\k8s-data-platform.qcow2`
+- `C:\tmp\k8s-data-platform-ami.raw`
+- `C:\tmp\k8s-data-platform-ami-import.json`
+- `C:\tmp\k8s-data-platform-artifacts.sha256`
+
+참고:
+
+- 동일 파일이 이미 있으면 스크립트에서 자동으로 삭제 후 새로 생성합니다.
+- `qemu-img`가 필요하므로 WSL에서 `qemu-utils` 설치가 선행되어야 합니다.
+
+```bash
+sudo apt-get update
+sudo apt-get install -y qemu-utils
+```
+
+이미 packer build를 끝낸 상태에서 변환/내보내기만 다시 할 때:
+
+```bash
+bash scripts/build_packer_artifacts.sh --skip-packer-build --output-win-dir 'C:\tmp'
+```
+
+AWS AMI 등록은 생성된 `*-ami.raw`, `*-ami-import.json` 파일을 사용해 VM Import로 진행합니다.
+
 ### 3. Docker Hub mirror + local Kubernetes runtime import
 
 로컬 Docker login 상태를 사용해서 `edumgt` 네임스페이스 기준으로 support/app 이미지를 정리합니다.
