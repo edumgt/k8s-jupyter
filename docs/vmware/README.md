@@ -20,43 +20,100 @@ git clone https://github.com/<your-org>/Kubernetes-Jupyter-Sandbox.git
 cd Kubernetes-Jupyter-Sandbox
 ```
 
-## 3) OVA 준비
+## 3) VMware 기반 빌드/검증/export 순서
 
-다음 2가지 경로 중 하나를 선택합니다.
+### 3-1) VMware 변수 준비
 
-### A. 이미 OVA 파일이 있는 경우
+`packer/variables.vmware.auto.pkrvars.hcl`에서 아래 항목을 환경에 맞게 수정합니다.
 
-- `k8s-data-platform.ova` 파일을 준비하고 다음 단계로 이동합니다.
+- `iso_url`, `iso_checksum`
+- `vm_name`, `output_directory`
+- `vmware_workstation_path`, `ovftool_path_windows`
 
-### B. 이 repo에서 OVA를 직접 빌드하는 경우
+주의:
+- `output_directory`는 `C:/ffmpeg` 루트 대신 전용 하위 폴더(예: `C:/ffmpeg/output-k8s-data-platform-vmware`)로 지정하는 것을 권장합니다.
+- 기존 출력 폴더가 이미 존재하면 빌드가 실패할 수 있으므로 `--force`로 재실행하거나 폴더를 정리하세요.
+
+### 3-2) VM 빌드 (export 없음)
 
 ```bash
-cp packer/variables.pkr.hcl.example packer/variables.pkr.hcl
+bash scripts/vmware_build_vm.sh --vars-file packer/variables.vmware.auto.pkrvars.hcl
 ```
 
-`packer/variables.pkr.hcl`에 ISO 경로/체크섬 등을 맞춘 뒤:
+### 3-3) VM 부팅 + 기본 검증
 
 ```bash
-bash scripts/run_wsl.sh
+bash scripts/vmware_verify_vm.sh \
+  --vars-file packer/variables.vmware.auto.pkrvars.hcl \
+  --vm-user ubuntu \
+  --vm-password ubuntu \
+  --env dev
+```
+
+### 3-4) VMware VM에서 실습/테스트
+
+- 원하는 시나리오를 VM 내부에서 검증/사용합니다.
+- 폐쇄망 이관용 기준 상태가 되면 다음 단계에서 OVA로 export 합니다.
+
+### 3-5) 최종 OVA export
+
+```bash
+bash scripts/vmware_export_ova.sh \
+  --vars-file packer/variables.vmware.auto.pkrvars.hcl \
+  --dist-dir 'C:\ffmpeg'
 ```
 
 산출물:
-- `C:\ffmpeg\k8s-data-platform.ova`
-- `C:\ffmpeg\packer-cache\*` (Packer cache)
+- `C:\ffmpeg\<vm_name>.ova`
+- `C:\ffmpeg\packer-vmware-build.log`
 
-참고:
-- 현재 Packer 템플릿은 `virtualbox-iso` 빌더를 사용합니다.
-- 즉, **빌드 단계에는 VirtualBox가 필요**할 수 있고, 실행(검증)은 VMware에서 진행할 수 있습니다.
-- OVA 생성 시 저장소는 VM 내부 `/home/ubuntu/Kubernetes-Jupyter-Sandbox`로 복제됩니다.
+### 3-6) 원샷 실행 (빌드 + 검증 + export)
+
+```bash
+bash scripts/build_vmware_ova_and_verify.sh --vars-file packer/variables.vmware.auto.pkrvars.hcl
+```
+
+### 3-7) 원샷 3-node 자동 구성 (control-plane + worker-1 + worker-2)
+
+아래 명령은 control-plane 1대 빌드 후 worker 2대를 clone 하고,
+3대 부팅 + join + overlay 적용까지 자동 수행합니다.
+
+```bash
+bash scripts/vmware_provision_3node.sh --vars-file packer/variables.vmware.auto.pkrvars.hcl
+```
+
+기존 worker clone을 버리고 다시 만들려면:
+
+```bash
+bash scripts/vmware_provision_3node.sh --vars-file packer/variables.vmware.auto.pkrvars.hcl --force-recreate-workers
+```
+
+정적 IP까지 함께 적용하려면:
+
+```bash
+bash scripts/vmware_provision_3node.sh \
+  --vars-file packer/variables.vmware.auto.pkrvars.hcl \
+  --static-network \
+  --control-plane-ip 192.168.56.10 \
+  --worker1-ip 192.168.56.11 \
+  --worker2-ip 192.168.56.12 \
+  --gateway 192.168.56.1
+```
+
+### 3-8) 3대 VM OVA 일괄 export
+
+```bash
+bash scripts/vmware_export_3node_ova.sh --vars-file packer/variables.vmware.auto.pkrvars.hcl --dist-dir 'C:\ffmpeg'
+```
 
 ## 4) VMware로 OVA Import
 
 1. VMware Workstation 실행
-2. `File > Open` 또는 `Import`로 `k8s-data-platform.ova` 선택
+2. `File > Open` 또는 `Import`로 생성된 OVA 파일 선택
 3. 아래와 같은 경고가 나오면 `Retry`를 눌러 import를 다시 진행
    - `The import failed because ... did not pass OVF specification conformance or virtual hardware compliance checks.`
-   - 이 OVA는 VirtualBox 계열 export 결과물이라 VMware가 OVF/가상 하드웨어 호환성 검사를 엄격하게 볼 때 이 경고가 나올 수 있음
-   - 일반적으로 `Retry`를 누르면 검사를 완화하고 계속 import 가능
+   - OVA 메타데이터/하드웨어 호환성 검사 결과에 따라 경고가 나올 수 있음
+   - 일반적으로 `Retry` 후 import가 계속 진행됩니다.
 4. VM 이름/저장 경로 지정
 5. CPU/Memory 조정 (권장: CPU 4+, Memory 16GB+)
 6. Network Adapter를 `Bridged` 권장

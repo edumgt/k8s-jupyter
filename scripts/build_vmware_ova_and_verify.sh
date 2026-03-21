@@ -24,6 +24,7 @@ SKIP_OVA_EXPORT=0
 SKIP_VM_START=0
 SKIP_VERIFY=0
 FORCE_BUILD=0
+VMRUN_UNIX=""
 
 log() {
   printf '[%s] %s\n' "$(basename "$0")" "$*"
@@ -40,9 +41,9 @@ Usage: bash scripts/build_vmware_ova_and_verify.sh [options]
 
 Runs this flow end-to-end:
   1) Packer(vmware-iso) init/validate/build
-  2) OVF Tool export (vmx -> ova)
-  3) vmrun start
-  4) SSH verify for Kubernetes + pods + services
+  2) vmrun start
+  3) SSH verify for Kubernetes + pods + services
+  4) OVF Tool export (vmx -> ova)
 
 Options:
   --vars-file PATH       Override packer var file.
@@ -55,11 +56,11 @@ Options:
   --vm-password PASS     Guest SSH password (defaults from var file ssh_password).
   --ssh-port PORT        Guest SSH port (default: 22).
   --env dev|prod         Verify environment namespace (default: dev).
-  --force                Pass -force to packer build.
+  --force                Pass -force to packer build and clean existing output_directory.
   --skip-packer-build    Skip packer init/validate/build.
-  --skip-ova-export      Skip ovftool export.
   --skip-vm-start        Skip vmrun start.
   --skip-verify          Skip SSH/Kubernetes verification.
+  --skip-ova-export      Skip ovftool export.
   -h, --help             Show this help.
 EOF
 }
@@ -270,6 +271,17 @@ wait_for_vm_ip() {
   return 1
 }
 
+vm_is_running() {
+  local vmx_win="$1"
+  local running
+
+  running="$(
+    ps_capture "\$target='${vmx_win}'; \$items = & '${VMRUN_WIN}' list 2>\$null; if (\$LASTEXITCODE -ne 0) { exit 1 }; \$joined = (\$items -join [Environment]::NewLine).ToLowerInvariant(); if (\$joined.Contains(\$target.ToLowerInvariant())) { '1' } else { '0' }"
+  )" || return 1
+
+  [[ "$(printf '%s' "${running}" | tr -d '[:space:]')" == "1" ]]
+}
+
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --vars-file)
@@ -368,18 +380,20 @@ is_wsl || die "This script must be executed inside WSL."
 
 require_command "${POWERSHELL_BIN}"
 require_command wslpath
-require_command ssh
 if [[ "${SKIP_VERIFY}" -eq 0 ]]; then
+  require_command ssh
   require_command sshpass
 fi
 
 VM_NAME="$(read_packer_var vm_name)"
 OUTPUT_DIR_RAW="$(read_packer_var output_directory)"
-if [[ -z "${VM_USER}" ]]; then
-  VM_USER="$(read_packer_var ssh_username)"
-fi
-if [[ -z "${VM_PASSWORD}" ]]; then
-  VM_PASSWORD="$(read_packer_var ssh_password)"
+if [[ "${SKIP_VERIFY}" -eq 0 ]]; then
+  if [[ -z "${VM_USER}" ]]; then
+    VM_USER="$(read_packer_var ssh_username)"
+  fi
+  if [[ -z "${VM_PASSWORD}" ]]; then
+    VM_PASSWORD="$(read_packer_var ssh_password)"
+  fi
 fi
 
 if is_windows_style_path "${OUTPUT_DIR_RAW}"; then
@@ -404,27 +418,50 @@ VMX_WIN="$(to_windows_path "${VMX_PATH}")"
 DIST_DIR_WIN="$(to_windows_path "${DIST_DIR}")"
 OVA_WIN="$(to_windows_path "${OVA_PATH}")"
 
-resolve_packer_exe
-resolve_ovftool
-VMRUN_UNIX="$(to_unix_path "${VMRUN_WIN}")"
-[[ -f "${VMRUN_UNIX}" ]] || die "vmrun.exe not found: ${VMRUN_WIN}"
+if [[ "${SKIP_PACKER_BUILD}" -eq 0 ]]; then
+  resolve_packer_exe
+fi
+if [[ "${SKIP_OVA_EXPORT}" -eq 0 ]]; then
+  resolve_ovftool
+fi
+if [[ "${SKIP_VM_START}" -eq 0 || "${SKIP_VERIFY}" -eq 0 ]]; then
+  VMRUN_UNIX="$(to_unix_path "${VMRUN_WIN}")"
+  [[ -f "${VMRUN_UNIX}" ]] || die "vmrun.exe not found: ${VMRUN_WIN}"
+fi
+if [[ -z "${VMRUN_UNIX}" ]]; then
+  VMRUN_UNIX="$(to_unix_path "${VMRUN_WIN}" 2>/dev/null || true)"
+  if [[ ! -f "${VMRUN_UNIX}" ]]; then
+    VMRUN_UNIX=""
+  fi
+fi
 
 log "Packer working dir (win): ${PACKER_DIR_WIN}"
 log "Packer template (win): ${PACKER_TEMPLATE_WIN}"
 log "Packer vars (win): ${PACKER_VARS_WIN}"
-log "Packer cache dir (win): ${PACKER_CACHE_DIR_WIN}"
-log "Packer log path (win): ${PACKER_LOG_PATH_WIN}"
-
-PS_PACKER_ENV="\$env:PACKER_CACHE_DIR='${PACKER_CACHE_DIR_WIN}'; \$env:PACKER_LOG='1'; \$env:PACKER_LOG_PATH='${PACKER_LOG_PATH_WIN}';"
-ps_run "New-Item -ItemType Directory -Force -Path '${PACKER_CACHE_DIR_WIN}' | Out-Null; New-Item -ItemType Directory -Force -Path (Split-Path -Parent '${PACKER_LOG_PATH_WIN}') | Out-Null"
-
-if [[ "${FORCE_BUILD}" -eq 1 ]]; then
-  FORCE_FLAG="-force"
-else
-  FORCE_FLAG=""
-fi
 
 if [[ "${SKIP_PACKER_BUILD}" -eq 0 ]]; then
+  if [[ -d "${OUTPUT_DIR_WSL}" ]]; then
+    if [[ "${FORCE_BUILD}" -eq 1 ]]; then
+      if [[ "${OUTPUT_DIR_WSL}" == "/" ]]; then
+        die "Refusing to remove unsafe output directory: ${OUTPUT_DIR_WSL}"
+      fi
+      log "Removing existing packer output directory (--force): ${OUTPUT_DIR_WSL}"
+      ps_run "if (Test-Path -LiteralPath '${OUTPUT_DIR_WIN}') { Remove-Item -LiteralPath '${OUTPUT_DIR_WIN}' -Recurse -Force }"
+    else
+      die "Packer output directory already exists: ${OUTPUT_DIR_WSL}. Remove it or rerun with --force."
+    fi
+  fi
+
+  log "Packer cache dir (win): ${PACKER_CACHE_DIR_WIN}"
+  log "Packer log path (win): ${PACKER_LOG_PATH_WIN}"
+  PS_PACKER_ENV="\$env:PACKER_CACHE_DIR='${PACKER_CACHE_DIR_WIN}'; \$env:PACKER_LOG='1'; \$env:PACKER_LOG_PATH='${PACKER_LOG_PATH_WIN}';"
+  ps_run "New-Item -ItemType Directory -Force -Path '${PACKER_CACHE_DIR_WIN}' | Out-Null; New-Item -ItemType Directory -Force -Path (Split-Path -Parent '${PACKER_LOG_PATH_WIN}') | Out-Null"
+  if [[ "${FORCE_BUILD}" -eq 1 ]]; then
+    FORCE_FLAG="-force"
+  else
+    FORCE_FLAG=""
+  fi
+
   log "Running packer init (vmware plugin)"
   ps_run "${PS_PACKER_ENV} Set-Location -LiteralPath '${PACKER_DIR_WIN}'; & '${PACKER_EXE_WIN}' init '${PACKER_TEMPLATE_WIN}'"
 
@@ -437,15 +474,13 @@ fi
 
 [[ -f "${VMX_PATH}" ]] || die "VMX not found after build: ${VMX_PATH}"
 
-if [[ "${SKIP_OVA_EXPORT}" -eq 0 ]]; then
-  log "Exporting OVA with OVF Tool -> ${OVA_PATH}"
-  ps_run "New-Item -ItemType Directory -Force -Path '${DIST_DIR_WIN}' | Out-Null; Remove-Item -LiteralPath '${OVA_WIN}' -Force -ErrorAction SilentlyContinue; & '${OVFTOOL_WIN}' --acceptAllEulas --skipManifestCheck '${VMX_WIN}' '${OVA_WIN}'"
-  [[ -f "${OVA_PATH}" ]] || die "OVA export failed: ${OVA_PATH}"
-fi
-
 if [[ "${SKIP_VM_START}" -eq 0 ]]; then
-  log "Starting VM with vmrun"
-  ps_run "& '${VMRUN_WIN}' start '${VMX_WIN}' nogui"
+  if vm_is_running "${VMX_WIN}"; then
+    log "VM is already running. Skipping vmrun start."
+  else
+    log "Starting VM with vmrun"
+    ps_run "& '${VMRUN_WIN}' start '${VMX_WIN}' nogui"
+  fi
 fi
 
 if [[ "${SKIP_VERIFY}" -eq 0 ]]; then
@@ -496,6 +531,16 @@ if [[ "${SKIP_VERIFY}" -eq 0 ]]; then
   log "Collecting final Kubernetes status"
   ssh_run "sudo bash /opt/k8s-data-platform/scripts/status_k8s.sh --env '${ENVIRONMENT}'"
   log "Verification completed successfully."
+fi
+
+if [[ "${SKIP_OVA_EXPORT}" -eq 0 ]]; then
+  if [[ -n "${VMRUN_UNIX}" ]] && vm_is_running "${VMX_WIN}"; then
+    log "Stopping running VM before OVA export"
+    ps_run "& '${VMRUN_WIN}' stop '${VMX_WIN}' soft; if (\$LASTEXITCODE -ne 0) { & '${VMRUN_WIN}' stop '${VMX_WIN}' hard }"
+  fi
+  log "Exporting OVA with OVF Tool -> ${OVA_PATH}"
+  ps_run "New-Item -ItemType Directory -Force -Path '${DIST_DIR_WIN}' | Out-Null; Remove-Item -LiteralPath '${OVA_WIN}' -Force -ErrorAction SilentlyContinue; & '${OVFTOOL_WIN}' --acceptAllEulas --skipManifestCheck '${VMX_WIN}' '${OVA_WIN}'"
+  [[ -f "${OVA_PATH}" ]] || die "OVA export failed: ${OVA_PATH}"
 fi
 
 log "Done"

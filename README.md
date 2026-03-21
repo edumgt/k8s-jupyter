@@ -20,6 +20,22 @@
 - 플랫폼 공통 이미지는 `docker.io/edumgt/*` 에서 pull
 - OVA 내부에 Docker Engine, 기본 유틸리티, 플랫폼 이미지, 오프라인 라이브러리 번들 선탑재
 
+## VMware 멀티노드 바로 시작 (첫 실행 스크립트)
+
+control-plane 1대 + worker 2대를 **가장 먼저 자동으로 올릴 때**는 아래 스크립트를 먼저 실행합니다.
+
+```bash
+bash scripts/vmware_provision_3node.sh --vars-file packer/variables.vmware.auto.pkrvars.hcl
+```
+
+권장 순서:
+
+1. `packer/variables.vmware.auto.pkrvars.hcl` 값 확인 (`iso_url`, `vmware_workstation_path`, `ovftool_path_windows`)
+2. `bash scripts/vmware_provision_3node.sh --vars-file packer/variables.vmware.auto.pkrvars.hcl` 실행
+3. 실습/검증 후 `bash scripts/vmware_export_3node_ova.sh --vars-file packer/variables.vmware.auto.pkrvars.hcl --dist-dir 'C:\ffmpeg'` 실행
+
+루트 문서 전체 안내는 [DOCS_MAP.md](DOCS_MAP.md)를 참고하세요.
+
 ## Kubernetes 구조 확인
 
 현재 구조는 Kubernetes 가 맞습니다.
@@ -174,33 +190,102 @@ sequenceDiagram
 
 Harbor 는 플랫폼 공통 이미지 레지스트리가 아니라 `per-user Jupyter snapshot registry` 로만 사용합니다. Docker Hub `edumgt/*` 로 push 한 app/runtime 이미지를 Harbor 에 1:1 동기화하는 구조는 현재 포함되어 있지 않고, 대신 폐쇄망 패키지 저장소는 Nexus 를 추가했습니다.
 
-## 빠른 시작
+## 빠른 시작 (VMware 기반 권장)
 
-### 1. OVA 변수 준비
+### 1. VMware 변수 준비
+
+`packer/variables.vmware.auto.pkrvars.hcl`에서 아래 항목을 환경에 맞게 수정합니다.
+
+- `iso_url`, `iso_checksum`
+- `vm_name`, `output_directory`
+- `vmware_workstation_path`, `ovftool_path_windows`
+
+주의:
+- `output_directory`는 `C:/ffmpeg` 같은 공용 루트가 아니라, 전용 하위 폴더(예: `C:/ffmpeg/output-k8s-data-platform-vmware`)를 사용하세요.
+- 기존 출력 폴더가 이미 있으면 빌드가 실패할 수 있으므로 `--force`로 재실행하거나 폴더를 정리해야 합니다.
+
+### 2. Step 1 - VMware VM 빌드 (export 없음)
 
 ```bash
-cp packer/variables.pkr.hcl.example packer/variables.pkr.hcl
+bash scripts/vmware_build_vm.sh --vars-file packer/variables.vmware.auto.pkrvars.hcl
 ```
 
-### 2. OVA 빌드
+### 3. Step 2 - VM 부팅 + 기본 검증
 
 ```bash
-bash scripts/run_wsl.sh --skip-export
+bash scripts/vmware_verify_vm.sh \
+  --vars-file packer/variables.vmware.auto.pkrvars.hcl \
+  --vm-user ubuntu \
+  --vm-password ubuntu \
+  --env dev
 ```
 
-OVA export 까지 한 번에 진행하려면:
+### 4. Step 3 - VMware VM에서 실습/테스트 진행
+
+- 필요한 기능 검증, 데이터 적재, 사용자 시나리오 테스트를 진행합니다.
+- 폐쇄망에 배포할 최종 상태가 되면 다음 단계에서 OVA로 export 합니다.
+
+### 5. Step 4 - 최종 OVA export
 
 ```bash
-bash scripts/run_wsl.sh
+bash scripts/vmware_export_ova.sh \
+  --vars-file packer/variables.vmware.auto.pkrvars.hcl \
+  --dist-dir 'C:\ffmpeg'
 ```
 
-### 2-1. Packer 실행 환경 정리 (WSL 기준)
+산출물:
 
-- `scripts/run_wsl.sh`, `scripts/build_packer_artifacts.sh` 는 WSL에서 실행하도록 작성되어 있습니다.
-- `packer`는 WSL native 설치본 또는 `packer.exe`(Windows 설치본) 둘 다 사용 가능합니다.
-- OVA export는 Windows VirtualBox(`VBoxManage.exe`) 또는 OVF Tool을 WSL에서 호출하는 구조입니다.
+- `C:\ffmpeg\<vm_name>.ova`
 
-### 2-2. OVA/ISO/qcow2/AMI용 파일을 `C:\ffmpeg`에 일괄 생성 (기존 파일 덮어쓰기)
+### 6. 한 번에 실행 (빌드 + 검증 + export)
+
+```bash
+bash scripts/build_vmware_ova_and_verify.sh --vars-file packer/variables.vmware.auto.pkrvars.hcl
+```
+
+### 7. 원샷 3-node 자동 프로비저닝 (control-plane + worker-1 + worker-2)
+
+아래 명령은 **control-plane 1대 빌드 + worker 2대 clone + 3대 부팅 + kubeadm join + dev-3node overlay**를 순차 실행합니다.
+
+```bash
+bash scripts/vmware_provision_3node.sh --vars-file packer/variables.vmware.auto.pkrvars.hcl
+```
+
+기존 worker clone을 지우고 새로 만들려면:
+
+```bash
+bash scripts/vmware_provision_3node.sh --vars-file packer/variables.vmware.auto.pkrvars.hcl --force-recreate-workers
+```
+
+정적 IP까지 자동 적용하려면:
+
+```bash
+bash scripts/vmware_provision_3node.sh \
+  --vars-file packer/variables.vmware.auto.pkrvars.hcl \
+  --static-network \
+  --control-plane-ip 192.168.56.10 \
+  --worker1-ip 192.168.56.11 \
+  --worker2-ip 192.168.56.12 \
+  --gateway 192.168.56.1
+```
+
+3대 VM 사용/검증이 끝난 뒤 OVA 3개를 일괄 export하려면:
+
+```bash
+bash scripts/vmware_export_3node_ova.sh --vars-file packer/variables.vmware.auto.pkrvars.hcl --dist-dir 'C:\ffmpeg'
+```
+
+### VMware 실행 환경 정리 (WSL 기준)
+
+- `scripts/vmware_build_vm.sh`, `scripts/vmware_verify_vm.sh`, `scripts/vmware_export_ova.sh`는 WSL에서 실행하도록 작성되어 있습니다.
+- `scripts/vmware_provision_3node.sh`는 3-node(control-plane/worker1/worker2) 원샷 자동화를 제공합니다.
+- `scripts/vmware_export_3node_ova.sh`는 3대 VM OVA 일괄 export를 제공합니다.
+- 내부적으로 `scripts/build_vmware_ova_and_verify.sh`를 호출합니다.
+- `packer.exe`, `vmrun.exe`, `ovftool.exe`를 Windows 경로로 호출하는 구조입니다.
+
+### 부가 산출물(OVA/ISO/qcow2/AMI) 일괄 생성
+
+이 경로는 VMware 단계형 워크플로우와 별개로, 다중 산출물 생성이 필요한 경우 사용합니다.
 
 ```bash
 bash scripts/build_packer_artifacts.sh --output-win-dir 'C:\ffmpeg'
@@ -761,9 +846,9 @@ bash scripts/import_offline_bundle.sh --bundle-dir dist/offline-bundle --apply -
 flowchart LR
   DEV["Dev/Build PC (Internet)"]
   REPO["Git Repository"]
-  PACKER["scripts/run_wsl.sh"]
+  PACKER["scripts/vmware_build_vm.sh + vmware_export_ova.sh"]
   DOCKERHUB["docker.io/edumgt/*"]
-  OVA["C:/ffmpeg/k8s-data-platform.ova"]
+  OVA["C:/ffmpeg/k8s-data-platform-vmware.ova"]
   BUNDLE["dist/offline-bundle"]
   HYP["VirtualBox / VMware"]
   VM["Imported OVA VM"]
@@ -785,9 +870,11 @@ flowchart LR
 ```mermaid
 flowchart TD
   S["Start"] --> C1["Repo clone / pull"]
-  C1 --> C2["Packer vars 준비<br/>packer/variables.pkr.hcl"]
-  C2 --> C3["bash scripts/run_wsl.sh<br/>(init/validate/build/export)"]
-  C3 --> C4["bash scripts/build_k8s_images.sh<br/>--namespace edumgt --tag <tag>"]
+  C1 --> C2["Packer vars 준비<br/>packer/variables.vmware.auto.pkrvars.hcl"]
+  C2 --> C3["bash scripts/vmware_build_vm.sh<br/>(init/validate/build)"]
+  C3 --> C3A["bash scripts/vmware_verify_vm.sh<br/>(vmrun start + verify)"]
+  C3A --> C3B["VMware 내 실습/테스트 완료 후<br/>bash scripts/vmware_export_ova.sh"]
+  C3B --> C4["bash scripts/build_k8s_images.sh<br/>--namespace edumgt --tag <tag>"]
   C4 --> C5["bash scripts/prepare_offline_bundle.sh<br/>--out-dir dist/offline-bundle"]
   C5 --> C6["OVA + offline-bundle 산출물 전달"]
   C6 --> E["End"]
@@ -805,9 +892,12 @@ sequenceDiagram
   participant Dist as dist/*
 
   Dev->>Git: clone / pull latest
-  Dev->>Build: run_wsl.sh 실행
-  Build->>Packer: init + validate + build
-  Packer-->>Dist: k8s-data-platform.ova
+  Dev->>Build: vmware_build_vm.sh 실행
+  Build->>Packer: init + validate + build (vmware-iso)
+  Dev->>Build: vmware_verify_vm.sh 실행
+  Build->>Packer: vmrun start + SSH verify
+  Dev->>Build: 실습/테스트 후 vmware_export_ova.sh 실행
+  Packer-->>Dist: k8s-data-platform-vmware.ova
   Dev->>Build: build_k8s_images.sh 실행
   Build->>Hub: (선택) push app/runtime images
   Dev->>Build: prepare_offline_bundle.sh 실행
@@ -1115,21 +1205,21 @@ False
 
 아래 조건이 갖춰지면 실제 OVA 증빙을 이어서 수행할 수 있습니다.
 
-1. Windows 또는 WSL 에 `packer` 설치
-2. `packer/variables.auto.pkrvars.hcl` 에 지정된 Ubuntu 24 ISO 준비
-3. `bash scripts/run_wsl.sh --exporter vboxmanage` 실행
-4. 생성된 OVA 를 VirtualBox 에 import
-5. VM 부팅 후 로그인
-6. `kubectl get nodes`, `kubectl get pods -A`, `kubectl get svc -A` 실행
-7. 화면 캡처 후 본 섹션에 첨부
+1. Windows + WSL 환경에 `packer.exe`, `vmrun.exe`, `ovftool.exe` 준비
+2. `packer/variables.vmware.auto.pkrvars.hcl` 에 Ubuntu 24 ISO/경로 값 반영
+3. `bash scripts/vmware_build_vm.sh --vars-file packer/variables.vmware.auto.pkrvars.hcl` 실행
+4. `bash scripts/vmware_verify_vm.sh --vars-file packer/variables.vmware.auto.pkrvars.hcl --vm-user ubuntu --vm-password ubuntu --env dev` 실행
+5. VMware VM에서 기능 테스트/실습 완료
+6. `bash scripts/vmware_export_ova.sh --vars-file packer/variables.vmware.auto.pkrvars.hcl --dist-dir 'C:\ffmpeg'` 실행
+7. 생성된 OVA를 폐쇄망으로 이관 후 import/부팅 검증
 
 ### 검증 완료 후 추가할 증빙 예시
 
 아래 블록은 실제 검증 완료 후 채워 넣기 위한 템플릿입니다.
 
-#### 1. VirtualBox Import 화면
+#### 1. VMware Import 화면
 
-![virtualbox import](docs/screenshots/ova-virtualbox-import.png)
+![vmware import](docs/screenshots/ova-virtualbox-import.png)
 
 #### 2. VM 부팅 후 로그인 화면
 
@@ -1157,7 +1247,7 @@ False
 
 ```text
 - OVA 생성 완료
-- VirtualBox import 완료
+- VMware import 완료
 - Ubuntu 24 VM 부팅 완료
 - Kubernetes single-node Ready 확인
 - 주요 Pod Running 확인
