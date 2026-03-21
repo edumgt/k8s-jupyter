@@ -389,11 +389,33 @@ validate_cluster_state() {
 
 verify_http_endpoints() {
   local host="$1"
+  local verify_script
+  local verify_help
+
   if ! RESOLVED_INGRESS_LB_IP="$(resolve_ingress_lb_ip "${host}")"; then
     die "Unable to resolve ingress-nginx external IP. Use --ingress-lb-ip."
   fi
   log "Resolved ingress LB IP: ${RESOLVED_INGRESS_LB_IP}"
-  ssh_run_sudo "${host}" "bash '${REMOTE_REPO_ROOT}/scripts/verify.sh' --env '${ENVIRONMENT}' --http-mode ingress --lb-ip '${RESOLVED_INGRESS_LB_IP}'"
+
+  verify_script="${REMOTE_REPO_ROOT}/scripts/verify.sh"
+  verify_help="$(
+    ssh_capture_sudo "${host}" "bash '${verify_script}' --help 2>&1 || true" || true
+  )"
+
+  if printf '%s' "${verify_help}" | grep -q -- '--http-mode'; then
+    ssh_run_sudo "${host}" "bash '${verify_script}' --env '${ENVIRONMENT}' --http-mode ingress --lb-ip '${RESOLVED_INGRESS_LB_IP}'"
+    return 0
+  fi
+
+  log "Remote verify.sh is legacy (no --http-mode). Running NodePort checks + ingress curl fallback."
+  ssh_run_sudo "${host}" "bash '${verify_script}' --env '${ENVIRONMENT}' --skip-http"
+  ssh_run_sudo "${host}" "set -euo pipefail; \
+    curl -fsS -H 'Host: platform.local' 'http://${RESOLVED_INGRESS_LB_IP}/' >/dev/null; \
+    curl -fsS -H 'Host: platform.local' 'http://${RESOLVED_INGRESS_LB_IP}/docs' >/dev/null; \
+    curl -fsS -H 'Host: jupyter.platform.local' 'http://${RESOLVED_INGRESS_LB_IP}/lab' >/dev/null; \
+    curl -fsS -H 'Host: gitlab.platform.local' 'http://${RESOLVED_INGRESS_LB_IP}/users/sign_in' >/dev/null; \
+    curl -fsS -H 'Host: airflow.platform.local' 'http://${RESOLVED_INGRESS_LB_IP}/' >/dev/null; \
+    curl -fsS -H 'Host: nexus.platform.local' 'http://${RESOLVED_INGRESS_LB_IP}/' >/dev/null"
 }
 
 check_harbor_endpoint() {
