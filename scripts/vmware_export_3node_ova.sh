@@ -61,22 +61,76 @@ to_unix_path() {
   printf '%s' "${path}"
 }
 
-write_vm_name_vars_file() {
+read_optional_packer_var() {
+  local vars_file="$1"
+  local key="$2"
+  local raw_value
+
+  raw_value="$(
+    awk -F '=' -v key="${key}" '
+      $1 ~ "^[[:space:]]*" key "[[:space:]]*$" {
+        sub(/^[^=]*=/, "", $0)
+        gsub(/^[[:space:]]+|[[:space:]]+$/, "", $0)
+        gsub(/^"|"$/, "", $0)
+        print $0
+        exit
+      }
+    ' "${vars_file}"
+  )"
+  printf '%s' "${raw_value}"
+}
+
+read_packer_var() {
+  local vars_file="$1"
+  local key="$2"
+  local value
+  value="$(read_optional_packer_var "${vars_file}" "${key}")"
+  [[ -n "${value}" ]] || die "Required setting not found in ${vars_file}: ${key}"
+  printf '%s' "${value}"
+}
+
+resolve_output_dir_unix() {
+  local output_dir_raw="$1"
+  if is_windows_style_path "${output_dir_raw}"; then
+    to_unix_path "${output_dir_raw}"
+    return 0
+  fi
+  if [[ "${output_dir_raw}" = /* ]]; then
+    printf '%s' "${output_dir_raw}"
+    return 0
+  fi
+  printf '%s' "${PACKER_DIR}/${output_dir_raw}"
+}
+
+write_export_vars_file() {
   local base_file="$1"
   local out_file="$2"
   local vm_name="$3"
+  local output_directory_override="$4"
 
-  awk -v vm_name="${vm_name}" '
-    BEGIN { replaced=0 }
+  awk -v vm_name="${vm_name}" -v output_dir="${output_directory_override}" '
+    BEGIN { replaced_vm_name=0; replaced_output_dir=0 }
     /^[[:space:]]*vm_name[[:space:]]*=/ {
       print "vm_name                   = \"" vm_name "\""
-      replaced=1
+      replaced_vm_name=1
+      next
+    }
+    /^[[:space:]]*output_directory[[:space:]]*=/ {
+      if (output_dir != "") {
+        print "output_directory          = \"" output_dir "\""
+        replaced_output_dir=1
+        next
+      }
+      print
       next
     }
     { print }
     END {
-      if (!replaced) {
+      if (!replaced_vm_name) {
         print "vm_name = \"" vm_name "\""
+      }
+      if (output_dir != "" && !replaced_output_dir) {
+        print "output_directory = \"" output_dir "\""
       }
     }
   ' "${base_file}" > "${out_file}"
@@ -160,9 +214,31 @@ trap cleanup EXIT
 export_one() {
   local vm_name="$1"
   local vars_file="${RUNTIME_DIR}/${vm_name}.auto.pkrvars.hcl"
+  local base_output_dir_raw
+  local base_output_dir_unix
+  local vmx_root
+  local vmx_subdir
+  local output_dir_override=""
+  local output_dir_trimmed
   local cmd
 
-  write_vm_name_vars_file "${PACKER_VARS}" "${vars_file}" "${vm_name}"
+  base_output_dir_raw="$(read_packer_var "${PACKER_VARS}" output_directory)"
+  base_output_dir_unix="$(resolve_output_dir_unix "${base_output_dir_raw}")"
+  vmx_root="${base_output_dir_unix}/${vm_name}.vmx"
+  vmx_subdir="${base_output_dir_unix}/${vm_name}/${vm_name}.vmx"
+
+  if [[ -f "${vmx_subdir}" ]]; then
+    output_dir_trimmed="${base_output_dir_raw%/}"
+    output_dir_trimmed="${output_dir_trimmed%\\}"
+    output_dir_override="${output_dir_trimmed}/${vm_name}"
+    log "Using worker VMX subdir layout for ${vm_name}: output_directory=${output_dir_override}"
+  elif [[ -f "${vmx_root}" ]]; then
+    :
+  else
+    die "VMX not found for ${vm_name}. Checked: ${vmx_root} and ${vmx_subdir}"
+  fi
+
+  write_export_vars_file "${PACKER_VARS}" "${vars_file}" "${vm_name}" "${output_dir_override}"
 
   cmd=(bash "${ROOT_DIR}/scripts/vmware_export_ova.sh" --vars-file "${vars_file}" --template "${PACKER_TEMPLATE}")
   if [[ -n "${DIST_DIR}" ]]; then
