@@ -84,14 +84,48 @@ bash ./start.sh \
   --ingress-lb-ip 192.168.56.240
 ```
 
+폐쇄망 또는 외부 registry 접근이 불안정한 환경에서는, 먼저 오프라인 이미지 번들을 control-plane VM에 preload 한 뒤 `start.sh`를 실행하는 것을 권장합니다.
+
+```bash
+bash scripts/preload_offline_bundle_to_vm.sh \
+  --control-plane-ip 192.168.56.10 \
+  --env dev
+```
+
+`init.sh`로 운영 흐름을 묶어서 실행하려면:
+
+```bash
+bash ./init.sh --preload-offline-bundle --preload-skip-build
+```
+
+이미지 preload 이후 클러스터 재구성까지 이어서 하려면:
+
+```bash
+bash ./init.sh --preload-offline-bundle --preload-skip-build --run-start -- --skip-export
+```
+
+오프라인 준비 상태를 점검하려면:
+
+```bash
+bash scripts/check_offline_readiness.sh
+```
+
+이 스크립트는 아래를 확인합니다.
+
+- repo/bundle 내부 Flannel, ingress-nginx, MetalLB 매니페스트 존재 여부
+- containerd 에 핵심 `docker.io/edumgt/*` 이미지가 preload 되어 있는지
+- 현재 클러스터에 `ErrImagePull` / `ImagePullBackOff`가 남아 있는지
+
 권장 순서:
 
 1. `packer/variables.vmware.auto.pkrvars.hcl` 값 확인 (`iso_url`, `vmware_workstation_path`, `ovftool_path_windows`)
-2. `bash ./start.sh ... --metallb-range ... --ingress-lb-ip ...` 실행
-3. hosts 파일 등록 (예: `192.168.56.240 platform.local jupyter.platform.local gitlab.platform.local airflow.platform.local nexus.platform.local`)
-4. URL 접속 점검: `start.sh` 내부 `verify.sh` 결과 확인
-5. PC 재기동 후 수동 Power On 시 `bash scripts/vmware_post_reboot_verify.sh ...` 실행
-6. 체크리스트 기반 마감: [CHECKLIST.md](CHECKLIST.md), [TODO.md](TODO.md)
+2. VMware Host-only 네트워크/Windows 어댑터/WSL route를 `192.168.56.0/24` 기준으로 정리
+3. 폐쇄망 대비가 필요하면 `bash scripts/preload_offline_bundle_to_vm.sh --control-plane-ip 192.168.56.10 --env dev` 실행
+4. `bash ./start.sh ... --metallb-range ... --ingress-lb-ip ...` 실행
+5. hosts 파일 등록 (예: `192.168.56.240 platform.local jupyter.platform.local gitlab.platform.local airflow.platform.local nexus.platform.local`)
+6. URL 접속 점검: `start.sh` 내부 `verify.sh` 결과 확인
+7. PC 재기동 후 수동 Power On 시 `bash scripts/vmware_post_reboot_verify.sh ...` 실행
+8. 체크리스트 기반 마감: [CHECKLIST.md](CHECKLIST.md), [TODO.md](TODO.md)
 
 루트 문서 전체 안내는 [DOCS_MAP.md](DOCS_MAP.md)를 참고하세요.
 

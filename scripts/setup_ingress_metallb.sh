@@ -3,9 +3,12 @@ set -euo pipefail
 
 METALLB_VERSION="${METALLB_VERSION:-v0.14.8}"
 INGRESS_NGINX_VERSION="${INGRESS_NGINX_VERSION:-controller-v1.12.2}"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+LOCAL_MANIFEST_DIR_DEFAULT="${SCRIPT_DIR%/scripts}/offline/manifests"
+REMOTE_BUNDLE_MANIFEST_DIR="/opt/k8s-data-platform/offline-bundle/k8s/manifests"
 
-METALLB_MANIFEST="${METALLB_MANIFEST:-https://raw.githubusercontent.com/metallb/metallb/${METALLB_VERSION}/config/manifests/metallb-native.yaml}"
-INGRESS_MANIFEST="${INGRESS_MANIFEST:-https://raw.githubusercontent.com/kubernetes/ingress-nginx/${INGRESS_NGINX_VERSION}/deploy/static/provider/cloud/deploy.yaml}"
+METALLB_MANIFEST="${METALLB_MANIFEST:-}"
+INGRESS_MANIFEST="${INGRESS_MANIFEST:-}"
 
 METALLB_NAMESPACE="metallb-system"
 INGRESS_NAMESPACE="ingress-nginx"
@@ -48,6 +51,23 @@ log() {
 die() {
   printf '%s\n' "$*" >&2
   exit 1
+}
+
+resolve_default_manifest_path() {
+  local local_name="$1"
+  local remote_url="$2"
+
+  if [[ -f "${REMOTE_BUNDLE_MANIFEST_DIR}/${local_name}" ]]; then
+    printf '%s' "${REMOTE_BUNDLE_MANIFEST_DIR}/${local_name}"
+    return 0
+  fi
+
+  if [[ -f "${LOCAL_MANIFEST_DIR_DEFAULT}/${local_name}" ]]; then
+    printf '%s' "${LOCAL_MANIFEST_DIR_DEFAULT}/${local_name}"
+    return 0
+  fi
+
+  printf '%s' "${remote_url}"
 }
 
 require_command() {
@@ -156,19 +176,26 @@ done
 
 require_command kubectl
 
+if [[ -z "${METALLB_MANIFEST}" ]]; then
+  METALLB_MANIFEST="$(resolve_default_manifest_path "metallb-native.yaml" "https://raw.githubusercontent.com/metallb/metallb/${METALLB_VERSION}/config/manifests/metallb-native.yaml")"
+fi
+if [[ -z "${INGRESS_MANIFEST}" ]]; then
+  INGRESS_MANIFEST="$(resolve_default_manifest_path "ingress-nginx.yaml" "https://raw.githubusercontent.com/kubernetes/ingress-nginx/${INGRESS_NGINX_VERSION}/deploy/static/provider/cloud/deploy.yaml")"
+fi
+
 if [[ "${SKIP_POOL_APPLY}" -eq 0 && -z "${METALLB_RANGE}" ]]; then
   die "--metallb-range is required unless --skip-pool-apply is used."
 fi
 
 if [[ "${SKIP_INGRESS_INSTALL}" -eq 0 ]]; then
-  log "Applying ingress-nginx manifest"
+  log "Applying ingress-nginx manifest (${INGRESS_MANIFEST})"
   run_kubectl apply -f "${INGRESS_MANIFEST}"
   log "Waiting for ingress-nginx controller rollout"
   wait_rollout "${INGRESS_NAMESPACE}" deployment/ingress-nginx-controller
 fi
 
 if [[ "${SKIP_METALLB_INSTALL}" -eq 0 ]]; then
-  log "Applying MetalLB manifest"
+  log "Applying MetalLB manifest (${METALLB_MANIFEST})"
   run_kubectl apply -f "${METALLB_MANIFEST}"
   log "Waiting for MetalLB controller rollout"
   wait_rollout "${METALLB_NAMESPACE}" deployment/controller

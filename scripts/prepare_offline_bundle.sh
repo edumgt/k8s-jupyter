@@ -98,10 +98,13 @@ copy_k8s_assets() {
   local script_name
   local doc_name
 
-  run_cmd mkdir -p "${bundle_k8s_dir}" "${bundle_k8s_dir}/infra" "${bundle_k8s_dir}/scripts" "${bundle_k8s_dir}/scripts/lib" "${bundle_k8s_dir}/scripts/offline" "${bundle_k8s_dir}/docs"
+  run_cmd mkdir -p "${bundle_k8s_dir}" "${bundle_k8s_dir}/infra" "${bundle_k8s_dir}/scripts" "${bundle_k8s_dir}/scripts/lib" "${bundle_k8s_dir}/scripts/offline" "${bundle_k8s_dir}/docs" "${bundle_k8s_dir}/manifests"
   run_cmd cp -R "${ROOT_DIR}/infra/k8s" "${bundle_k8s_dir}/infra/"
+  if [[ -d "${ROOT_DIR}/offline/manifests" ]]; then
+    run_cmd cp "${ROOT_DIR}/offline/manifests/"* "${bundle_k8s_dir}/manifests/"
+  fi
 
-  for script_name in apply_k8s.sh reset_k8s.sh status_k8s.sh healthcheck.sh verify.sh verify_nexus_dependencies.sh import_offline_bundle.sh apply_offline_suite.sh audit_registry_scope.sh bootstrap_nexus_repos.sh prime_nexus_caches.sh setup_nexus_offline.sh frontend_dev_setup.sh run_frontend_dev.sh run_frontend_build.sh generate_join_command.sh join_worker_node.sh configure_multinode_cluster.sh setup_ingress_metallb.sh fix_kubelet_network_timeouts.sh; do
+  for script_name in apply_k8s.sh reset_k8s.sh status_k8s.sh healthcheck.sh verify.sh verify_nexus_dependencies.sh import_offline_bundle.sh apply_offline_suite.sh audit_registry_scope.sh bootstrap_nexus_repos.sh prime_nexus_caches.sh setup_nexus_offline.sh frontend_dev_setup.sh run_frontend_dev.sh run_frontend_build.sh generate_join_command.sh join_worker_node.sh configure_multinode_cluster.sh setup_ingress_metallb.sh fix_kubelet_network_timeouts.sh check_offline_readiness.sh; do
     run_cmd cp "${ROOT_DIR}/scripts/${script_name}" "${bundle_k8s_dir}/scripts/${script_name}"
   done
   run_cmd cp "${ROOT_DIR}/scripts/offline/python-dev-seed.txt" "${bundle_k8s_dir}/scripts/offline/python-dev-seed.txt"
@@ -129,7 +132,9 @@ copy_k8s_assets() {
 - \`../images\`: Docker load / Kubernetes container runtime import 용 OCI tar archive
 - \`./infra/k8s\`: dev/prod overlay 와 runner overlay 를 포함한 Kubernetes manifests
 - \`./scripts/import_offline_bundle.sh\`: 이미지 import 와 overlay apply helper
+- \`./manifests\`: Flannel / ingress-nginx / MetalLB 로컬 매니페스트
 - \`./scripts/setup_nexus_offline.sh\`: Nexus repo/bootstrap + Python/npm cache warm-up
+- \`./scripts/check_offline_readiness.sh\`: 오프라인 준비 상태 점검
 - \`./scripts/frontend_dev_setup.sh\`: Nexus/offline npm cache 기반 frontend 의존성 설치
 - \`./scripts/verify_nexus_dependencies.sh\`: Nexus(PyPI/npm) 의존성 접근 검증
 - \`./scripts/run_frontend_dev.sh\`: Vite 개발 서버 실행
