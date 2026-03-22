@@ -54,6 +54,21 @@ check_k8s() {
   else
     log "No current ImagePullBackOff/ErrImagePull pods detected"
   fi
+
+  if sudo env KUBECONFIG=/etc/kubernetes/admin.conf kubectl get svc -n ingress-nginx ingress-nginx-controller >/dev/null 2>&1; then
+    local ingress_ip
+    ingress_ip="$(
+      sudo env KUBECONFIG=/etc/kubernetes/admin.conf kubectl get svc -n ingress-nginx ingress-nginx-controller \
+        -o jsonpath='{.status.loadBalancer.ingress[0].ip}' 2>/dev/null || true
+    )"
+    if [[ -n "${ingress_ip}" ]]; then
+      log "Ingress LoadBalancer IP assigned -> ${ingress_ip}"
+    else
+      warn "Ingress LoadBalancer IP is still pending"
+    fi
+  else
+    warn "ingress-nginx-controller service not found"
+  fi
 }
 
 main() {
@@ -70,6 +85,12 @@ main() {
   fi
 
   if command -v ctr >/dev/null 2>&1; then
+    check_image_ref "docker.io/edumgt/platform-flannel:v0.28.1"
+    check_image_ref "docker.io/edumgt/platform-flannel-cni-plugin:v1.9.0-flannel1"
+    check_image_ref "docker.io/edumgt/platform-metallb-controller:v0.14.8"
+    check_image_ref "docker.io/edumgt/platform-metallb-speaker:v0.14.8"
+    check_image_ref "docker.io/edumgt/platform-ingress-nginx-controller:v1.12.2"
+    check_image_ref "docker.io/edumgt/platform-ingress-nginx-kube-webhook-certgen:v1.5.3"
     check_image_ref "docker.io/edumgt/platform-gitlab-ce:17.10.0-ce.0"
     check_image_ref "docker.io/edumgt/platform-nexus3:3.90.1-alpine"
     check_image_ref "docker.io/edumgt/k8s-data-platform-backend:latest"

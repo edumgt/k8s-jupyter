@@ -167,6 +167,12 @@ SUPPORT_IMAGES=(
   "bash:5.2|docker.io/${IMAGE_NAMESPACE}/platform-bash:5.2"
   "alpine:3.20|docker.io/${IMAGE_NAMESPACE}/platform-alpine:3.20"
   "busybox:1.36|docker.io/${IMAGE_NAMESPACE}/platform-busybox:1.36"
+  "ghcr.io/flannel-io/flannel:v0.28.1|docker.io/${IMAGE_NAMESPACE}/platform-flannel:v0.28.1"
+  "ghcr.io/flannel-io/flannel-cni-plugin:v1.9.0-flannel1|docker.io/${IMAGE_NAMESPACE}/platform-flannel-cni-plugin:v1.9.0-flannel1"
+  "quay.io/metallb/controller:v0.14.8|docker.io/${IMAGE_NAMESPACE}/platform-metallb-controller:v0.14.8"
+  "quay.io/metallb/speaker:v0.14.8|docker.io/${IMAGE_NAMESPACE}/platform-metallb-speaker:v0.14.8"
+  "registry.k8s.io/ingress-nginx/controller:v1.12.2|docker.io/${IMAGE_NAMESPACE}/platform-ingress-nginx-controller:v1.12.2"
+  "registry.k8s.io/ingress-nginx/kube-webhook-certgen:v1.5.3|docker.io/${IMAGE_NAMESPACE}/platform-ingress-nginx-kube-webhook-certgen:v1.5.3"
 )
 
 PLATFORM_IMAGES=(

@@ -7,6 +7,7 @@ const backendUrl = (process.env.BACKEND_URL ?? "http://127.0.0.1:30081").replace
 const airflowUrl = (process.env.AIRFLOW_URL ?? "http://127.0.0.1:30090").replace(/\/$/, "");
 const jupyterUrl = (process.env.JUPYTER_URL ?? "http://127.0.0.1:30088").replace(/\/$/, "");
 const gitlabUrl = (process.env.GITLAB_URL ?? "http://127.0.0.1:30089").replace(/\/$/, "");
+const nexusUrl = (process.env.NEXUS_URL ?? "http://127.0.0.1:30091").replace(/\/$/, "");
 const gitlabUsername = process.env.GITLAB_USERNAME ?? "root";
 const gitlabPassword =
   process.env.GITLAB_PASSWORD ?? process.env.GITLAB_ROOT_PASSWORD ?? "CHANGE_ME";
@@ -20,16 +21,19 @@ const frontendGitFlowFile =
   process.env.FRONTEND_GIT_FLOW_FILE ?? "/workspace/dist/gitlab-demo/captures/frontend-git-flow.txt";
 const test1LabUrl = process.env.TEST1_LAB_URL ?? "";
 const browserExecutablePath = process.env.PLAYWRIGHT_EXECUTABLE_PATH ?? "";
+const nexusUsername = process.env.NEXUS_USERNAME ?? "admin";
+const nexusPassword = process.env.NEXUS_PASSWORD ?? "nexus123!";
 const test1Username = process.env.TEST1_USERNAME ?? "test1@test.com";
 const test1Password = process.env.TEST1_PASSWORD ?? "123456";
 const adminUsername = process.env.ADMIN_USERNAME ?? process.env.CONTROL_PLANE_USERNAME ?? "admin@test.com";
 const adminPassword = process.env.ADMIN_PASSWORD ?? process.env.CONTROL_PLANE_PASSWORD ?? "123456";
 const browserCdpUrl = process.env.BROWSER_CDP_URL ?? "";
+const screenshotSuffix = (process.env.SCREENSHOT_SUFFIX ?? "").trim();
 
 const targetSet = new Set(
   (
     process.env.CAPTURE_TARGETS ??
-    "frontend,backend,airflow,jupyter,gitlab,jwt-login-modal,user-usage-history,admin-ag-grid-users,control-plane-login,control-plane-nodes,control-plane-pods,user-jupyter-hello,admin-active-users,gitlab-backend-repo,gitlab-frontend-repo,backend-git-flow,frontend-git-flow"
+    "frontend,backend,airflow,jupyter,gitlab,nexus,jwt-login-modal,user-usage-history,admin-ag-grid-users,control-plane-login,control-plane-nodes,control-plane-pods,user-jupyter-hello,admin-active-users,gitlab-backend-repo,gitlab-frontend-repo,backend-git-flow,frontend-git-flow"
   )
     .split(",")
     .map((value) => value.trim().toLowerCase())
@@ -61,6 +65,18 @@ async function waitForHttp(url, { timeoutMs = 300000, intervalMs = 5000 } = {}) 
   }
 
   throw new Error(`Timed out waiting for ${url}`);
+}
+
+function outputPath(name) {
+  if (!screenshotSuffix) {
+    return `${outputDir}/${name}`;
+  }
+
+  const lastDot = name.lastIndexOf(".");
+  if (lastDot === -1) {
+    return `${outputDir}/${name}-${screenshotSuffix}`;
+  }
+  return `${outputDir}/${name.slice(0, lastDot)}-${screenshotSuffix}${name.slice(lastDot)}`;
 }
 
 function withHash(url, hash = "") {
@@ -100,7 +116,7 @@ async function captureFrontend(browser) {
   await waitForHttp(frontendUrl, { timeoutMs: 180000 });
   const page = await createPage(browser, 1300);
   await page.goto(withHash(frontendUrl), { waitUntil: "networkidle", timeout: 180000 });
-  await page.screenshot({ path: `${outputDir}/frontend-dashboard.png`, fullPage: true });
+  await page.screenshot({ path: outputPath("frontend-dashboard.png"), fullPage: true });
   await page.close();
 }
 
@@ -109,7 +125,7 @@ async function captureJwtLoginModal(browser) {
   const page = await createPage(browser, 1200);
   await page.goto(withHash(frontendUrl), { waitUntil: "networkidle", timeout: 180000 });
   await page.getByText("JWT Login").waitFor({ timeout: 180000 });
-  await page.screenshot({ path: `${outputDir}/frontend-jwt-login-modal.png`, fullPage: true });
+  await page.screenshot({ path: outputPath("frontend-jwt-login-modal.png"), fullPage: true });
   await page.close();
 }
 
@@ -118,7 +134,7 @@ async function captureBackend(browser) {
   await waitForHttp(docsUrl, { timeoutMs: 180000 });
   const page = await createPage(browser, 1024);
   await page.goto(docsUrl, { waitUntil: "networkidle", timeout: 180000 });
-  await page.screenshot({ path: `${outputDir}/backend-openapi.png`, fullPage: true });
+  await page.screenshot({ path: outputPath("backend-openapi.png"), fullPage: true });
   await page.close();
 }
 
@@ -131,7 +147,7 @@ async function captureAirflow(browser) {
   await page.getByLabel("Password").fill("admin12345!");
   await page.getByRole("button", { name: /sign in/i }).click();
   await page.waitForLoadState("networkidle", { timeout: 240000 });
-  await page.screenshot({ path: `${outputDir}/airflow-home.png`, fullPage: true });
+  await page.screenshot({ path: outputPath("airflow-home.png"), fullPage: true });
   await page.close();
 }
 
@@ -144,7 +160,7 @@ async function captureJupyter(browser) {
   await page.getByRole("button", { name: /log in/i }).click();
   await page.waitForURL(/lab/, { timeout: 240000 });
   await page.waitForLoadState("networkidle", { timeout: 240000 }).catch(() => {});
-  await page.screenshot({ path: `${outputDir}/jupyter-lab.png`, fullPage: true });
+  await page.screenshot({ path: outputPath("jupyter-lab.png"), fullPage: true });
   await page.close();
 }
 
@@ -153,7 +169,28 @@ async function captureGitLab(browser) {
   await waitForHttp(loginUrl, { timeoutMs: 600000 });
   const page = await createPage(browser, 1024);
   await loginGitLab(page, gitlabUsername, gitlabPassword);
-  await page.screenshot({ path: `${outputDir}/gitlab-dashboard.png`, fullPage: true });
+  await page.screenshot({ path: outputPath("gitlab-dashboard.png"), fullPage: true });
+  await page.close();
+}
+
+async function captureNexus(browser) {
+  await waitForHttp(nexusUrl, { timeoutMs: 600000 });
+  const page = await createPage(browser, 1100);
+  await page.goto(nexusUrl, { waitUntil: "domcontentloaded", timeout: 480000 });
+  await page.waitForLoadState("networkidle", { timeout: 480000 }).catch(() => {});
+
+  const usernameInput = page.locator('input[name="username"], input[type="text"]').first();
+  const passwordInput = page.locator('input[name="password"], input[type="password"]').first();
+  if (await usernameInput.isVisible().catch(() => false)) {
+    await usernameInput.fill(nexusUsername);
+  }
+  if (await passwordInput.isVisible().catch(() => false)) {
+    await passwordInput.fill(nexusPassword);
+    await page.keyboard.press("Enter");
+    await page.waitForLoadState("networkidle", { timeout: 480000 }).catch(() => {});
+  }
+
+  await page.screenshot({ path: outputPath("nexus-home.png"), fullPage: true });
   await page.close();
 }
 
@@ -164,7 +201,7 @@ async function captureGitLabProject(browser, projectPath, outputName) {
   await page.goto(projectUrl, { waitUntil: "domcontentloaded", timeout: 480000 });
   await page.getByTestId("project-name-content").waitFor({ timeout: 480000 });
   await page.waitForTimeout(1000);
-  await page.screenshot({ path: `${outputDir}/${outputName}`, fullPage: true });
+  await page.screenshot({ path: outputPath(outputName), fullPage: true });
   await page.close();
 }
 
@@ -254,7 +291,7 @@ async function captureTerminalFile(browser, inputPath, title, outputName) {
 </html>`,
     { waitUntil: "load" },
   );
-  await page.screenshot({ path: `${outputDir}/${outputName}`, fullPage: true });
+  await page.screenshot({ path: outputPath(outputName), fullPage: true });
   await page.close();
 }
 
@@ -265,7 +302,7 @@ async function captureControlPlaneLogin(browser) {
     waitUntil: "networkidle",
     timeout: 180000,
   });
-  await page.screenshot({ path: `${outputDir}/k8s-control-plane-login.png`, fullPage: true });
+  await page.screenshot({ path: outputPath("k8s-control-plane-login.png"), fullPage: true });
   await page.close();
 }
 
@@ -281,7 +318,7 @@ async function captureControlPlaneNodes(browser) {
   const section = page.locator("section").filter({ hasText: "Control Plane Dashboard" }).first();
   await section.scrollIntoViewIfNeeded();
   await page.waitForTimeout(1000);
-  await section.screenshot({ path: `${outputDir}/k8s-control-plane-nodes.png` });
+  await section.screenshot({ path: outputPath("k8s-control-plane-nodes.png") });
   await page.close();
 }
 
@@ -298,7 +335,7 @@ async function captureControlPlanePods(browser) {
   await page.getByRole("tab", { name: "Pods" }).click();
   await page.waitForLoadState("networkidle", { timeout: 180000 }).catch(() => {});
   await page.waitForTimeout(1000);
-  await section.screenshot({ path: `${outputDir}/k8s-control-plane-pods.png` });
+  await section.screenshot({ path: outputPath("k8s-control-plane-pods.png") });
   await page.close();
 }
 
@@ -313,7 +350,7 @@ async function captureUserJupyterHello(browser) {
   await page.getByRole("heading", { name: "test1@test.com sandbox" }).waitFor({ timeout: 240000 });
   await page.getByText("hello world", { exact: true }).first().waitFor({ timeout: 240000 });
   await page.waitForLoadState("networkidle", { timeout: 240000 }).catch(() => {});
-  await page.screenshot({ path: `${outputDir}/user-jupyter-hello-world.png` });
+  await page.screenshot({ path: outputPath("user-jupyter-hello-world.png") });
   await page.close();
 }
 
@@ -330,7 +367,7 @@ async function captureAdminActiveUsers(browser) {
   await section.scrollIntoViewIfNeeded();
   await section.getByText(/running/i).first().waitFor({ timeout: 180000 });
   await page.waitForTimeout(1000);
-  await section.screenshot({ path: `${outputDir}/admin-dashboard-running-users.png` });
+  await section.screenshot({ path: outputPath("admin-dashboard-running-users.png") });
   await page.close();
 }
 
@@ -343,7 +380,7 @@ async function captureUserUsageHistory(browser) {
   await section.waitFor({ state: "visible", timeout: 180000 });
   await section.scrollIntoViewIfNeeded();
   await page.waitForTimeout(800);
-  await section.screenshot({ path: `${outputDir}/user-jupyter-usage-history.png` });
+  await section.screenshot({ path: outputPath("user-jupyter-usage-history.png") });
   await page.close();
 }
 
@@ -360,7 +397,7 @@ async function captureAdminAgGridUsers(browser) {
   await section.getByText("User List (AG Grid CE)").waitFor({ timeout: 180000 });
   await section.scrollIntoViewIfNeeded();
   await page.waitForTimeout(1000);
-  await section.screenshot({ path: `${outputDir}/admin-user-list-ag-grid.png` });
+  await section.screenshot({ path: outputPath("admin-user-list-ag-grid.png") });
   await page.close();
 }
 
@@ -405,6 +442,7 @@ const captures = [
   ["airflow", captureAirflow],
   ["jupyter", captureJupyter],
   ["gitlab", captureGitLab],
+  ["nexus", captureNexus],
   ["user-usage-history", captureUserUsageHistory],
   ["admin-ag-grid-users", captureAdminAgGridUsers],
   ["control-plane-login", captureControlPlaneLogin],

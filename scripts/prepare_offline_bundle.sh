@@ -67,7 +67,22 @@ download_python_requirements() {
   local target_dir="${OUT_DIR}/wheels/${app_name}"
 
   run_cmd mkdir -p "${target_dir}"
-  run_cmd python3 -m pip download --dest "${target_dir}" -r "${requirements_file}"
+  if python3 -m pip --version >/dev/null 2>&1; then
+    run_cmd python3 -m pip download --dest "${target_dir}" -r "${requirements_file}"
+    return
+  fi
+
+  if command -v pip3 >/dev/null 2>&1; then
+    run_cmd pip3 download --dest "${target_dir}" -r "${requirements_file}"
+    return
+  fi
+
+  require_command docker
+  run_cmd docker run --rm \
+    -v "${requirements_file}:/tmp/requirements.txt:ro" \
+    -v "${target_dir}:/wheelhouse" \
+    python:3.12-slim \
+    /bin/sh -lc "python -m pip download --dest /wheelhouse -r /tmp/requirements.txt"
 }
 
 cache_frontend_packages() {
