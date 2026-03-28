@@ -124,8 +124,20 @@ bash scripts/check_offline_readiness.sh
 4. `bash ./start.sh ... --metallb-range ... --ingress-lb-ip ...` 실행
 5. hosts 파일 등록 (예: `192.168.56.240 platform.local jupyter.platform.local gitlab.platform.local airflow.platform.local nexus.platform.local`)
 6. URL 접속 점검: `start.sh` 내부 `verify.sh` 결과 확인
-7. PC 재기동 후 수동 Power On 시 `bash scripts/vmware_post_reboot_verify.sh ...` 실행
-8. 체크리스트 기반 마감: [CHECKLIST.md](CHECKLIST.md), [TODO.md](TODO.md)
+7. (권장) control-plane VM에서 부팅 10분 후 자동 air-gap 점검 timer 설치
+8. PC 재기동 후 수동 Power On 시 `bash scripts/vmware_post_reboot_verify.sh ...` 실행
+9. 체크리스트 기반 마감: [CHECKLIST.md](CHECKLIST.md), [TODO.md](TODO.md)
+
+자동 점검 timer 예시(control-plane VM 내부):
+
+```bash
+sudo bash /opt/k8s-data-platform/scripts/install_vm_airgap_postboot_timer.sh \
+  --script-path /opt/k8s-data-platform/scripts/check_vm_airgap_status.sh \
+  --expected-nodes k8s-data-platform,k8s-worker-1,k8s-worker-2
+```
+
+- 동작: OS 부팅 후 10분에 1회 실행
+- 점검 항목: node/pod 상태, image pull 오류, 외부 registry 참조(`docker.io`, `registry.k8s.io`, `ghcr.io`, `quay.io`), offline readiness
 
 루트 문서 전체 안내는 [DOCS_MAP.md](DOCS_MAP.md)를 참고하세요.
 
@@ -531,6 +543,9 @@ bash scripts/bootstrap_3node_k8s_ova.sh --config /tmp/3node-cluster.env
 3. worker 노드 `kubeadm join` 자동 수행
 4. `dev-3node` overlay 자동 적용(`APPLY_OVERLAY=1` 기본)
 5. ingress-nginx + MetalLB 구성 후 URL 엔드포인트(`platform.local`, `gitlab.platform.local`, `nexus.platform.local`) 확인
+
+### nexus.platform.local / admin / Edumgt22509741!
+### gitlab.platform.local / root / Edumgt22509741!
 
 #### 자주 쓰는 옵션(환경파일 값)
 

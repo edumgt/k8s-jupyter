@@ -16,6 +16,7 @@ patches:
   - path: platform-configmap-patch.yaml
   - path: platform-secrets-patch.yaml
   - path: backend-clusterrolebinding-patch.yaml
+  - path: airflow-clusterrolebinding-patch.yaml
   - path: backend-patch.yaml
   - path: frontend-patch.yaml
   - path: mongodb-patch.yaml

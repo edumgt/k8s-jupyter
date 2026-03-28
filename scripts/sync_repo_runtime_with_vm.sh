@@ -60,7 +60,9 @@ ovabuild.sh
 scripts/apply_k8s.sh
 scripts/build_k8s_images.sh
 scripts/check_offline_readiness.sh
+scripts/check_vm_airgap_status.sh
 scripts/import_offline_bundle.sh
+scripts/install_vm_airgap_postboot_timer.sh
 scripts/install_vm_base_packages.sh
 scripts/preload_offline_bundle_to_vm.sh
 scripts/prepare_offline_bundle.sh
