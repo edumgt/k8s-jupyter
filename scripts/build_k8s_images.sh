@@ -167,6 +167,7 @@ SUPPORT_IMAGES=(
   "redis:7-alpine|$(platform_support_image platform-redis 7-alpine)"
   "gitlab/gitlab-ce:17.10.0-ce.0|$(platform_support_image platform-gitlab-ce 17.10.0-ce.0)"
   "gitlab/gitlab-runner:alpine-v17.10.0|$(platform_support_image platform-gitlab-runner alpine-v17.10.0)"
+  "registry.gitlab.com/gitlab-org/gitlab-runner/gitlab-runner-helper:x86_64-v17.10.0|$(platform_support_image platform-gitlab-runner-helper x86_64-v17.10.0)"
   "sonatype/nexus3:3.90.1-alpine|$(platform_support_image platform-nexus3 3.90.1-alpine)"
   "gcr.io/kaniko-project/executor:v1.23.2-debug|$(platform_support_image platform-kaniko-executor v1.23.2-debug)"
   "bitnami/kubectl:latest|$(platform_support_image platform-kubectl latest)"

@@ -73,11 +73,27 @@ kind: Deployment
 metadata:
   name: frontend
 spec:
-  replicas: 1
+  replicas: 2
   template:
     spec:
       nodeSelector:
         node-role.kubernetes.io/worker: worker
+      affinity:
+        nodeAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+            - weight: 100
+              preference:
+                matchExpressions:
+                  - key: kubernetes.io/hostname
+                    operator: In
+                    values:
+                      - k8s-worker-3
+        podAntiAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            - labelSelector:
+                matchLabels:
+                  app: frontend
+              topologyKey: kubernetes.io/hostname
       topologySpreadConstraints:
         - maxSkew: 1
           topologyKey: kubernetes.io/hostname

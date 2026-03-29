@@ -105,6 +105,9 @@ images:
   - name: harbor.local/data-platform/platform-gitlab-runner
     newName: $(image_registry_prefix)/platform-gitlab-runner
     newTag: "alpine-v17.10.0"
+  - name: harbor.local/data-platform/platform-gitlab-runner-helper
+    newName: $(image_registry_prefix)/platform-gitlab-runner-helper
+    newTag: "x86_64-v17.10.0"
   - name: harbor.local/data-platform/platform-alpine
     newName: $(image_registry_prefix)/platform-alpine
     newTag: "3.20"
