@@ -110,6 +110,26 @@ apply_overlay() {
   run_kubectl_cmd apply -k "${overlay_dir}"
 }
 
+annotate_ingress_service_upstream() {
+  local namespace="$1"
+  local ingress_names=""
+
+  if [[ "${DRY_RUN}" == "1" ]]; then
+    printf '+ kubectl -n %q get ingress -o name\n' "${namespace}"
+    printf '+ kubectl -n %q annotate ingress <name> nginx.ingress.kubernetes.io/service-upstream=true --overwrite\n' "${namespace}"
+    return 0
+  fi
+
+  ingress_names="$(run_kubectl_cmd -n "${namespace}" get ingress -o name 2>/dev/null || true)"
+  [[ -n "${ingress_names}" ]] || return 0
+
+  while IFS= read -r ingress_name; do
+    [[ -n "${ingress_name}" ]] || continue
+    run_kubectl_cmd -n "${namespace}" annotate "${ingress_name}" \
+      nginx.ingress.kubernetes.io/service-upstream=true --overwrite >/dev/null
+  done <<< "${ingress_names}"
+}
+
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --env)
@@ -166,6 +186,7 @@ set_environment "${ENVIRONMENT}"
 OVERLAY_DIR="$(resolve_overlay_path "${OVERLAY_PATH}")"
 
 apply_overlay "${OVERLAY_DIR}"
+annotate_ingress_service_upstream "${NAMESPACE}"
 
 if [[ "${WITH_RUNNER}" == "1" ]]; then
   apply_overlay "${ROOT_DIR}/infra/k8s/runner/overlays/${ENVIRONMENT}"

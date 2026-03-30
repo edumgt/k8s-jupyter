@@ -150,7 +150,25 @@ if [[ -f /etc/default/kubelet ]]; then
       | sed 's/^"//; s/"$//; s/^'\''//; s/'\''$//'
   )"
 fi
-cleaned_extra_args="$(printf '%s\n' "${existing_extra_args}" | sed -E 's/(^|[[:space:]])--resolv-conf=[^[:space:]]+//g; s/[[:space:]]+/ /g; s/^ //; s/ $//')"
+cleaned_extra_args="$(
+  printf '%s\n' "${existing_extra_args}" \
+    | awk '
+      {
+        out = ""
+        for (i = 1; i <= NF; i++) {
+          token = $i
+          if (token ~ /^--resolv-conf(=|$)/) {
+            if (token == "--resolv-conf" && i < NF && $(i + 1) !~ /^--/) {
+              i++
+            }
+            continue
+          }
+          out = out (out ? " " : "") token
+        }
+        print out
+      }
+    '
+)"
 if [[ -n "${cleaned_extra_args}" ]]; then
   cleaned_extra_args="${cleaned_extra_args} --resolv-conf=${KUBELET_RESOLV_CONF}"
 else

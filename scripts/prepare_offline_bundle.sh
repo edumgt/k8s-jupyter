@@ -122,7 +122,7 @@ copy_k8s_assets() {
     run_cmd cp "${ROOT_DIR}/offline/manifests/"* "${bundle_k8s_dir}/manifests/"
   fi
 
-  for script_name in apply_k8s.sh reset_k8s.sh status_k8s.sh healthcheck.sh verify.sh verify_nexus_dependencies.sh import_offline_bundle.sh apply_offline_suite.sh audit_registry_scope.sh bootstrap_nexus_repos.sh prime_nexus_caches.sh setup_nexus_offline.sh frontend_dev_setup.sh run_frontend_dev.sh run_frontend_build.sh generate_join_command.sh join_worker_node.sh configure_multinode_cluster.sh setup_ingress_metallb.sh fix_kubelet_network_timeouts.sh check_offline_readiness.sh check_vm_airgap_status.sh install_vm_airgap_postboot_timer.sh; do
+  for script_name in apply_k8s.sh reset_k8s.sh status_k8s.sh healthcheck.sh verify.sh verify_nexus_dependencies.sh import_offline_bundle.sh apply_offline_suite.sh audit_registry_scope.sh bootstrap_nexus_repos.sh prime_nexus_caches.sh setup_nexus_offline.sh frontend_dev_setup.sh run_frontend_dev.sh run_frontend_build.sh generate_join_command.sh join_worker_node.sh configure_multinode_cluster.sh setup_ingress_metallb.sh setup_kubernetes_dashboard.sh sync_docker_image_to_vms.sh sync_dashboard_images_to_vms.sh fix_kubelet_network_timeouts.sh check_offline_readiness.sh check_vm_airgap_status.sh install_vm_airgap_postboot_timer.sh; do
     run_cmd cp "${ROOT_DIR}/scripts/${script_name}" "${bundle_k8s_dir}/scripts/${script_name}"
   done
   run_cmd cp "${ROOT_DIR}/scripts/offline/python-dev-seed.txt" "${bundle_k8s_dir}/scripts/offline/python-dev-seed.txt"

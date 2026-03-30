@@ -124,9 +124,9 @@ def _session_summary(
     service: client.V1Service | None,
     launch_image: str,
 ) -> dict[str, object]:
-    node_port = None
+    raw_node_port = None
     if service and service.spec and service.spec.ports:
-        node_port = service.spec.ports[0].node_port
+        raw_node_port = service.spec.ports[0].node_port
 
     phase = "Missing"
     if pod and pod.status and pod.status.phase:
@@ -139,12 +139,16 @@ def _session_summary(
     elif phase == "Failed":
         status = "failed"
         detail = _container_detail(pod) or "Pod failed to start."
-    elif ready and node_port:
+    elif ready and raw_node_port:
         status = "ready"
-        detail = f"JupyterLab is ready on NodePort {node_port}."
+        detail = f"JupyterLab is ready on NodePort {raw_node_port}."
     else:
         status = "provisioning"
         detail = _container_detail(pod) or "JupyterLab pod is being prepared."
+
+    # Keep stale NodePort values out of the API response when the pod is not ready.
+    # This prevents clients from opening orphaned links that will fail with connection refused.
+    exposed_node_port = raw_node_port if (ready and raw_node_port) else None
 
     return {
         "session_id": identity.session_id,
@@ -156,10 +160,10 @@ def _session_summary(
         "image": _pod_image(pod) or launch_image,
         "status": status,
         "phase": phase,
-        "ready": ready and bool(node_port),
+        "ready": ready and bool(raw_node_port),
         "detail": detail,
         "token": build_session_token(settings, identity.session_id),
-        "node_port": node_port,
+        "node_port": exposed_node_port,
         "created_at": _created_at(pod),
     }
 

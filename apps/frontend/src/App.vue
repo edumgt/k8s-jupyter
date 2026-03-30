@@ -912,7 +912,7 @@ const labStatusColor = computed(() => {
 });
 
 const labLaunchUrl = computed(() => {
-  if (!labSession.value.node_port || !labSession.value.token) {
+  if (!labSession.value.ready || !labSession.value.node_port || !labSession.value.token) {
     return "";
   }
   return (

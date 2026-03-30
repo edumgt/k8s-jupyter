@@ -180,6 +180,8 @@ SUPPORT_IMAGES=(
   "quay.io/metallb/speaker:v0.14.8|$(platform_support_image platform-metallb-speaker v0.14.8)"
   "registry.k8s.io/ingress-nginx/controller:v1.12.2|$(platform_support_image platform-ingress-nginx-controller v1.12.2)"
   "registry.k8s.io/ingress-nginx/kube-webhook-certgen:v1.5.3|$(platform_support_image platform-ingress-nginx-kube-webhook-certgen v1.5.3)"
+  "kubernetesui/dashboard:v2.7.0|$(platform_support_image platform-kubernetes-dashboard v2.7.0)"
+  "kubernetesui/metrics-scraper:v1.0.8|$(platform_support_image platform-kubernetes-dashboard-metrics-scraper v1.0.8)"
 )
 
 PLATFORM_IMAGES=(

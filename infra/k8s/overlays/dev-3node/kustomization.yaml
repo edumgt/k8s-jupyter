@@ -20,5 +20,6 @@ patches:
   - path: backend-clusterrolebinding-patch.yaml
   - path: airflow-clusterrolebinding-patch.yaml
   - path: mongodb-patch.yaml
+  - path: jupyter-pvc-patch.yaml
   - path: node-placement-patch.yaml
   - path: gitlab-ingress-patch.yaml

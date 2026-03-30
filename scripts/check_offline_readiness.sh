@@ -77,11 +77,13 @@ main() {
   check_file "${MANIFEST_DIR_REPO}/kube-flannel.yml" "repo flannel manifest"
   check_file "${MANIFEST_DIR_REPO}/ingress-nginx.yaml" "repo ingress manifest"
   check_file "${MANIFEST_DIR_REPO}/metallb-native.yaml" "repo MetalLB manifest"
+  check_file "${MANIFEST_DIR_REPO}/kubernetes-dashboard.yaml" "repo kubernetes-dashboard manifest"
 
   if [[ -d "${BUNDLE_DIR}" ]]; then
     check_file "${MANIFEST_DIR_BUNDLE}/kube-flannel.yml" "bundle flannel manifest"
     check_file "${MANIFEST_DIR_BUNDLE}/ingress-nginx.yaml" "bundle ingress manifest"
     check_file "${MANIFEST_DIR_BUNDLE}/metallb-native.yaml" "bundle MetalLB manifest"
+    check_file "${MANIFEST_DIR_BUNDLE}/kubernetes-dashboard.yaml" "bundle kubernetes-dashboard manifest"
   else
     warn "Offline bundle directory not found: ${BUNDLE_DIR}"
   fi
@@ -93,6 +95,8 @@ main() {
     check_image_ref "$(platform_support_image platform-metallb-speaker v0.14.8)"
     check_image_ref "$(platform_support_image platform-ingress-nginx-controller v1.12.2)"
     check_image_ref "$(platform_support_image platform-ingress-nginx-kube-webhook-certgen v1.5.3)"
+    check_image_ref "$(platform_support_image platform-kubernetes-dashboard v2.7.0)"
+    check_image_ref "$(platform_support_image platform-kubernetes-dashboard-metrics-scraper v1.0.8)"
     check_image_ref "$(platform_support_image platform-gitlab-ce 17.10.0-ce.0)"
     check_image_ref "$(platform_support_image platform-nexus3 3.90.1-alpine)"
     check_image_ref "$(platform_app_image backend)"
