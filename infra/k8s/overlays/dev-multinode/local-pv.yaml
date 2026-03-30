@@ -97,7 +97,7 @@ spec:
             - key: kubernetes.io/hostname
               operator: In
               values:
-                - k8s-worker-1
+                - k8s-worker-3
   hostPath:
     path: /var/lib/k8s-data-platform/pv/jupyter-workspace
     type: DirectoryOrCreate
