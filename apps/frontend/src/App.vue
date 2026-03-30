@@ -1,7 +1,60 @@
 <template>
   <q-layout view="lHh Lpr lFf">
     <q-page-container>
-      <q-page class="page-shell">
+      <q-page :class="['page-shell', { 'page-shell-with-offcanvas': isAuthenticated && leftDrawerOpen }]">
+        <aside v-if="isAuthenticated" class="offcanvas-panel" :class="{ 'is-open': leftDrawerOpen }">
+          <div class="offcanvas-head">
+            <div class="section-title">Offcanvas Navigation</div>
+            <div class="card-title">좌측 링크</div>
+          </div>
+
+          <div class="offcanvas-section">
+            <div class="offcanvas-group-title">메뉴</div>
+            <q-list class="offcanvas-list" separator>
+              <q-item
+                v-for="link in menuNavLinks"
+                :key="link.id"
+                clickable
+                v-ripple
+                class="offcanvas-link-item"
+                @click="scrollToSection(link.id)"
+              >
+                <q-item-section avatar>
+                  <q-icon :name="link.icon" color="dark" />
+                </q-item-section>
+                <q-item-section>
+                  <q-item-label>{{ link.label }}</q-item-label>
+                  <q-item-label caption>{{ link.description }}</q-item-label>
+                </q-item-section>
+              </q-item>
+            </q-list>
+          </div>
+
+          <div class="offcanvas-section">
+            <div class="offcanvas-group-title">기능</div>
+            <q-list class="offcanvas-list" separator>
+              <q-item
+                v-for="link in featureNavLinks"
+                :key="link.id"
+                clickable
+                v-ripple
+                class="offcanvas-link-item"
+                @click="scrollToSection(link.id)"
+              >
+                <q-item-section avatar>
+                  <q-icon :name="link.icon" color="dark" />
+                </q-item-section>
+                <q-item-section>
+                  <q-item-label>{{ link.label }}</q-item-label>
+                  <q-item-label caption>{{ link.description }}</q-item-label>
+                </q-item-section>
+              </q-item>
+            </q-list>
+          </div>
+        </aside>
+
+        <div v-if="isAuthenticated && leftDrawerOpen" class="offcanvas-backdrop" @click="leftDrawerOpen = false" />
+
         <section v-if="!isAuthenticated" class="login-screen">
           <q-card flat class="surface-card login-page-card">
             <q-card-section>
@@ -62,7 +115,19 @@
         </section>
 
         <template v-else>
-          <section class="hero-panel">
+          <q-btn
+            class="offcanvas-toggle"
+            :class="{ 'offcanvas-toggle-shifted': leftDrawerOpen }"
+            round
+            dense
+            unelevated
+            color="dark"
+            icon="menu"
+            aria-label="Toggle navigation menu"
+            @click="leftDrawerOpen = !leftDrawerOpen"
+          />
+
+          <section id="overview-panel" class="hero-panel nav-anchor">
             <div class="eyebrow">K8s Data Platform OVA</div>
             <h1>데모 사용자 로그인부터 Jupyter sandbox, 관리자 모니터링까지 한 화면에서</h1>
             <p>
@@ -98,7 +163,7 @@
             </div>
           </section>
 
-          <section class="content-grid">
+          <section id="session-panel" class="content-grid nav-anchor">
             <q-card flat class="surface-card auth-card">
               <q-card-section>
                 <div class="row items-center justify-between q-col-gutter-md">
@@ -154,7 +219,7 @@
             </q-card>
           </section>
 
-        <section v-if="isUser" class="content-grid">
+        <section v-if="isUser" id="user-lab-panel" class="content-grid nav-anchor">
           <q-card flat class="surface-card lab-card">
             <q-card-section>
               <div class="row items-center justify-between q-col-gutter-md">
@@ -243,7 +308,7 @@
             </q-card-section>
           </q-card>
 
-          <q-card flat class="surface-card">
+          <q-card id="user-usage-panel" flat class="surface-card nav-anchor">
             <q-card-section>
               <div class="row items-center justify-between q-col-gutter-md">
                 <div>
@@ -281,7 +346,7 @@
             </q-card-section>
           </q-card>
 
-          <q-card flat class="surface-card">
+          <q-card id="workspace-snapshot-panel" flat class="surface-card nav-anchor">
             <q-card-section>
               <div class="row items-center justify-between q-col-gutter-md">
                 <div>
@@ -341,7 +406,7 @@
           </q-card>
         </section>
 
-        <section v-if="isAdmin" id="sandbox-admin" class="content-grid control-plane-anchor">
+        <section v-if="isAdmin" id="sandbox-admin" class="content-grid control-plane-anchor nav-anchor">
           <q-card flat class="surface-card">
             <q-card-section>
               <div class="row items-center justify-between q-col-gutter-md">
@@ -396,7 +461,11 @@
           </q-card>
         </section>
 
-        <section v-if="isAdmin" class="content-grid control-plane-anchor">
+        <section
+          v-if="isAdmin"
+          id="control-plane-panel"
+          class="content-grid control-plane-anchor nav-anchor"
+        >
           <q-card flat class="surface-card">
             <q-card-section>
               <div class="row items-center justify-between q-col-gutter-md">
@@ -515,7 +584,7 @@
           </q-card>
         </section>
 
-        <section class="section-grid">
+        <section id="services-panel" class="section-grid nav-anchor">
           <q-card v-for="service in dashboard.services" :key="service.name" flat class="status-card">
             <q-card-section>
               <div class="row items-center justify-between">
@@ -533,7 +602,7 @@
           </q-card>
         </section>
 
-        <section class="content-grid">
+        <section id="runtime-panel" class="content-grid nav-anchor">
           <q-card flat class="surface-card">
             <q-card-section>
               <div class="section-title">Runtime Profile</div>
@@ -575,7 +644,7 @@
           </q-card>
         </section>
 
-        <section class="content-grid">
+        <section id="sample-panel" class="content-grid nav-anchor">
           <q-card flat class="surface-card">
             <q-card-section>
               <div class="section-title">Sample ANSI SQL</div>
@@ -618,7 +687,7 @@
           </q-card>
         </section>
 
-        <section class="content-grid">
+        <section id="query-panel" class="content-grid nav-anchor">
           <q-card flat class="surface-card">
             <q-card-section>
               <div class="section-title">Teradata Mode</div>
@@ -684,6 +753,7 @@ const sessionLoading = ref(false);
 const snapshotLoading = ref(false);
 const adminLoading = ref(false);
 const usageLoading = ref(false);
+const leftDrawerOpen = ref(typeof window !== "undefined" ? window.innerWidth >= 1024 : true);
 
 const demoAccounts = ref([
   { username: "test1@test.com", role: "user", display_name: "Test User 1" },
@@ -729,6 +799,104 @@ const isUser = computed(() => appSession.value.user?.role === "user");
 const managedUsername = computed(() => (isUser.value ? appSession.value.user.username : ""));
 const backendAppVersion = computed(() => dashboard.value.runtime.backend_version || "-");
 const usageSummary = computed(() => userUsage.value.summary);
+
+const menuNavLinks = computed(() => {
+  if (!isAuthenticated.value) {
+    return [];
+  }
+
+  const links = [
+    {
+      id: "overview-panel",
+      label: "대시보드 개요",
+      icon: "space_dashboard",
+      description: "서비스와 버전 상태 요약",
+    },
+    {
+      id: "session-panel",
+      label: "세션 정보",
+      icon: "manage_accounts",
+      description: "로그인 사용자와 역할",
+    },
+    {
+      id: "services-panel",
+      label: "서비스 상태",
+      icon: "dns",
+      description: "구성 요소 readiness",
+    },
+    {
+      id: "runtime-panel",
+      label: "런타임/링크",
+      icon: "link",
+      description: "실행 정보와 quick links",
+    },
+  ];
+
+  if (isAdmin.value) {
+    links.push(
+      {
+        id: "sandbox-admin",
+        label: "Admin 모니터링",
+        icon: "monitor_heart",
+        description: "사용자 sandbox 상태",
+      },
+      {
+        id: "control-plane-panel",
+        label: "Control Plane",
+        icon: "hub",
+        description: "노드/파드 인벤토리",
+      },
+    );
+  }
+
+  return links;
+});
+
+const featureNavLinks = computed(() => {
+  if (!isAuthenticated.value) {
+    return [];
+  }
+
+  const links = [
+    {
+      id: "sample-panel",
+      label: "Sample ANSI SQL",
+      icon: "dataset",
+      description: "샘플 쿼리 목록",
+    },
+    {
+      id: "query-panel",
+      label: "Query Result",
+      icon: "table_view",
+      description: "Teradata 응답 미리보기",
+    },
+  ];
+
+  if (isUser.value) {
+    links.unshift(
+      {
+        id: "workspace-snapshot-panel",
+        label: "Workspace Snapshot",
+        icon: "cloud_upload",
+        description: "개인 이미지 publish",
+      },
+      {
+        id: "user-usage-panel",
+        label: "사용 이력",
+        icon: "history",
+        description: "로그인/실행/사용시간",
+      },
+      {
+        id: "user-lab-panel",
+        label: "개인 JupyterLab",
+        icon: "rocket_launch",
+        description: "샌드박스 실행/중지",
+      },
+    );
+  }
+
+  return links;
+});
 
 const labStatusColor = computed(() => {
   if (labSession.value.status === "ready") {
@@ -1032,6 +1200,23 @@ function waitForDelay(ms) {
   return new Promise((resolve) => {
     setTimeout(resolve, ms);
   });
+}
+
+function scrollToSection(sectionId) {
+  if (typeof window === "undefined") {
+    return;
+  }
+  const sectionNode = document.getElementById(sectionId);
+  if (!sectionNode) {
+    return;
+  }
+  sectionNode.scrollIntoView({
+    behavior: "smooth",
+    block: "start",
+  });
+  if (window.innerWidth < 1024) {
+    leftDrawerOpen.value = false;
+  }
 }
 
 function formatDuration(totalSeconds) {

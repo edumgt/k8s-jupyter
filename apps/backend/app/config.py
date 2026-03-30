@@ -48,12 +48,29 @@ class Settings(BaseSettings):
     teradata_database: str = "dbc"
     teradata_fake_mode: bool = True
     teradata_encryptdata: bool = True
+    cors_allow_origins: str = (
+        "http://platform.local,"
+        "http://dev.platform.local,"
+        "http://www.platform.local,"
+        "http://localhost:30080,"
+        "http://localhost:5173"
+    )
+    cors_allow_origin_regex: str = r"^https?://([a-z0-9-]+\.)?platform\.local(:\d+)?$"
+    cors_allow_credentials: bool = True
 
     model_config = SettingsConfigDict(
         env_prefix="PLATFORM_",
         env_file=ENV_FILE,
         extra="ignore",
     )
+
+    @property
+    def cors_origins(self) -> list[str]:
+        return [
+            origin.strip().rstrip("/")
+            for origin in self.cors_allow_origins.split(",")
+            if origin.strip()
+        ]
 
 
 @lru_cache

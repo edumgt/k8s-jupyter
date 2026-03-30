@@ -9,10 +9,14 @@ variables:
   IMAGE_NAME: "${HARBOR_REGISTRY}/${HARBOR_PROJECT}/k8s-data-platform-frontend"
   NEXUS_NPM_REGISTRY: "http://192.168.56.10:30091/repository/npm-all/"
   DEPLOY_NAMESPACE: "data-platform-dev"
+  CONTROL_PLANE_IP: "192.168.56.10"
   TARGET_NODES: "192.168.56.10 192.168.56.11 192.168.56.12"
   SSH_USER: "ubuntu"
   SSH_PASSWORD: "ubuntu"
   INGRESS_LB_IP: "192.168.56.240"
+
+default:
+  image: harbor.local/data-platform/platform-ci-tools:docker28.2.2
 
 workflow:
   rules:
@@ -21,7 +25,13 @@ workflow:
         DEPLOY_ENV: "dev"
         APP_ENV: "dev"
         VITE_API_BASE_URL: "http://dev-api.platform.local"
-        FRONTEND_HOST: "dev.platform.local"
+        FRONTEND_HOST: "platform.local"
+    - if: '$CI_COMMIT_BRANCH == "main"'
+      variables:
+        DEPLOY_ENV: "dev"
+        APP_ENV: "dev"
+        VITE_API_BASE_URL: "http://dev-api.platform.local"
+        FRONTEND_HOST: "platform.local"
     - if: '$CI_COMMIT_BRANCH == "prod"'
       variables:
         DEPLOY_ENV: "prod"
@@ -45,7 +55,7 @@ build_frontend_image:
       if [ -n "${NEXUS_NPM_AUTH_B64:-}" ]; then
         BUILD_ARGS+=(--build-arg "NPM_AUTH_B64=${NEXUS_NPM_AUTH_B64}")
       fi
-      docker build "${BUILD_ARGS[@]}" \
+      DOCKER_BUILDKIT=0 docker build "${BUILD_ARGS[@]}" \
         --no-cache \
         --build-arg "VITE_API_BASE_URL=${VITE_API_BASE_URL}" \
         -t "${IMAGE_NAME}:${CI_COMMIT_SHORT_SHA}" \
@@ -55,10 +65,6 @@ build_frontend_image:
     - docker save "${IMAGE_NAME}:${CI_COMMIT_SHORT_SHA}" -o "${TAR_PATH}"
     - |
       for node in ${TARGET_NODES}; do
-        if [ "${node}" = "192.168.56.10" ]; then
-          printf '%s\n' "${SSH_PASSWORD}" | sudo -S -p '' ctr -n k8s.io images import "${TAR_PATH}"
-          continue
-        fi
         sshpass -p "${SSH_PASSWORD}" ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null "${SSH_USER}@${node}" \
           "printf '%s\n' '${SSH_PASSWORD}' | sudo -S -p '' rm -f /tmp/${TAR_NAME}"
         sshpass -p "${SSH_PASSWORD}" scp -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null "${TAR_PATH}" "${SSH_USER}@${node}:/tmp/${TAR_NAME}"
@@ -67,7 +73,7 @@ build_frontend_image:
       done
     - rm -f "${TAR_PATH}"
   rules:
-    - if: '$CI_COMMIT_BRANCH == "dev" || $CI_COMMIT_BRANCH == "prod"'
+    - if: '$CI_COMMIT_BRANCH == "dev" || $CI_COMMIT_BRANCH == "prod" || $CI_COMMIT_BRANCH == "main"'
 
 deploy_frontend:
   stage: deploy
@@ -77,12 +83,15 @@ deploy_frontend:
     - build_frontend_image
   script:
     - set -euo pipefail
-    - sudo KUBECONFIG=/etc/kubernetes/admin.conf kubectl -n "${DEPLOY_NAMESPACE}" set image deployment/frontend frontend="${IMAGE_NAME}:${CI_COMMIT_SHORT_SHA}"
-    - sudo KUBECONFIG=/etc/kubernetes/admin.conf kubectl -n "${DEPLOY_NAMESPACE}" rollout status deployment/frontend --timeout=240s
-    - sudo KUBECONFIG=/etc/kubernetes/admin.conf kubectl -n "${DEPLOY_NAMESPACE}" get deploy frontend -o wide
-    - sudo KUBECONFIG=/etc/kubernetes/admin.conf kubectl -n "${DEPLOY_NAMESPACE}" get pods -l app=frontend -o wide
+    - |
+      sshpass -p "${SSH_PASSWORD}" ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null "${SSH_USER}@${CONTROL_PLANE_IP}" "
+        printf '%s\n' '${SSH_PASSWORD}' | sudo -S -p '' KUBECONFIG=/etc/kubernetes/admin.conf kubectl -n '${DEPLOY_NAMESPACE}' set image deployment/frontend frontend='${IMAGE_NAME}:${CI_COMMIT_SHORT_SHA}'
+        printf '%s\n' '${SSH_PASSWORD}' | sudo -S -p '' KUBECONFIG=/etc/kubernetes/admin.conf kubectl -n '${DEPLOY_NAMESPACE}' rollout status deployment/frontend --timeout=240s
+        printf '%s\n' '${SSH_PASSWORD}' | sudo -S -p '' KUBECONFIG=/etc/kubernetes/admin.conf kubectl -n '${DEPLOY_NAMESPACE}' get deploy frontend -o wide
+        printf '%s\n' '${SSH_PASSWORD}' | sudo -S -p '' KUBECONFIG=/etc/kubernetes/admin.conf kubectl -n '${DEPLOY_NAMESPACE}' get pods -l app=frontend -o wide
+      "
   rules:
-    - if: '$CI_COMMIT_BRANCH == "dev" || $CI_COMMIT_BRANCH == "prod"'
+    - if: '$CI_COMMIT_BRANCH == "dev" || $CI_COMMIT_BRANCH == "prod" || $CI_COMMIT_BRANCH == "main"'
 
 verify_frontend_route:
   stage: verify
@@ -92,6 +101,6 @@ verify_frontend_route:
     - deploy_frontend
   script:
     - set -euo pipefail
-    - 'curl -fsS -I -H "Host: ${FRONTEND_HOST}" "http://${INGRESS_LB_IP}/" | head -n 1'
+    - 'curl -fsS -I -H "Host: ${FRONTEND_HOST}" "http://${INGRESS_LB_IP}/"'
   rules:
-    - if: '$CI_COMMIT_BRANCH == "dev" || $CI_COMMIT_BRANCH == "prod"'
+    - if: '$CI_COMMIT_BRANCH == "dev" || $CI_COMMIT_BRANCH == "prod" || $CI_COMMIT_BRANCH == "main"'

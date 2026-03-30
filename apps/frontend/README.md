@@ -23,3 +23,25 @@
 
 - Harbor image: `harbor.local/${HARBOR_PROJECT:-data-platform}/k8s-data-platform-frontend`
 - Kubernetes deployment: `frontend`
+
+## Air-gap 개발/빌드
+
+- `vite: not found` 에러는 대부분 의존성 미설치(`node_modules` 없음) 상태에서 발생합니다.
+- 이 저장소는 `.npmrc`에서 기본 레지스트리를 로컬 Nexus(`http://192.168.56.10:30091/repository/npm-all/`)로 고정해 air-gap 설치를 기본값으로 사용합니다.
+- 최초 1회 의존성 설치:
+
+```bash
+npm install --no-audit --no-fund
+```
+
+- 개발 서버 실행:
+
+```bash
+npm run dev
+```
+
+- 프로덕션 빌드:
+
+```bash
+npm run build
+```

@@ -18,10 +18,83 @@ body {
   min-height: 100vh;
 }
 
+.offcanvas-panel {
+  position: fixed;
+  top: 0;
+  left: 0;
+  z-index: 1200;
+  width: 280px;
+  height: 100vh;
+  overflow-y: auto;
+  transform: translateX(-100%);
+  transition: transform 0.24s ease;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.94), rgba(244, 247, 250, 0.94)),
+    linear-gradient(165deg, rgba(241, 178, 74, 0.2), rgba(23, 72, 91, 0.08));
+  border-right: 1px solid rgba(18, 34, 47, 0.16);
+  box-shadow: 0 20px 52px rgba(18, 34, 47, 0.2);
+}
+
+.offcanvas-panel.is-open {
+  transform: translateX(0);
+}
+
+.offcanvas-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 1100;
+  background: rgba(18, 34, 47, 0.26);
+}
+
+.offcanvas-head {
+  padding: 22px 20px 8px;
+}
+
+.offcanvas-section {
+  padding: 10px 12px 14px;
+}
+
+.offcanvas-group-title {
+  padding: 0 12px 8px;
+  font-size: 0.72rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: #5f7380;
+}
+
+.offcanvas-list {
+  border-radius: 16px;
+  overflow: hidden;
+  background: rgba(255, 255, 255, 0.72);
+  border: 1px solid rgba(18, 34, 47, 0.08);
+}
+
+.offcanvas-link-item {
+  min-height: 58px;
+}
+
+.offcanvas-toggle {
+  position: fixed;
+  top: 14px;
+  left: 14px;
+  z-index: 1300;
+  box-shadow: 0 12px 30px rgba(18, 34, 47, 0.22);
+}
+
+.offcanvas-toggle-shifted {
+  left: 238px;
+}
+
 .page-shell {
   max-width: 1200px;
   margin: 0 auto;
   padding: 32px 20px 72px;
+}
+
+.page-shell-with-offcanvas {
+  margin-left: 300px;
+  margin-right: 16px;
+  max-width: none;
 }
 
 .login-screen {
@@ -163,6 +236,10 @@ body {
   word-break: break-all;
 }
 
+.nav-anchor {
+  scroll-margin-top: 24px;
+}
+
 .control-plane-anchor {
   scroll-margin-top: 24px;
 }
@@ -301,6 +378,28 @@ body {
 
 .result-table {
   margin-top: 12px;
+}
+
+@media (min-width: 1024px) {
+  .offcanvas-backdrop {
+    display: none;
+  }
+}
+
+@media (max-width: 1023px) {
+  .offcanvas-panel {
+    width: min(300px, 84vw);
+  }
+
+  .offcanvas-toggle-shifted {
+    left: min(252px, calc(84vw - 48px));
+  }
+
+  .page-shell-with-offcanvas {
+    margin-left: 0;
+    margin-right: 0;
+    max-width: 1200px;
+  }
 }
 
 @media (max-width: 640px) {

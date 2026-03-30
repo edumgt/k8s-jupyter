@@ -46,11 +46,14 @@ from app.services.redis_store import get_redis_status
 from app.services.teradata import run_ansi_query, teradata_summary
 from app.version import BACKEND_APP_VERSION
 
+settings = get_settings()
+
 app = FastAPI(title="k8s-data-platform-api", version=BACKEND_APP_VERSION)
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=False,
+    allow_origins=settings.cors_origins,
+    allow_origin_regex=settings.cors_allow_origin_regex,
+    allow_credentials=settings.cors_allow_credentials,
     allow_methods=["*"],
     allow_headers=["*"],
 )

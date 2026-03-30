@@ -10,10 +10,14 @@ variables:
   NEXUS_PYPI_INDEX_URL: "http://192.168.56.10:30091/repository/pypi-all/simple"
   NEXUS_PYPI_TRUSTED_HOST: "192.168.56.10"
   DEPLOY_NAMESPACE: "data-platform-dev"
+  CONTROL_PLANE_IP: "192.168.56.10"
   TARGET_NODES: "192.168.56.10 192.168.56.11 192.168.56.12"
   SSH_USER: "ubuntu"
   SSH_PASSWORD: "ubuntu"
   INGRESS_LB_IP: "192.168.56.240"
+
+default:
+  image: harbor.local/data-platform/platform-ci-tools:docker28.2.2
 
 workflow:
   rules:
@@ -21,7 +25,12 @@ workflow:
       variables:
         DEPLOY_ENV: "dev"
         APP_ENV: "dev"
-        BACKEND_HOST: "dev-api.platform.local"
+        BACKEND_HOST: "platform.local"
+    - if: '$CI_COMMIT_BRANCH == "main"'
+      variables:
+        DEPLOY_ENV: "dev"
+        APP_ENV: "dev"
+        BACKEND_HOST: "platform.local"
     - if: '$CI_COMMIT_BRANCH == "prod"'
       variables:
         DEPLOY_ENV: "prod"
@@ -37,16 +46,12 @@ build_backend_image:
     - set -euo pipefail
     - test -n "${NEXUS_PYPI_INDEX_URL:-}" || (echo "NEXUS_PYPI_INDEX_URL is required" && exit 1)
     - echo "${NEXUS_PYPI_INDEX_URL}" | grep -Eq 'nexus\.platform\.local|127\.0\.0\.1:30091|192\.168\.56\.(10|240):30091' || (echo "NEXUS_PYPI_INDEX_URL must point to local Nexus" && exit 1)
-    - docker build --build-arg "APP_ENV=${APP_ENV}" --build-arg "PIP_INDEX_URL=${NEXUS_PYPI_INDEX_URL}" --build-arg "PIP_TRUSTED_HOST=${NEXUS_PYPI_TRUSTED_HOST}" -t "${IMAGE_NAME}:${CI_COMMIT_SHORT_SHA}" -t "${IMAGE_NAME}:latest" .
+    - DOCKER_BUILDKIT=0 docker build --build-arg "APP_ENV=${APP_ENV}" --build-arg "PIP_INDEX_URL=${NEXUS_PYPI_INDEX_URL}" --build-arg "PIP_TRUSTED_HOST=${NEXUS_PYPI_TRUSTED_HOST}" -t "${IMAGE_NAME}:${CI_COMMIT_SHORT_SHA}" -t "${IMAGE_NAME}:latest" .
     - TAR_PATH="/tmp/backend-${CI_PIPELINE_ID}-${CI_JOB_ID}.tar"
     - TAR_NAME="$(basename "${TAR_PATH}")"
     - docker save "${IMAGE_NAME}:${CI_COMMIT_SHORT_SHA}" -o "${TAR_PATH}"
     - |
       for node in ${TARGET_NODES}; do
-        if [ "${node}" = "192.168.56.10" ]; then
-          printf '%s\n' "${SSH_PASSWORD}" | sudo -S -p '' ctr -n k8s.io images import "${TAR_PATH}"
-          continue
-        fi
         sshpass -p "${SSH_PASSWORD}" ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null "${SSH_USER}@${node}" \
           "printf '%s\n' '${SSH_PASSWORD}' | sudo -S -p '' rm -f /tmp/${TAR_NAME}"
         sshpass -p "${SSH_PASSWORD}" scp -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null "${TAR_PATH}" "${SSH_USER}@${node}:/tmp/${TAR_NAME}"
@@ -55,7 +60,7 @@ build_backend_image:
       done
     - rm -f "${TAR_PATH}"
   rules:
-    - if: '$CI_COMMIT_BRANCH == "dev" || $CI_COMMIT_BRANCH == "prod"'
+    - if: '$CI_COMMIT_BRANCH == "dev" || $CI_COMMIT_BRANCH == "prod" || $CI_COMMIT_BRANCH == "main"'
 
 deploy_backend:
   stage: deploy
@@ -65,12 +70,15 @@ deploy_backend:
     - build_backend_image
   script:
     - set -euo pipefail
-    - sudo KUBECONFIG=/etc/kubernetes/admin.conf kubectl -n "${DEPLOY_NAMESPACE}" set image deployment/backend backend="${IMAGE_NAME}:${CI_COMMIT_SHORT_SHA}"
-    - sudo KUBECONFIG=/etc/kubernetes/admin.conf kubectl -n "${DEPLOY_NAMESPACE}" rollout status deployment/backend --timeout=240s
-    - sudo KUBECONFIG=/etc/kubernetes/admin.conf kubectl -n "${DEPLOY_NAMESPACE}" get deploy backend -o wide
-    - sudo KUBECONFIG=/etc/kubernetes/admin.conf kubectl -n "${DEPLOY_NAMESPACE}" get pods -l app=backend -o wide
+    - |
+      sshpass -p "${SSH_PASSWORD}" ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null "${SSH_USER}@${CONTROL_PLANE_IP}" "
+        printf '%s\n' '${SSH_PASSWORD}' | sudo -S -p '' KUBECONFIG=/etc/kubernetes/admin.conf kubectl -n '${DEPLOY_NAMESPACE}' set image deployment/backend backend='${IMAGE_NAME}:${CI_COMMIT_SHORT_SHA}'
+        printf '%s\n' '${SSH_PASSWORD}' | sudo -S -p '' KUBECONFIG=/etc/kubernetes/admin.conf kubectl -n '${DEPLOY_NAMESPACE}' rollout status deployment/backend --timeout=240s
+        printf '%s\n' '${SSH_PASSWORD}' | sudo -S -p '' KUBECONFIG=/etc/kubernetes/admin.conf kubectl -n '${DEPLOY_NAMESPACE}' get deploy backend -o wide
+        printf '%s\n' '${SSH_PASSWORD}' | sudo -S -p '' KUBECONFIG=/etc/kubernetes/admin.conf kubectl -n '${DEPLOY_NAMESPACE}' get pods -l app=backend -o wide
+      "
   rules:
-    - if: '$CI_COMMIT_BRANCH == "dev" || $CI_COMMIT_BRANCH == "prod"'
+    - if: '$CI_COMMIT_BRANCH == "dev" || $CI_COMMIT_BRANCH == "prod" || $CI_COMMIT_BRANCH == "main"'
 
 verify_backend_route:
   stage: verify
@@ -80,6 +88,6 @@ verify_backend_route:
     - deploy_backend
   script:
     - set -euo pipefail
-    - 'curl -fsS -I -H "Host: ${BACKEND_HOST}" "http://${INGRESS_LB_IP}/docs" | head -n 1'
+    - 'curl -fsS -I -H "Host: ${BACKEND_HOST}" "http://${INGRESS_LB_IP}/docs"'
   rules:
-    - if: '$CI_COMMIT_BRANCH == "dev" || $CI_COMMIT_BRANCH == "prod"'
+    - if: '$CI_COMMIT_BRANCH == "dev" || $CI_COMMIT_BRANCH == "prod" || $CI_COMMIT_BRANCH == "main"'

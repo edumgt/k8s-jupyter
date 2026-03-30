@@ -3,10 +3,10 @@ FROM harbor.local/data-platform/platform-node:22.22.0-bookworm-slim AS build
 WORKDIR /app
 
 ARG APP_ENV=dev
-ARG NPM_REGISTRY
+ARG NPM_REGISTRY=http://192.168.56.10:30091/repository/npm-all/
 ARG NPM_AUTH_B64
 
-COPY package.json .
+COPY package.json package-lock.json ./
 COPY .env.dev .env.dev
 COPY .env.prod .env.prod
 RUN cp ".env.${APP_ENV}" .env
@@ -17,7 +17,7 @@ RUN if [ -n "${NPM_REGISTRY:-}" ]; then \
         npm config set "//${registry_scope}/:_auth" "${NPM_AUTH_B64}"; \
       fi; \
     fi \
- && npm install
+ && npm ci --no-audit --no-fund
 
 COPY . .
 

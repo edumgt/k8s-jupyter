@@ -49,3 +49,6 @@ curl -sS http://localhost:8000/api/auth/me \
 - `PLATFORM_AUTH_JWT_SECRET` (기본: `platform-auth-jwt`)
 - `PLATFORM_AUTH_JWT_ALGORITHM` (기본: `HS256`)
 - `PLATFORM_AUTH_JWT_TTL_SECONDS` (기본: `43200`, 12시간)
+- `PLATFORM_CORS_ALLOW_ORIGINS` (콤마 구분 오리진 목록)
+- `PLATFORM_CORS_ALLOW_ORIGIN_REGEX` (오리진 정규식)
+- `PLATFORM_CORS_ALLOW_CREDENTIALS` (`true`/`false`)
