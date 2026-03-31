@@ -9,6 +9,7 @@ DIST_DIR="${DIST_DIR:-C:/ffmpeg}"
 CONTROL_PLANE_NAME="${CONTROL_PLANE_NAME:-k8s-data-platform}"
 WORKER1_NAME="${WORKER1_NAME:-k8s-worker-1}"
 WORKER2_NAME="${WORKER2_NAME:-k8s-worker-2}"
+WORKER3_NAME="${WORKER3_NAME:-k8s-worker-3}"
 ENVIRONMENT="${ENVIRONMENT:-dev}"
 REMOTE_HOME_REPO_ROOT="${REMOTE_HOME_REPO_ROOT:-/home/Kubernetes-Jupyter-Sandbox}"
 
@@ -46,10 +47,10 @@ usage() {
   cat <<'EOF'
 Usage: bash ovabuild.sh [options]
 
-Role-specific OVA build flow for existing VMware 3-node VMs:
+Role-specific OVA build flow for existing VMware VMs:
   1) (default) Pre-check current cluster/web endpoints with vmware_post_reboot_verify.sh
   2) Copy repo to VM home path + run pre-export Kubernetes/Harbor checks
-  3) Stop each VM and export 3 OVA files (control-plane, worker-1, worker-2)
+  3) Stop each VM and export 4 OVA files (control-plane, worker-1, worker-2, worker-3)
   4) Generate SHA256 manifest for transfer/import validation
 
 Options:
@@ -58,6 +59,7 @@ Options:
   --control-plane-name NAME    Default: k8s-data-platform
   --worker1-name NAME          Default: k8s-worker-1
   --worker2-name NAME          Default: k8s-worker-2
+  --worker3-name NAME          Default: k8s-worker-3
   --env dev|prod               Default: dev
 
   --control-plane-ip IP        Optional static control-plane IP for pre-check
@@ -131,6 +133,11 @@ while [[ $# -gt 0 ]]; do
     --worker2-name)
       [[ $# -ge 2 ]] || die "--worker2-name requires a value"
       WORKER2_NAME="$2"
+      shift 2
+      ;;
+    --worker3-name)
+      [[ $# -ge 2 ]] || die "--worker3-name requires a value"
+      WORKER3_NAME="$2"
       shift 2
       ;;
     --env)
@@ -327,6 +334,7 @@ export_cmd=(
   --control-plane-name "${CONTROL_PLANE_NAME}"
   --worker1-name "${WORKER1_NAME}"
   --worker2-name "${WORKER2_NAME}"
+  --worker3-name "${WORKER3_NAME}"
 )
 if [[ -n "${VMRUN_WIN}" ]]; then
   export_cmd+=(--vmrun "${VMRUN_WIN}")
@@ -348,14 +356,16 @@ if [[ "${SKIP_SHA256}" -eq 0 ]]; then
   cp_ova="${DIST_DIR_UNIX}/${CONTROL_PLANE_NAME}.ova"
   w1_ova="${DIST_DIR_UNIX}/${WORKER1_NAME}.ova"
   w2_ova="${DIST_DIR_UNIX}/${WORKER2_NAME}.ova"
+  w3_ova="${DIST_DIR_UNIX}/${WORKER3_NAME}.ova"
   [[ -f "${cp_ova}" ]] || die "Missing OVA artifact: ${cp_ova}"
   [[ -f "${w1_ova}" ]] || die "Missing OVA artifact: ${w1_ova}"
   [[ -f "${w2_ova}" ]] || die "Missing OVA artifact: ${w2_ova}"
+  [[ -f "${w3_ova}" ]] || die "Missing OVA artifact: ${w3_ova}"
 
   manifest_path="${DIST_DIR_UNIX}/ova-sha256.txt"
   (
     cd "${DIST_DIR_UNIX}"
-    sha256sum "${CONTROL_PLANE_NAME}.ova" "${WORKER1_NAME}.ova" "${WORKER2_NAME}.ova" > "${manifest_path}"
+    sha256sum "${CONTROL_PLANE_NAME}.ova" "${WORKER1_NAME}.ova" "${WORKER2_NAME}.ova" "${WORKER3_NAME}.ova" > "${manifest_path}"
   )
   log "SHA256 manifest: ${manifest_path}"
 else
@@ -364,7 +374,7 @@ fi
 
 log "Completed."
 log "Import test on target PC:"
-log "  1) Copy 3 OVA + ova-sha256.txt"
+log "  1) Copy 4 OVA + ova-sha256.txt"
 log "  2) Verify checksum on target PC"
-log "  3) Import 3 VMs in VMware (control-plane, worker-1, worker-2)"
-log "  4) Power on 3 VMs and run: bash scripts/vmware_post_reboot_verify.sh --vars-file ${PACKER_VARS} --control-plane-ip <CP_IP> --ingress-lb-ip <LB_IP>"
+log "  3) Import 4 VMs in VMware (control-plane, worker-1, worker-2, worker-3)"
+log "  4) Power on VMs and run: bash scripts/vmware_post_reboot_verify.sh --vars-file ${PACKER_VARS} --control-plane-ip <CP_IP> --ingress-lb-ip <LB_IP>"
