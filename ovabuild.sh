@@ -326,7 +326,7 @@ if [[ "${SKIP_HARBOR_IMAGE_CHECK}" -eq 1 ]]; then
 fi
 "${prepare_cmd[@]}"
 
-log "Step 3/4: Exporting 3-node OVAs (VM stop included)"
+log "Step 3/4: Exporting role-specific OVAs (control-plane + 3 workers, VM stop included)"
 export_cmd=(
   bash "${ROOT_DIR}/scripts/vmware_export_3node_ova.sh"
   --vars-file "${PACKER_VARS}"
