@@ -10,7 +10,7 @@ HEADLAMP_NAMESPACE="headlamp"
 HEADLAMP_MANIFEST="${HEADLAMP_MANIFEST:-}"
 INGRESS_NAME="${INGRESS_NAME:-headlamp-ingress}"
 INGRESS_CLASS_NAME="${INGRESS_CLASS_NAME:-nginx}"
-INGRESS_HOST="${INGRESS_HOST:-dashboard.platform.local}"
+INGRESS_HOST="${INGRESS_HOST:-headlamp.platform.local}"
 
 SKIP_INGRESS=0
 SKIP_ADMIN_BINDING=0
@@ -30,7 +30,7 @@ Options:
                               Defaults:
                                 1) /opt/k8s-data-platform/offline-bundle/k8s/manifests/headlamp.yaml
                                 2) ./offline/manifests/headlamp.yaml
-  --ingress-host HOST         Headlamp ingress host (default: dashboard.platform.local)
+  --ingress-host HOST         Headlamp ingress host (default: headlamp.platform.local)
   --ingress-name NAME         Ingress resource name (default: headlamp-ingress)
   --ingress-class NAME        IngressClass name (default: nginx)
   --skip-ingress              Skip ingress creation.

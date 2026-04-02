@@ -18,12 +18,14 @@ INGRESS_LB_IP="${INGRESS_LB_IP:-}"
 POWERSHELL_BIN="${POWERSHELL_BIN:-powershell.exe}"
 VMRUN_WIN="${VMRUN_WIN:-C:/Program Files (x86)/VMware/VMware Workstation/vmrun.exe}"
 WAIT_VM_IP_TIMEOUT_SEC="${WAIT_VM_IP_TIMEOUT_SEC:-600}"
+INITIAL_WAIT_SEC="${INITIAL_WAIT_SEC:-600}"
 
 SSH_USER="${SSH_USER:-}"
 SSH_PASSWORD="${SSH_PASSWORD:-}"
 SSH_KEY_PATH="${SSH_KEY_PATH:-}"
 SSH_PORT="${SSH_PORT:-22}"
 
+SKIP_INITIAL_WAIT=0
 SKIP_GITLAB_CLONE_CHECK=0
 STRICT_HARBOR_CHECK=0
 GITLAB_INTERNAL_URL="${GITLAB_INTERNAL_URL:-http://127.0.0.1:30089}"
@@ -32,6 +34,10 @@ NAMESPACE=""
 CONTROL_PLANE_SSH_HOST=""
 OUTPUT_DIR_WSL=""
 CONTROL_PLANE_VMX_WIN=""
+WORKER1_VMX_WIN=""
+WORKER2_VMX_WIN=""
+WORKER3_VMX_WIN=""
+DETECTED_CONTROL_PLANE_IP=""
 RESOLVED_INGRESS_LB_IP=""
 SSH_OPTS=()
 
@@ -49,6 +55,8 @@ usage() {
 Usage: bash scripts/vmware_post_reboot_verify.sh [options]
 
 Post-reboot verification for existing VMware cluster:
+  - Wait 10 minutes by default before checks (configurable)
+  - Ensure 4 VMware VMs are running (control-plane + worker1/2/3)
   - Resolve control-plane SSH endpoint
   - Wait nodes/pods/PVC readiness
   - Re-run ingress URL checks (verify.sh)
@@ -61,7 +69,7 @@ Options:
   --worker2-name NAME          Default: k8s-worker-2
   --worker3-name NAME          Default: k8s-worker-3
 
-  --control-plane-ip IP        Use static SSH host directly (skip vmrun IP detect)
+  --control-plane-ip IP        Use static SSH host directly (still checks VM run state/IP)
   --ingress-lb-ip IP           Fixed ingress LB IP for verify.sh (optional)
 
   --env dev|prod               Default: dev
@@ -79,6 +87,8 @@ Options:
   --vmrun PATH                 vmrun.exe path
   --powershell-bin CMD         PowerShell binary (default: powershell.exe)
   --wait-vm-ip-timeout-sec N   Default: 600
+  --initial-wait-sec N         Wait N seconds before checks (default: 600)
+  --skip-initial-wait          Skip initial wait before checks
   -h, --help                   Show this help
 
 Examples:
@@ -256,6 +266,48 @@ wait_for_vm_ip() {
   die "Timed out waiting VM guest IP (${label}) via vmrun."
 }
 
+vm_is_running() {
+  local vmx_win="$1"
+  local running
+
+  running="$(
+    ps_capture "\$target='${vmx_win}'; \$items = & '${VMRUN_WIN}' list 2>\$null; if (\$LASTEXITCODE -ne 0) { exit 1 }; \$joined = (\$items -join [Environment]::NewLine).ToLowerInvariant(); if (\$joined.Contains(\$target.ToLowerInvariant())) { '1' } else { '0' }" \
+      | tail -n 1 || true
+  )"
+  [[ "${running}" == "1" ]]
+}
+
+require_vmx_exists() {
+  local vmx_win="$1"
+  local label="$2"
+  local vmx_wsl
+
+  vmx_wsl="$(to_unix_path "${vmx_win}")"
+  [[ -f "${vmx_wsl}" ]] || die "VMX not found (${label}): ${vmx_wsl}"
+}
+
+ensure_vm_running() {
+  local vmx_win="$1"
+  local label="$2"
+
+  if vm_is_running "${vmx_win}"; then
+    log "VM running check passed (${label})"
+    return 0
+  fi
+
+  die "VM is not running (${label}). Power on all 4 VMs and retry."
+}
+
+run_initial_wait() {
+  if [[ "${SKIP_INITIAL_WAIT}" -eq 1 || "${INITIAL_WAIT_SEC}" -eq 0 ]]; then
+    log "Initial wait skipped."
+    return 0
+  fi
+
+  log "Initial post-boot wait: ${INITIAL_WAIT_SEC}s before VM checks."
+  sleep "${INITIAL_WAIT_SEC}"
+}
+
 ssh_capture() {
   local host="$1"
   local command="$2"
@@ -366,11 +418,7 @@ validate_cluster_state() {
   remote_kubectl "${host}" "wait --for=condition=Ready node/${CONTROL_PLANE_NAME} --timeout=420s"
   remote_kubectl "${host}" "wait --for=condition=Ready node/${WORKER1_NAME} --timeout=420s"
   remote_kubectl "${host}" "wait --for=condition=Ready node/${WORKER2_NAME} --timeout=420s"
-  if ssh_run_sudo "${host}" "KUBECONFIG=/etc/kubernetes/admin.conf kubectl get node '${WORKER3_NAME}' >/dev/null 2>&1"; then
-    remote_kubectl "${host}" "wait --for=condition=Ready node/${WORKER3_NAME} --timeout=420s"
-  else
-    log "Worker-3 node '${WORKER3_NAME}' not found; skipping worker-3 readiness wait."
-  fi
+  remote_kubectl "${host}" "wait --for=condition=Ready node/${WORKER3_NAME} --timeout=420s"
 
   not_ready_pods="$(
     ssh_capture_sudo "${host}" "KUBECONFIG=/etc/kubernetes/admin.conf kubectl -n '${NAMESPACE}' get pods --no-headers | awk '\$3 != \"Running\" && \$3 != \"Completed\" { print \$1 \" \" \$3 }'" || true
@@ -554,6 +602,15 @@ while [[ $# -gt 0 ]]; do
       WAIT_VM_IP_TIMEOUT_SEC="$2"
       shift 2
       ;;
+    --initial-wait-sec)
+      [[ $# -ge 2 ]] || die "--initial-wait-sec requires a value"
+      INITIAL_WAIT_SEC="$2"
+      shift 2
+      ;;
+    --skip-initial-wait)
+      SKIP_INITIAL_WAIT=1
+      shift
+      ;;
     -h|--help)
       usage
       exit 0
@@ -575,6 +632,8 @@ if is_windows_style_path "${PACKER_VARS}"; then
   PACKER_VARS="$(to_unix_path "${PACKER_VARS}")"
 fi
 [[ -f "${PACKER_VARS}" ]] || die "Packer vars file not found: ${PACKER_VARS}"
+[[ "${WAIT_VM_IP_TIMEOUT_SEC}" =~ ^[0-9]+$ ]] || die "--wait-vm-ip-timeout-sec must be a non-negative integer"
+[[ "${INITIAL_WAIT_SEC}" =~ ^[0-9]+$ ]] || die "--initial-wait-sec must be a non-negative integer"
 
 if [[ -z "${SSH_USER}" ]]; then
   SSH_USER="$(read_packer_var "${PACKER_VARS}" ssh_username)"
@@ -602,19 +661,45 @@ fi
 
 NAMESPACE="data-platform-${ENVIRONMENT}"
 
+resolve_output_dir
+resolve_vmrun
+
+CONTROL_PLANE_VMX_WIN="$(normalize_win_path "$(to_windows_path "${OUTPUT_DIR_WSL}/${CONTROL_PLANE_NAME}.vmx")")"
+WORKER1_VMX_WIN="$(normalize_win_path "$(to_windows_path "${OUTPUT_DIR_WSL}/${WORKER1_NAME}/${WORKER1_NAME}.vmx")")"
+WORKER2_VMX_WIN="$(normalize_win_path "$(to_windows_path "${OUTPUT_DIR_WSL}/${WORKER2_NAME}/${WORKER2_NAME}.vmx")")"
+WORKER3_VMX_WIN="$(normalize_win_path "$(to_windows_path "${OUTPUT_DIR_WSL}/${WORKER3_NAME}/${WORKER3_NAME}.vmx")")"
+
+require_vmx_exists "${CONTROL_PLANE_VMX_WIN}" "${CONTROL_PLANE_NAME}"
+require_vmx_exists "${WORKER1_VMX_WIN}" "${WORKER1_NAME}"
+require_vmx_exists "${WORKER2_VMX_WIN}" "${WORKER2_NAME}"
+require_vmx_exists "${WORKER3_VMX_WIN}" "${WORKER3_NAME}"
+
+run_initial_wait
+
+ensure_vm_running "${CONTROL_PLANE_VMX_WIN}" "${CONTROL_PLANE_NAME}"
+ensure_vm_running "${WORKER1_VMX_WIN}" "${WORKER1_NAME}"
+ensure_vm_running "${WORKER2_VMX_WIN}" "${WORKER2_NAME}"
+ensure_vm_running "${WORKER3_VMX_WIN}" "${WORKER3_NAME}"
+
+DETECTED_CONTROL_PLANE_IP="$(wait_for_vm_ip "${CONTROL_PLANE_VMX_WIN}" "${CONTROL_PLANE_NAME}")"
+log "Detected VM guest IP (${CONTROL_PLANE_NAME}): ${DETECTED_CONTROL_PLANE_IP}"
+log "Detected VM guest IP (${WORKER1_NAME}): $(wait_for_vm_ip "${WORKER1_VMX_WIN}" "${WORKER1_NAME}")"
+log "Detected VM guest IP (${WORKER2_NAME}): $(wait_for_vm_ip "${WORKER2_VMX_WIN}" "${WORKER2_NAME}")"
+log "Detected VM guest IP (${WORKER3_NAME}): $(wait_for_vm_ip "${WORKER3_VMX_WIN}" "${WORKER3_NAME}")"
+
 if [[ -n "${CONTROL_PLANE_IP}" ]]; then
   CONTROL_PLANE_SSH_HOST="${CONTROL_PLANE_IP}"
+  if [[ "${CONTROL_PLANE_SSH_HOST}" != "${DETECTED_CONTROL_PLANE_IP}" ]]; then
+    log "WARNING: --control-plane-ip (${CONTROL_PLANE_SSH_HOST}) differs from detected guest IP (${DETECTED_CONTROL_PLANE_IP})."
+  fi
 else
-  resolve_output_dir
-  resolve_vmrun
-  CONTROL_PLANE_VMX_WIN="$(normalize_win_path "$(to_windows_path "${OUTPUT_DIR_WSL}/${CONTROL_PLANE_NAME}.vmx")")"
-  CONTROL_PLANE_SSH_HOST="$(wait_for_vm_ip "${CONTROL_PLANE_VMX_WIN}" "${CONTROL_PLANE_NAME}")"
+  CONTROL_PLANE_SSH_HOST="${DETECTED_CONTROL_PLANE_IP}"
 fi
 
 log "Control-plane SSH endpoint: ${CONTROL_PLANE_SSH_HOST}"
 wait_for_ssh "${CONTROL_PLANE_SSH_HOST}" "control-plane"
 
-log "Checking cluster readiness (control-plane + worker1/worker2 + optional worker3)"
+log "Checking cluster readiness (control-plane + worker1/worker2/worker3)"
 validate_cluster_state "${CONTROL_PLANE_SSH_HOST}"
 
 log "Checking ingress URL endpoints"

@@ -212,6 +212,7 @@ Windows `C:\\Windows\\System32\\drivers\\etc\\hosts` 예시:
 192.168.56.240 gitlab.platform.local
 192.168.56.240 airflow.platform.local
 192.168.56.240 nexus.platform.local
+192.168.56.240 headlamp.platform.local
 ```
 
 - Frontend: `http://platform.local`
@@ -220,6 +221,7 @@ Windows `C:\\Windows\\System32\\drivers\\etc\\hosts` 예시:
 - GitLab: `http://gitlab.platform.local`
 - Airflow: `http://airflow.platform.local`
 - Nexus: `http://nexus.platform.local`
+- Headlamp: `http://headlamp.platform.local`
 
 레거시 NodePort 점검이 필요하면:
 - `bash scripts/verify.sh --http-mode nodeport --host <CONTROL_PLANE_IP>`

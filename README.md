@@ -133,7 +133,7 @@ bash scripts/check_offline_readiness.sh
 ```bash
 sudo bash /opt/k8s-data-platform/scripts/install_vm_airgap_postboot_timer.sh \
   --script-path /opt/k8s-data-platform/scripts/check_vm_airgap_status.sh \
-  --expected-nodes k8s-data-platform,k8s-worker-1,k8s-worker-2
+  --expected-nodes k8s-data-platform,k8s-worker-1,k8s-worker-2,k8s-worker-3
 ```
 
 - 동작: OS 부팅 후 10분에 1회 실행
@@ -803,6 +803,7 @@ bash scripts/verify.sh --http-mode ingress --lb-ip 192.168.56.240
 - GitLab: `http://gitlab.platform.local`
 - Airflow: `http://airflow.platform.local`
 - Nexus: `http://nexus.platform.local`
+- Headlamp: `http://headlamp.platform.local`
 
 레거시 NodePort(필요 시):
 
@@ -818,6 +819,7 @@ hosts 파일 예시(Windows):
 192.168.56.240 gitlab.platform.local
 192.168.56.240 airflow.platform.local
 192.168.56.240 nexus.platform.local
+192.168.56.240 headlamp.platform.local
 ```
 
 ## 관리자 계정 / 비밀번호 정리 (현재 기본 실행값)
@@ -1285,6 +1287,7 @@ bash scripts/install_git_hooks.sh
 - GitLab: `http://gitlab.platform.local`
 - Airflow: `http://airflow.platform.local`
 - Nexus: `http://nexus.platform.local`
+- Headlamp: `http://headlamp.platform.local`
 - Harbor (legacy): `http://<CONTROL_PLANE_IP>:30092`
 - code-server (legacy): `http://<CONTROL_PLANE_IP>:30100`
 - Frontend Dev (legacy): `http://<CONTROL_PLANE_IP>:31080`
@@ -1294,8 +1297,8 @@ bash scripts/install_git_hooks.sh
 
 OVA import 후 아래 항목을 순서대로 확인하면 기본 검증이 가능합니다.
 
-- 3대 VM(control-plane/worker1/worker2) 부팅 완료
-- `kubectl get nodes` 결과에서 3개 노드 모두 `Ready`
+- 4대 VM(control-plane/worker1/worker2/worker3) 부팅 완료
+- `kubectl get nodes` 결과에서 4개 노드 모두 `Ready`
 - `ingress-nginx-controller` 서비스에 `EXTERNAL-IP` 할당됨 (MetalLB)
 - `bash scripts/verify.sh --http-mode ingress --lb-ip <INGRESS_LB_IP>` 성공
 - `kubectl get pods -A` 결과에서 핵심 Pod 가 `Running`

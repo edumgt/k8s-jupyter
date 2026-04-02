@@ -37,7 +37,7 @@ bash scripts/verify.sh --http-mode ingress --lb-ip 192.168.56.240
 4. GitLab: `http://gitlab.platform.local`
 5. Airflow: `http://airflow.platform.local`
 6. Nexus: `http://nexus.platform.local`
-7. Dashboard: `http://dashboard.platform.local`
+7. Headlamp: `http://headlamp.platform.local`
 
 ## 3.2 기본 관리자 계정
 
@@ -121,4 +121,3 @@ bash scripts/restore_platform.sh --env dev --backup-dir <backup-dir>
 1. 운영 반영 전 `dev` 검증 후 `prod` 반영
 2. 반영 전/후 `verify.sh` 결과 보관
 3. 장애 발생 시 변경 이력 기준 롤백 계획 확보
-

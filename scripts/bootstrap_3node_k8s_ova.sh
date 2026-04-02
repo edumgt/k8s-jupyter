@@ -460,6 +460,7 @@ if is_true "${SETUP_INGRESS_STACK}"; then
   log "  GitLab   : http://gitlab.platform.local"
   log "  Airflow  : http://airflow.platform.local"
   log "  Nexus    : http://nexus.platform.local"
+  log "  Headlamp : http://headlamp.platform.local"
   log "Hosts file example:"
   log "  ${INGRESS_LB_IP} dev.platform.local"
   log "  ${INGRESS_LB_IP} dev-api.platform.local"
@@ -470,6 +471,7 @@ if is_true "${SETUP_INGRESS_STACK}"; then
   log "  ${INGRESS_LB_IP} gitlab.platform.local"
   log "  ${INGRESS_LB_IP} airflow.platform.local"
   log "  ${INGRESS_LB_IP} nexus.platform.local"
+  log "  ${INGRESS_LB_IP} headlamp.platform.local"
 else
   log "Access endpoints (legacy NodePort):"
   log "  Frontend : http://${CONTROL_PLANE_IP}:30080"

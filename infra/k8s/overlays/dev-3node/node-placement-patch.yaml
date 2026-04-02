@@ -26,7 +26,7 @@ spec:
   template:
     spec:
       nodeSelector:
-        kubernetes.io/hostname: k8s-worker-2
+        kubernetes.io/hostname: k8s-worker-3
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -56,7 +56,7 @@ spec:
   template:
     spec:
       nodeSelector:
-        kubernetes.io/hostname: k8s-worker-2
+        kubernetes.io/hostname: k8s-worker-3
 ---
 apiVersion: apps/v1
 kind: Deployment

@@ -84,7 +84,7 @@ Windows/WSL hosts에 아래 도메인을 등록합니다.
 192.168.56.240 gitlab.platform.local
 192.168.56.240 airflow.platform.local
 192.168.56.240 nexus.platform.local
-192.168.56.240 dashboard.platform.local
+192.168.56.240 headlamp.platform.local
 ```
 
 ## 5. 설치 검증
@@ -138,4 +138,3 @@ bash scripts/check_offline_readiness.sh
 2. 오프라인 번들 재적재
 3. `bash scripts/apply_k8s.sh --env dev --overlay dev-3node` 재적용
 4. `bash scripts/verify.sh --http-mode ingress --lb-ip <LB_IP>` 재검증
-

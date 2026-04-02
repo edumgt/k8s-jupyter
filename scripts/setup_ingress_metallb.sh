@@ -310,6 +310,7 @@ ${RESOLVED_LB_IP} jupyter.platform.local
 ${RESOLVED_LB_IP} gitlab.platform.local
 ${RESOLVED_LB_IP} airflow.platform.local
 ${RESOLVED_LB_IP} nexus.platform.local
+${RESOLVED_LB_IP} headlamp.platform.local
 
 EOF_HOSTS
   else

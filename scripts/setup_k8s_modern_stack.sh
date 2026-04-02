@@ -9,7 +9,7 @@ METALLB_MANIFEST="${METALLB_MANIFEST:-}"
 INGRESS_MANIFEST="${INGRESS_MANIFEST:-}"
 METRICS_SERVER_MANIFEST="${METRICS_SERVER_MANIFEST:-}"
 HEADLAMP_MANIFEST="${HEADLAMP_MANIFEST:-}"
-HEADLAMP_INGRESS_HOST="${HEADLAMP_INGRESS_HOST:-dashboard.platform.local}"
+HEADLAMP_INGRESS_HOST="${HEADLAMP_INGRESS_HOST:-headlamp.platform.local}"
 HEADLAMP_INGRESS_NAME="${HEADLAMP_INGRESS_NAME:-headlamp-ingress}"
 HEADLAMP_INGRESS_CLASS="${HEADLAMP_INGRESS_CLASS:-nginx}"
 WAIT_TIMEOUT_SEC="${WAIT_TIMEOUT_SEC:-420}"
@@ -41,7 +41,7 @@ Options:
   --metrics-server-manifest <ref>
                                  Override metrics-server manifest URL/path.
   --headlamp-manifest <ref>      Override Headlamp manifest path.
-  --headlamp-ingress-host <host> Headlamp ingress host. Defaults to dashboard.platform.local.
+  --headlamp-ingress-host <host> Headlamp ingress host. Defaults to headlamp.platform.local.
   --headlamp-ingress-name <name> Headlamp ingress resource name.
   --headlamp-ingress-class <cls> Headlamp ingress class. Defaults to nginx.
   --wait-timeout-sec <n>         Rollout wait timeout seconds. Defaults to 420.
