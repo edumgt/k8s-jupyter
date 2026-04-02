@@ -16,7 +16,8 @@ kubectl logs <pod-name> -n data-platform-dev --previous
 
 ```bash
 kubectl get pods -n kube-system
-kubectl logs -n kube-flannel <flannel-pod-name> --previous
+kubectl get pods -n kube-system -l k8s-app=calico-node
+kubectl logs -n kube-system <calico-node-pod-name> --previous
 ```
 
 - 네트워크 sysctl 재적용(필요 시):
@@ -54,4 +55,3 @@ bash scripts/svc-up.sh --env dev
 bash scripts/backup_platform.sh --env dev
 bash scripts/restore_platform.sh --env dev --backup-dir <backup-dir>
 ```
-

@@ -4,7 +4,7 @@
 ## Kubernetes / Infra
 - `22/tcp`: SSH
 - `6443/tcp`: Kubernetes API
-- `8472/udp`: Flannel VXLAN
+- `4789/udp`: Calico VXLAN
 
 ## Platform NodePort (`data-platform-dev`)
 - `30080/tcp`: Frontend
@@ -24,4 +24,3 @@
 - `8080/tcp`: Airflow 내부 서비스
 - `8081/tcp`: Nexus 내부 서비스
 - `8929/tcp`: GitLab 내부 Web
-

@@ -591,7 +591,7 @@ flowchart TD
   D2 --> D3{"AMI import completed?"}
   D3 -->|No| D4["Fix IAM role/bucket policy/format"]
   D3 -->|Yes| D5["Launch EC2 x3 in same VPC/subnet"]
-  D5 --> D6["Open SG ports 22,6443,10250,8472/udp,80,443,7946(tcp/udp),30224"]
+  D5 --> D6["Open SG ports 22,6443,10250,4789/udp,80,443,7946(tcp/udp),30224"]
   D6 --> D7["Run join/overlay automation"]
   D7 --> D8["K8s cluster possible (Conditional Yes)"]
 
