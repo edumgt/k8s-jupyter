@@ -56,6 +56,7 @@ infra/k8s/base/backend.yaml
 infra/k8s/base/gitlab.yaml
 infra/k8s/base/platform-configmap.yaml
 infra/k8s/overlays/dev/platform-configmap-patch.yaml
+offline/manifests/metrics-server.yaml
 ovabuild.sh
 scripts/apply_k8s.sh
 scripts/build_k8s_images.sh
@@ -67,6 +68,7 @@ scripts/install_vm_base_packages.sh
 scripts/preload_offline_bundle_to_vm.sh
 scripts/prepare_offline_bundle.sh
 scripts/setup_ingress_metallb.sh
+scripts/setup_k8s_modern_stack.sh
 scripts/verify.sh
 scripts/install_vm_apt_bundle_to_vms.sh
 scripts/lib/image_registry.sh

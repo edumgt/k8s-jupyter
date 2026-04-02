@@ -174,6 +174,7 @@ REQUIRED_IMAGES=(
   "$(platform_support_image platform-metallb-speaker v0.15.3)"
   "$(platform_support_image platform-ingress-nginx-controller v1.14.1)"
   "$(platform_support_image platform-ingress-nginx-kube-webhook-certgen v1.6.5)"
+  "$(platform_support_image platform-metrics-server v0.8.1)"
   "$(platform_support_image platform-headlamp v0.38.0)"
   "$(platform_app_image backend)"
   "$(platform_app_image frontend)"

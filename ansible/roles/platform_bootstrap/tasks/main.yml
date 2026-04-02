@@ -65,6 +65,7 @@
     - /opt/k8s-data-platform/scripts/join_worker_node.sh
     - /opt/k8s-data-platform/scripts/configure_multinode_cluster.sh
     - /opt/k8s-data-platform/scripts/setup_ingress_metallb.sh
+    - /opt/k8s-data-platform/scripts/setup_k8s_modern_stack.sh
 
 - name: Configure code-server environment
   copy:

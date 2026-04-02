@@ -18,7 +18,7 @@ Features:
   2) Hostname + /etc/hosts alignment
   3) kubeadm join for worker nodes
   4) Optional overlay apply for GitLab + Nexus placement
-  5) Optional NGINX Ingress + MetalLB setup for URL-based access
+  5) Optional modern module setup (ingress-nginx + MetalLB + metrics-server + Headlamp)
 
 Required:
   - SSH access to all nodes
@@ -419,8 +419,17 @@ fi
 
 if is_true "${SETUP_INGRESS_STACK}"; then
   default_ingress_values
-  log "Configuring ingress-nginx + MetalLB (range=${METALLB_ADDRESS_RANGE}, lb_ip=${INGRESS_LB_IP})"
-  if ssh_run_sudo "${CONTROL_PLANE_IP}" "test -f '${REMOTE_REPO_ROOT}/scripts/setup_ingress_metallb.sh'"; then
+  log "Configuring modern k8s modules (ingress-nginx + MetalLB + metrics-server + Headlamp)"
+  if ssh_run_sudo "${CONTROL_PLANE_IP}" "test -f '${REMOTE_REPO_ROOT}/scripts/setup_k8s_modern_stack.sh'"; then
+    REMOTE_INGRESS_CMD="bash '${REMOTE_REPO_ROOT}/scripts/setup_k8s_modern_stack.sh' --metallb-range '${METALLB_ADDRESS_RANGE}' --ingress-lb-ip '${INGRESS_LB_IP}'"
+    if [[ -n "${METALLB_MANIFEST}" ]]; then
+      REMOTE_INGRESS_CMD="${REMOTE_INGRESS_CMD} --metallb-manifest '${METALLB_MANIFEST}'"
+    fi
+    if [[ -n "${INGRESS_MANIFEST}" ]]; then
+      REMOTE_INGRESS_CMD="${REMOTE_INGRESS_CMD} --ingress-manifest '${INGRESS_MANIFEST}'"
+    fi
+    ssh_run_sudo "${CONTROL_PLANE_IP}" "${REMOTE_INGRESS_CMD}"
+  elif ssh_run_sudo "${CONTROL_PLANE_IP}" "test -f '${REMOTE_REPO_ROOT}/scripts/setup_ingress_metallb.sh'"; then
     REMOTE_INGRESS_CMD="bash '${REMOTE_REPO_ROOT}/scripts/setup_ingress_metallb.sh' --metallb-range '${METALLB_ADDRESS_RANGE}' --ingress-lb-ip '${INGRESS_LB_IP}'"
     if [[ -n "${METALLB_MANIFEST}" ]]; then
       REMOTE_INGRESS_CMD="${REMOTE_INGRESS_CMD} --metallb-manifest '${METALLB_MANIFEST}'"
@@ -430,7 +439,7 @@ if is_true "${SETUP_INGRESS_STACK}"; then
     fi
     ssh_run_sudo "${CONTROL_PLANE_IP}" "${REMOTE_INGRESS_CMD}"
   else
-    log "Ingress setup script is missing on control-plane (${REMOTE_REPO_ROOT}/scripts/setup_ingress_metallb.sh); skipping ingress/metallb setup."
+    log "Ingress setup script is missing on control-plane; skipping module setup."
   fi
 fi
 

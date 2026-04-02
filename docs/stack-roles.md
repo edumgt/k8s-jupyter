@@ -64,6 +64,7 @@
 | [scripts/publish_dockerhub.sh](../scripts/publish_dockerhub.sh) | 현재 Docker login 기준 Docker Hub push |
 | [scripts/prepare_offline_bundle.sh](../scripts/prepare_offline_bundle.sh) | 폐쇄망용 image/wheel/npm cache 와 k8s bundle 자산 준비 |
 | [scripts/import_offline_bundle.sh](../scripts/import_offline_bundle.sh) | 폐쇄망 bundle 의 image import 와 k8s overlay apply |
+| [scripts/setup_k8s_modern_stack.sh](../scripts/setup_k8s_modern_stack.sh) | ingress-nginx/MetalLB/metrics-server/Headlamp 모듈 스택 설치 |
 | [scripts/run_wsl.sh](../scripts/run_wsl.sh) | OVA 빌드 자동화 |
 
 ## 정리 기준

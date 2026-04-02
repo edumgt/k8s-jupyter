@@ -71,18 +71,30 @@ check_k8s() {
   else
     warn "ingress-nginx-controller service not found"
   fi
+
+  if sudo env KUBECONFIG=/etc/kubernetes/admin.conf kubectl get apiservice v1beta1.metrics.k8s.io >/dev/null 2>&1; then
+    if sudo env KUBECONFIG=/etc/kubernetes/admin.conf kubectl wait --for=condition=Available --timeout=15s apiservice/v1beta1.metrics.k8s.io >/dev/null 2>&1; then
+      log "metrics.k8s.io APIService is available"
+    else
+      warn "metrics.k8s.io APIService is not Available"
+    fi
+  else
+    warn "metrics-server APIService (v1beta1.metrics.k8s.io) not found"
+  fi
 }
 
 main() {
   check_file "${MANIFEST_DIR_REPO}/calico.yaml" "repo calico manifest"
   check_file "${MANIFEST_DIR_REPO}/ingress-nginx.yaml" "repo ingress manifest"
   check_file "${MANIFEST_DIR_REPO}/metallb-native.yaml" "repo MetalLB manifest"
+  check_file "${MANIFEST_DIR_REPO}/metrics-server.yaml" "repo metrics-server manifest"
   check_file "${MANIFEST_DIR_REPO}/headlamp.yaml" "repo headlamp manifest"
 
   if [[ -d "${BUNDLE_DIR}" ]]; then
     check_file "${MANIFEST_DIR_BUNDLE}/calico.yaml" "bundle calico manifest"
     check_file "${MANIFEST_DIR_BUNDLE}/ingress-nginx.yaml" "bundle ingress manifest"
     check_file "${MANIFEST_DIR_BUNDLE}/metallb-native.yaml" "bundle MetalLB manifest"
+    check_file "${MANIFEST_DIR_BUNDLE}/metrics-server.yaml" "bundle metrics-server manifest"
     check_file "${MANIFEST_DIR_BUNDLE}/headlamp.yaml" "bundle headlamp manifest"
   else
     warn "Offline bundle directory not found: ${BUNDLE_DIR}"
@@ -96,6 +108,7 @@ main() {
     check_image_ref "$(platform_support_image platform-metallb-speaker v0.15.3)"
     check_image_ref "$(platform_support_image platform-ingress-nginx-controller v1.14.1)"
     check_image_ref "$(platform_support_image platform-ingress-nginx-kube-webhook-certgen v1.6.5)"
+    check_image_ref "$(platform_support_image platform-metrics-server v0.8.1)"
     check_image_ref "$(platform_support_image platform-headlamp v0.38.0)"
     check_image_ref "$(platform_support_image platform-gitlab-ce 17.10.0-ce.0)"
     check_image_ref "$(platform_support_image platform-nexus3 3.90.1-alpine)"

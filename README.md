@@ -112,7 +112,7 @@ bash scripts/check_offline_readiness.sh
 
 이 스크립트는 아래를 확인합니다.
 
-- repo/bundle 내부 Calico, ingress-nginx, MetalLB 매니페스트 존재 여부
+- repo/bundle 내부 Calico, ingress-nginx, MetalLB, metrics-server 매니페스트 존재 여부
 - containerd 에 핵심 `harbor.local/data-platform/*` 이미지가 preload 되어 있는지
 - 현재 클러스터에 `ErrImagePull` / `ImagePullBackOff`가 남아 있는지
 
@@ -542,7 +542,15 @@ bash scripts/bootstrap_3node_k8s_ova.sh --config /tmp/3node-cluster.env
 2. hostname + `/etc/hosts` 동기화
 3. worker 노드 `kubeadm join` 자동 수행
 4. `dev-3node` overlay 자동 적용(`APPLY_OVERLAY=1` 기본)
-5. ingress-nginx + MetalLB 구성 후 URL 엔드포인트(`platform.local`, `gitlab.platform.local`, `nexus.platform.local`) 확인
+5. ingress-nginx + MetalLB + metrics-server + Headlamp 구성 후 URL 엔드포인트(`platform.local`, `gitlab.platform.local`, `nexus.platform.local`) 확인
+
+모듈 스택만 다시 적용하려면:
+
+```bash
+bash scripts/setup_k8s_modern_stack.sh \
+  --metallb-range 192.168.56.240-192.168.56.250 \
+  --ingress-lb-ip 192.168.56.240
+```
 
 ### nexus.platform.local / admin / Edumgt22509741!
 ### gitlab.platform.local / root / Edumgt22509741!
