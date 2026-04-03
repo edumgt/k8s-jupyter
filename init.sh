@@ -325,7 +325,7 @@ print_vm_section() {
 
   printf '\n[%s]\n' "${label}"
   printf '%s\n' "sudo bash /opt/k8s-data-platform/scripts/set_static_ip.sh --ip ${node_ip} --prefix ${NETWORK_CIDR_PREFIX} --gateway ${GATEWAY} --dns ${DNS_SERVERS}${NET_INTERFACE:+ --iface ${NET_INTERFACE}}"
-  printf '%s\n' "sudo bash /opt/k8s-data-platform/scripts/set_hostname_hosts.sh --hostname ${node_hostname} --entry \"${CONTROL_PLANE_IP} ${CONTROL_PLANE_HOSTNAME}\" --entry \"${WORKER1_IP} ${WORKER1_HOSTNAME}\" --entry \"${WORKER2_IP} ${WORKER2_HOSTNAME}\" --entry \"${WORKER3_IP} ${WORKER3_HOSTNAME}\""
+  printf '%s\n' "sudo bash /opt/k8s-data-platform/scripts/set_hostname_hosts.sh --hostname ${node_hostname} --entry \"${CONTROL_PLANE_IP} ${CONTROL_PLANE_HOSTNAME}\" --entry \"${WORKER1_IP} ${WORKER1_HOSTNAME}\" --entry \"${WORKER2_IP} ${WORKER2_HOSTNAME}\" --entry \"${WORKER3_IP} ${WORKER3_HOSTNAME}\" --entry \"${CONTROL_PLANE_IP} ${OFFLINE_REGISTRY}\""
   printf '%s\n' "hostname"
   printf '%s\n' "hostname -I"
   printf '%s\n' "ip route"

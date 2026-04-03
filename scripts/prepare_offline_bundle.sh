@@ -64,6 +64,23 @@ copy_existing_image_archives() {
   done
 }
 
+verify_calico_image_archives() {
+  local images_dir="$1"
+  local ref archive
+  local required_refs=(
+    "$(platform_support_image platform-calico-cni v3.31.2)"
+    "$(platform_support_image platform-calico-node v3.31.2)"
+    "$(platform_support_image platform-calico-kube-controllers v3.31.2)"
+  )
+
+  [[ -d "${images_dir}" ]] || die "Image archive directory not found: ${images_dir}"
+
+  for ref in "${required_refs[@]}"; do
+    archive="${images_dir}/$(printf '%s' "${ref}" | tr '/:' '-').tar"
+    [[ -f "${archive}" ]] || die "Missing required Calico archive: ${archive}. Rebuild bundle without --skip-images or refresh image archives first."
+  done
+}
+
 download_python_requirements() {
   local app_name="$1"
   local requirements_file="$2"
@@ -237,8 +254,11 @@ run_cmd mkdir -p "${OUT_DIR}" "${OUT_DIR}/images"
 if [[ "${SKIP_IMAGES}" != "1" ]]; then
   run_cmd env TMP_DIR="${OUT_DIR}/images" IMAGE_REGISTRY="${IMAGE_REGISTRY}" IMAGE_NAMESPACE="${IMAGE_NAMESPACE}" IMAGE_TAG="${IMAGE_TAG}" \
     bash "${ROOT_DIR}/scripts/build_k8s_images.sh" --namespace "${IMAGE_NAMESPACE}" --tag "${IMAGE_TAG}" --skip-runtime-import
+  verify_calico_image_archives "${OUT_DIR}/images"
 else
+  verify_calico_image_archives "${IMAGE_ARCHIVE_DIR}"
   copy_existing_image_archives "${IMAGE_ARCHIVE_DIR}"
+  verify_calico_image_archives "${OUT_DIR}/images"
 fi
 
 download_python_requirements backend "${ROOT_DIR}/apps/backend/requirements.txt"

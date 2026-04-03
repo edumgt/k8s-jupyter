@@ -27,6 +27,8 @@ CONTROL_PLANE_IP=""
 WORKER1_IP=""
 WORKER2_IP=""
 WORKER3_IP=""
+REGISTRY_HOSTNAME="${REGISTRY_HOSTNAME:-harbor.local}"
+REGISTRY_IP="${REGISTRY_IP:-}"
 GATEWAY=""
 NETWORK_CIDR_PREFIX="${NETWORK_CIDR_PREFIX:-24}"
 DNS_SERVERS="${DNS_SERVERS:-}"
@@ -93,6 +95,8 @@ Options:
   --worker1-ip IP           Final static IP for worker-1 (required with --static-network)
   --worker2-ip IP           Final static IP for worker-2 (required with --static-network)
   --worker3-ip IP           Final static IP for worker-3 (required with --static-network)
+  --registry-hostname NAME  Registry DNS name to distribute via /etc/hosts (default: harbor.local)
+  --registry-ip IP          Registry IP to distribute via /etc/hosts (default: control-plane IP)
   --gateway IP              Gateway for static network (required with --static-network)
   --network-cidr-prefix N   Prefix for static network (default: 24)
   --dns-servers CSV         DNS CSV (default with static network: <gateway>,1.1.1.1,8.8.8.8)
@@ -523,6 +527,16 @@ while [[ $# -gt 0 ]]; do
       WORKER3_IP="$2"
       shift 2
       ;;
+    --registry-hostname)
+      [[ $# -ge 2 ]] || die "--registry-hostname requires a value"
+      REGISTRY_HOSTNAME="$2"
+      shift 2
+      ;;
+    --registry-ip)
+      [[ $# -ge 2 ]] || die "--registry-ip requires a value"
+      REGISTRY_IP="$2"
+      shift 2
+      ;;
     --gateway)
       [[ $# -ge 2 ]] || die "--gateway requires a value"
       GATEWAY="$2"
@@ -768,6 +782,10 @@ if [[ "${STATIC_NETWORK}" -eq 0 ]]; then
   WORKER3_IP="${WORKER3_SSH_HOST}"
 fi
 
+if [[ -z "${REGISTRY_IP}" ]]; then
+  REGISTRY_IP="${CONTROL_PLANE_IP}"
+fi
+
 BOOTSTRAP_CONFIG="${RUNTIME_DIR}/3node-bootstrap.env"
 : > "${BOOTSTRAP_CONFIG}"
 
@@ -783,6 +801,8 @@ write_env_var "${BOOTSTRAP_CONFIG}" SSH_PORT "${SSH_PORT}"
 write_env_var "${BOOTSTRAP_CONFIG}" CONTROL_PLANE_SSH_HOST "${CONTROL_PLANE_SSH_HOST}"
 write_env_var "${BOOTSTRAP_CONFIG}" CONTROL_PLANE_HOSTNAME "${CONTROL_PLANE_NAME}"
 write_env_var "${BOOTSTRAP_CONFIG}" CONTROL_PLANE_IP "${CONTROL_PLANE_IP}"
+write_env_var "${BOOTSTRAP_CONFIG}" REGISTRY_HOSTNAME "${REGISTRY_HOSTNAME}"
+write_env_var "${BOOTSTRAP_CONFIG}" REGISTRY_IP "${REGISTRY_IP}"
 
 write_env_var "${BOOTSTRAP_CONFIG}" WORKER1_SSH_HOST "${WORKER1_SSH_HOST}"
 write_env_var "${BOOTSTRAP_CONFIG}" WORKER1_HOSTNAME "${WORKER1_NAME}"
