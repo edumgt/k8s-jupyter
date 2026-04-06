@@ -52,3 +52,44 @@ curl -sS http://localhost:8000/api/auth/me \
 - `PLATFORM_CORS_ALLOW_ORIGINS` (콤마 구분 오리진 목록)
 - `PLATFORM_CORS_ALLOW_ORIGIN_REGEX` (오리진 정규식)
 - `PLATFORM_CORS_ALLOW_CREDENTIALS` (`true`/`false`)
+
+## Teradata Bootstrap (관리자 전용)
+
+Teradata 는 오픈소스 내장 DB가 아니라 외부 상용 DB 연결 방식입니다.
+이 백엔드는 관리자 API로 bootstrap SQL(엔진성 SP + 메타/공통코드/계정 seed)을 실행할 수 있습니다.
+
+- Endpoint: `POST /api/admin/teradata/bootstrap`
+- 권한: admin JWT 필요 (`Authorization: Bearer <token>`)
+- 기본 동작: `dry_run=true` 권장
+- 기본 SQL 파일: `app/sql/teradata/bootstrap.sql`
+- 구분자: SQL 파일에서 `--@@` 로 statement block 분리
+
+필수 환경변수:
+
+- `PLATFORM_TERADATA_FAKE_MODE=false`
+- `PLATFORM_TERADATA_HOST`
+- `PLATFORM_TERADATA_USER`
+- `PLATFORM_TERADATA_PASSWORD`
+- `PLATFORM_TERADATA_DATABASE`
+- (선택) `PLATFORM_TERADATA_BOOTSTRAP_SQL_PATH` (커스텀 SQL 파일 경로)
+
+예시:
+
+```bash
+# 1) admin 로그인
+TOKEN=$(curl -sS http://localhost:8000/api/auth/login \
+  -H 'Content-Type: application/json' \
+  -d '{"username":"admin@test.com","password":"123456"}' | jq -r '.access_token')
+
+# 2) dry-run (권장)
+curl -sS http://localhost:8000/api/admin/teradata/bootstrap \
+  -H "Authorization: Bearer ${TOKEN}" \
+  -H 'Content-Type: application/json' \
+  -d '{"dry_run":true}'
+
+# 3) 실제 실행
+curl -sS http://localhost:8000/api/admin/teradata/bootstrap \
+  -H "Authorization: Bearer ${TOKEN}" \
+  -H 'Content-Type: application/json' \
+  -d '{"dry_run":false}'
+```

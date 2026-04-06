@@ -17,6 +17,8 @@ from app.models import (
     LabSessionRequest,
     LabSessionResponse,
     SnapshotStatusResponse,
+    TeradataBootstrapRequest,
+    TeradataBootstrapResponse,
     TeradataQueryRequest,
     TeradataQueryResponse,
     UserUsageResponse,
@@ -44,6 +46,7 @@ from app.services.lab_identity import canonical_username
 from app.services.mongo import get_mongo_status
 from app.services.redis_store import get_redis_status
 from app.services.teradata import run_ansi_query, teradata_summary
+from app.services.teradata_bootstrap import run_teradata_bootstrap
 from app.version import BACKEND_APP_VERSION
 
 settings = get_settings()
@@ -314,6 +317,21 @@ def teradata_query(request: TeradataQueryRequest) -> TeradataQueryResponse:
     settings = get_settings()
     result = run_ansi_query(settings, request.sql, request.limit)
     return TeradataQueryResponse(**result)
+
+
+@app.post("/api/admin/teradata/bootstrap", response_model=TeradataBootstrapResponse)
+def bootstrap_teradata(
+    request: TeradataBootstrapRequest,
+    _current_user=Depends(require_admin_user),
+) -> TeradataBootstrapResponse:
+    settings = get_settings()
+    try:
+        result = run_teradata_bootstrap(settings, dry_run=request.dry_run)
+        return TeradataBootstrapResponse(**result)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except RuntimeError as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
 
 
 @app.post("/api/jupyter/sessions", response_model=LabSessionResponse)

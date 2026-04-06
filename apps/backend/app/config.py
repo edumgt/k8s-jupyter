@@ -46,6 +46,7 @@ class Settings(BaseSettings):
     teradata_user: str | None = None
     teradata_password: str | None = None
     teradata_database: str = "dbc"
+    teradata_bootstrap_sql_path: str | None = None
     teradata_fake_mode: bool = True
     teradata_encryptdata: bool = True
     cors_allow_origins: str = (

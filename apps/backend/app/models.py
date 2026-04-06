@@ -44,6 +44,20 @@ class TeradataQueryResponse(BaseModel):
     note: str
 
 
+class TeradataBootstrapRequest(BaseModel):
+    dry_run: bool = True
+
+
+class TeradataBootstrapResponse(BaseModel):
+    mode: str
+    source_file: str
+    statement_count: int
+    executed_count: int
+    dry_run: bool
+    statement_previews: list[str]
+    note: str
+
+
 class LabSessionRequest(BaseModel):
     username: str = Field(min_length=2, max_length=48)
 
