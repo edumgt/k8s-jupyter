@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-APP_DIR="${APP_DIR:-/opt/k8s-data-platform/apps/frontend}"
+APP_DIR="${APP_DIR:-/opt/k8s-data-platform/apps/dataxflow-frontend}"
 
 usage() {
   cat <<'EOF'

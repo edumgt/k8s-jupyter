@@ -24,7 +24,7 @@ Usage: bash scripts/prime_nexus_from_env.sh [options]
 Options:
   --env <dev|prod>             Target environment. Defaults to dev.
   --backend-env-file <path>    Backend env file. Defaults to apps/backend/.env.<env>.
-  --frontend-env-file <path>   Frontend env file. Defaults to apps/frontend/.env.<env>.
+  --frontend-env-file <path>   Frontend env file. Defaults to apps/dataxflow-frontend/.env.<env>.
   --nexus-url <url>            Reachable Nexus base URL.
   --username <name>            Nexus repository username (optional).
   --password <pw>              Nexus repository password (optional).
@@ -208,7 +208,7 @@ else
   BACKEND_ENV_FILE="$(resolve_path "${BACKEND_ENV_FILE}")"
 fi
 if [[ -z "${FRONTEND_ENV_FILE}" ]]; then
-  FRONTEND_ENV_FILE="${ROOT_DIR}/apps/frontend/.env.${APP_ENV}"
+  FRONTEND_ENV_FILE="${ROOT_DIR}/apps/dataxflow-frontend/.env.${APP_ENV}"
 else
   FRONTEND_ENV_FILE="$(resolve_path "${FRONTEND_ENV_FILE}")"
 fi

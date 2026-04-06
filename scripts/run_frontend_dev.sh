@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-APP_DIR="${APP_DIR:-/opt/k8s-data-platform/apps/frontend}"
+APP_DIR="${APP_DIR:-/opt/k8s-data-platform/apps/dataxflow-frontend}"
 HOST="${HOST:-0.0.0.0}"
 PORT="${PORT:-31080}"
-API_BASE_URL="${VITE_API_BASE_URL:-http://platform.local}"
+API_BASE_URL="${VITE_API_BASE_URL:-http://api.dataxflow.local}"
 
 usage() {
   cat <<'EOF'

@@ -3,7 +3,7 @@ kind: Kustomization
 
 resources:
   - namespaces.yaml
+  - adw-app.yaml
   - dynamic-routing.yaml
   - mongodb.yaml
   - redis.yaml
-

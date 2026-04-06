@@ -3,6 +3,9 @@
 이 디렉터리는 아래 요구사항을 반영한 K8s 매니페스트 초안입니다.
 
 - namespace 분리: `app`, `dis`, `infra`, `sample`, `unitest`
+- ADW 앱:
+  - `app/fss-adw-server` (Node 22, Express 5, Socket.io, Mongoose, Redis session)
+  - `app/fss-adw-frontend` (Vue3 + Quasar SPA)
 - 사용자 Jupyter 동적 라우팅:
   - headless service
   - wildcard ingress
@@ -39,6 +42,8 @@ bash scripts/setup_fss_platform.sh \
 bash scripts/verify_fss_vmware_setup.sh
 ```
 
+`overlays/dev`는 `infra` namespace의 Mongo/Redis PVC 바인딩을 위해 로컬 PV(`local-pv.yaml`)를 포함합니다.
+
 ## Dynamic Route Design
 
 고정 ingress/service 하나로 다음 형식을 처리합니다.
@@ -63,6 +68,22 @@ bash scripts/verify_fss_vmware_setup.sh
 3. Label:
    - `app.kubernetes.io/component=user-jupyter`
 4. 사용자 PVC mount 및 quota 적용
+
+## Node Migration Notes
+
+Python 기반 Jupyter 관리 로직을 Node 기반으로 전환하기 위해 아래 리소스를 추가했습니다.
+
+- `infra/k8s/fss/base/adw-app.yaml`
+  - `fss-adw-server` Deployment/Service/Ingress
+  - `fss-adw-frontend` Deployment/Service
+  - `fss-adw-server` ServiceAccount + ClusterRole + ClusterRoleBinding
+  - 앱 ConfigMap/Secret
+
+백엔드 소스:
+- `apps/adw-server-node`
+
+프론트엔드 소스:
+- `apps/jupyter-frontend`
 
 ## Important Production Notes
 

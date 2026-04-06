@@ -1,11 +1,13 @@
 from __future__ import annotations
 
+import re
 from pathlib import Path
 from typing import Any
 
 from app.config import Settings
 
 SPLIT_MARKER = "--@@"
+SPLIT_MARKER_LINE_PATTERN = re.compile(r"(?m)^\s*--@@\s*$")
 
 
 def _default_sql_path() -> Path:
@@ -136,12 +138,17 @@ def _split_sql_statements(text: str) -> list[str]:
 
 
 def _extract_statements(sql_text: str) -> list[str]:
-    if SPLIT_MARKER in sql_text:
+    if SPLIT_MARKER_LINE_PATTERN.search(sql_text):
         chunks = []
-        for part in sql_text.split(SPLIT_MARKER)[1:]:
+        for part in SPLIT_MARKER_LINE_PATTERN.split(sql_text):
             chunk = _strip_trailing_semicolon(part)
-            if chunk:
-                chunks.append(chunk)
+            if not chunk:
+                continue
+            if not any(
+                line.strip() and not line.strip().startswith("--") for line in chunk.splitlines()
+            ):
+                continue
+            chunks.append(chunk)
         return chunks
 
     return _split_sql_statements(sql_text)

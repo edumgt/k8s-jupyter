@@ -34,7 +34,7 @@ Options:
   --password <pw>          Repository password for cache priming.
   --out-dir <path>         Output directory for warmed Python/npm caches.
   --backend-env-file <p>   Backend env file path (default: apps/backend/.env.<env>).
-  --frontend-env-file <p>  Frontend env file path (default: apps/frontend/.env.<env>).
+  --frontend-env-file <p>  Frontend env file path (default: apps/dataxflow-frontend/.env.<env>).
   --python-seed-file <p>   Extra Python dev seed list path.
   --npm-seed-file <p>      Extra npm dev seed list path.
   --skip-python-seed       Skip extra Python dev seed warming.

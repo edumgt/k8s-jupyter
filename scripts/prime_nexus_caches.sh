@@ -154,7 +154,7 @@ prime_frontend_registry() {
   trap 'rm -rf "${temp_dir}"' RETURN
 
   mkdir -p "${cache_dir}" "${temp_dir}/home"
-  cp "${ROOT_DIR}/apps/frontend/package.json" "${temp_dir}/package.json"
+  cp "${ROOT_DIR}/apps/dataxflow-frontend/package.json" "${temp_dir}/package.json"
   write_npm_auth_config "${temp_dir}/home/.npmrc" "${registry_url}" "${npm_scope}"
   (
     cd "${temp_dir}"

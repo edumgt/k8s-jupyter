@@ -1,0 +1,31 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: platform-config
+data:
+  PLATFORM_ENV: dataxflow-dev
+  PLATFORM_MONGO_URL: mongodb://mongodb:27017/dataxflow
+  PLATFORM_REDIS_URL: redis://redis:6379/0
+  PLATFORM_BACKEND_URL: http://dataxflow.local/docs
+  PLATFORM_FRONTEND_URL: http://dataxflow.local
+  PLATFORM_CONTROL_PLANE_URL: http://dataxflow.local/#control-plane
+  PLATFORM_ADMIN_URL: http://dataxflow.local/#sandbox-admin
+  PLATFORM_AIRFLOW_URL: http://airflow.dataxflow.local
+  PLATFORM_JUPYTER_URL: ""
+  PLATFORM_GITLAB_URL: ""
+  PLATFORM_NEXUS_URL: ""
+  PLATFORM_PYPI_INDEX_URL: ""
+  PLATFORM_NPM_REGISTRY: ""
+  PLATFORM_HARBOR_URL: http://harbor.local:30083
+  PLATFORM_HARBOR_REGISTRY: harbor.local
+  PLATFORM_HARBOR_PROJECT: data-platform
+  PLATFORM_HARBOR_INSECURE_REGISTRY: "true"
+  PLATFORM_NOTEBOOKS_PATH: /workspace/notebooks/shared
+  PLATFORM_LAB_GOVERNANCE_ENABLED: "false"
+  PLATFORM_TERADATA_DBMS: postgres
+  PLATFORM_TERADATA_PORT: "5432"
+  PLATFORM_TERADATA_DATABASE: teradata_mock
+  PLATFORM_TERADATA_FAKE_MODE: "false"
+  PLATFORM_TERADATA_ENCRYPTDATA: "false"
+  PLATFORM_CORS_ALLOW_ORIGINS: http://dataxflow.local,http://api.dataxflow.local
+  PLATFORM_CORS_ALLOW_ORIGIN_REGEX: ^https?://([a-z0-9-]+\.)?dataxflow\.local(:\d+)?$

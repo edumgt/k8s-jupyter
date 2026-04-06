@@ -3,7 +3,7 @@ set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 BACKEND_VERSION_FILE="${ROOT_DIR}/apps/backend/app/version.py"
-FRONTEND_PACKAGE_JSON="${ROOT_DIR}/apps/frontend/package.json"
+FRONTEND_PACKAGE_JSON="${ROOT_DIR}/apps/dataxflow-frontend/package.json"
 
 usage() {
   cat <<'EOF'

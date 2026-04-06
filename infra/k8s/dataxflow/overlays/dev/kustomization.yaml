@@ -1,0 +1,22 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: dataxflow-dev
+
+resources:
+  - namespace.yaml
+  - local-pv.yaml
+  - platform-configmap.yaml
+  - platform-secrets.yaml
+  - mongodb.yaml
+  - redis.yaml
+  - teradata-mock-postgres.yaml
+  - backend.yaml
+  - frontend.yaml
+  - airflow.yaml
+  - ingress.yaml
+
+labels:
+  - pairs:
+      app.kubernetes.io/part-of: dataxflow
+      app.kubernetes.io/environment: dev

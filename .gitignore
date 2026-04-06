@@ -3,6 +3,11 @@ dist/
 packer/output-*/
 apps/frontend/node_modules/
 apps/frontend/dist/
+apps/dataxflow-frontend/node_modules/
+apps/dataxflow-frontend/dist/
+apps/jupyter-frontend/node_modules/
+apps/jupyter-frontend/dist/
+apps/adw-server-node/node_modules/
 apps/backend/.venv/
 apps/jupyter/.venv/
 __pycache__/

@@ -36,7 +36,7 @@ spec:
             - name: PORT
               value: "8080"
             - name: ROUTER_HOST_SUFFIX
-              value: "service.jupyter.fss.or.kr"
+              value: "jupyter.local"
             - name: ROUTER_HEADLESS_SERVICE
               value: "jupyter-named-pod"
             - name: ROUTER_TARGET_NAMESPACE
@@ -88,7 +88,7 @@ metadata:
 spec:
   ingressClassName: nginx
   rules:
-    - host: "*.service.jupyter.fss.or.kr"
+    - host: "*.jupyter.local"
       http:
         paths:
           - path: /

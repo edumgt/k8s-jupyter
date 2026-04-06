@@ -118,7 +118,7 @@ cache_frontend_packages() {
   trap 'rm -rf "${temp_dir}"' RETURN
 
   mkdir -p "${cache_dir}" "${temp_dir}/home"
-  cp "${ROOT_DIR}/apps/frontend/package.json" "${temp_dir}/package.json"
+  cp "${ROOT_DIR}/apps/dataxflow-frontend/package.json" "${temp_dir}/package.json"
   (
     cd "${temp_dir}"
     HOME="${temp_dir}/home" npm install --cache "${cache_dir}" --ignore-scripts
