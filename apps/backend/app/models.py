@@ -117,6 +117,117 @@ class DemoUserSessionResponse(BaseModel):
     user: DemoUserInfo
 
 
+class ManagedUserCreateRequest(BaseModel):
+    username: str = Field(min_length=3, max_length=64)
+    password: str = Field(min_length=1, max_length=128)
+    role: str = Field(default="user", min_length=4, max_length=16)
+    display_name: str = Field(min_length=1, max_length=128)
+
+
+class ManagedUserListResponse(BaseModel):
+    items: list[DemoUserInfo]
+
+
+class ResourceRequestCreateRequest(BaseModel):
+    vcpu: int = Field(ge=1, le=64)
+    memory_gib: int = Field(ge=1, le=512)
+    disk_gib: int = Field(ge=1, le=2048)
+    note: str | None = Field(default=None, max_length=1000)
+
+
+class ResourceRequestReviewRequest(BaseModel):
+    approved: bool
+    note: str | None = Field(default=None, max_length=1000)
+
+
+class ResourceRequestItem(BaseModel):
+    request_id: str
+    username: str
+    vcpu: int
+    memory_gib: int
+    disk_gib: int
+    request_note: str
+    status: str
+    review_note: str
+    reviewed_by: str | None = None
+    pvc_name: str | None = None
+    created_at: str
+    updated_at: str
+
+
+class ResourceRequestListResponse(BaseModel):
+    items: list[ResourceRequestItem]
+
+
+class AnalysisEnvironmentUpsertRequest(BaseModel):
+    env_id: str = Field(min_length=3, max_length=64)
+    name: str = Field(min_length=1, max_length=128)
+    image: str = Field(min_length=3, max_length=512)
+    description: str | None = Field(default=None, max_length=1000)
+    gpu_enabled: bool = False
+    is_active: bool = True
+
+
+class AnalysisEnvironmentItem(BaseModel):
+    env_id: str
+    name: str
+    image: str
+    description: str
+    gpu_enabled: bool
+    is_active: bool
+    updated_by: str
+    created_at: str
+    updated_at: str
+
+
+class AnalysisEnvironmentListResponse(BaseModel):
+    items: list[AnalysisEnvironmentItem]
+
+
+class EnvironmentRequestCreateRequest(BaseModel):
+    env_id: str = Field(min_length=3, max_length=64)
+    note: str | None = Field(default=None, max_length=1000)
+
+
+class EnvironmentRequestReviewRequest(BaseModel):
+    approved: bool
+    note: str | None = Field(default=None, max_length=1000)
+
+
+class EnvironmentRequestItem(BaseModel):
+    request_id: str
+    username: str
+    env_id: str
+    request_note: str
+    status: str
+    review_note: str
+    reviewed_by: str | None = None
+    created_at: str
+    updated_at: str
+
+
+class EnvironmentRequestListResponse(BaseModel):
+    items: list[EnvironmentRequestItem]
+
+
+class UserLabPolicyResponse(BaseModel):
+    username: str
+    governance_enabled: bool
+    ready: bool
+    vcpu: int | None = None
+    memory_gib: int | None = None
+    disk_gib: int | None = None
+    pvc_name: str | None = None
+    analysis_env_id: str | None = None
+    analysis_image: str | None = None
+    detail: str
+
+
+class LabConnectResponse(BaseModel):
+    redirect_url: str
+    detail: str
+
+
 class UserUsageSummary(BaseModel):
     username: str
     display_name: str

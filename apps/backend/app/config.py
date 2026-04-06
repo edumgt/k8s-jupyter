@@ -34,6 +34,8 @@ class Settings(BaseSettings):
     jupyter_workspace_pvc: str = "jupyter-workspace"
     jupyter_workspace_root: str = "/workspace/user-home"
     jupyter_bootstrap_dir: str = "/opt/platform/bootstrap-workspace"
+    jupyter_user_pvc_storage_class: str | None = None
+    lab_governance_enabled: bool = False
     jupyter_snapshot_builder_image: str = "harbor.local/data-platform/platform-kaniko-executor:v1.23.2-debug"
     jupyter_token: str = Field(default="platform123", validation_alias="JUPYTER_TOKEN")
     control_plane_username: str = "admin@test.com"
@@ -43,9 +45,11 @@ class Settings(BaseSettings):
     auth_jwt_algorithm: str = "HS256"
     auth_jwt_ttl_seconds: int = 60 * 60 * 12
     teradata_host: str | None = None
+    teradata_port: int | None = None
     teradata_user: str | None = None
     teradata_password: str | None = None
     teradata_database: str = "dbc"
+    teradata_dbms: str = "teradata"
     teradata_bootstrap_sql_path: str | None = None
     teradata_fake_mode: bool = True
     teradata_encryptdata: bool = True

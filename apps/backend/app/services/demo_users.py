@@ -3,6 +3,8 @@ from __future__ import annotations
 import json
 from dataclasses import dataclass
 from datetime import datetime, timezone
+import hashlib
+import os
 import time
 from typing import Any
 
@@ -16,6 +18,7 @@ from app.services.lab_identity import canonical_username
 
 AUTH_TOKEN_PREFIX = "platform:auth:token:"
 USER_METRICS_PREFIX = "platform:auth:metrics:"
+MANAGED_USER_PREFIX = "platform:auth:managed-user:"
 
 
 @dataclass(frozen=True, slots=True)
@@ -51,6 +54,7 @@ DEMO_USERS_BY_NAME = {item.username: item for item in DEMO_USERS}
 
 _memory_tokens: dict[str, dict[str, Any]] = {}
 _memory_metrics: dict[str, dict[str, Any]] = {}
+_memory_managed_users: dict[str, dict[str, Any]] = {}
 
 
 def _utcnow() -> datetime:
@@ -147,8 +151,150 @@ def _metrics_key(username: str) -> str:
     return f"{USER_METRICS_PREFIX}{username}"
 
 
-def list_demo_users() -> list[dict[str, str]]:
-    return [
+def _managed_user_key(username: str) -> str:
+    return f"{MANAGED_USER_PREFIX}{username}"
+
+
+def _hash_password(password: str) -> str:
+    salt = os.urandom(12).hex()
+    digest = hashlib.pbkdf2_hmac(
+        "sha256",
+        password.encode("utf-8"),
+        salt.encode("utf-8"),
+        120_000,
+    ).hex()
+    return f"pbkdf2_sha256${salt}${digest}"
+
+
+def _verify_password(password: str, stored_password: str) -> bool:
+    if stored_password.startswith("pbkdf2_sha256$"):
+        parts = stored_password.split("$", 2)
+        if len(parts) != 3:
+            return False
+        _, salt, expected_digest = parts
+        digest = hashlib.pbkdf2_hmac(
+            "sha256",
+            password.encode("utf-8"),
+            salt.encode("utf-8"),
+            120_000,
+        ).hex()
+        return digest == expected_digest
+    return stored_password == password
+
+
+def _managed_user_from_payload(payload: dict[str, Any]) -> DemoUser:
+    return DemoUser(
+        username=str(payload.get("username") or ""),
+        password=str(payload.get("password_hash") or ""),
+        role=str(payload.get("role") or "user"),
+        display_name=str(payload.get("display_name") or payload.get("username") or ""),
+    )
+
+
+def _list_managed_user_payloads(settings: Settings | None) -> list[dict[str, Any]]:
+    if settings is not None:
+        client = _redis_client(settings)
+        if client is not None:
+            try:
+                rows: list[dict[str, Any]] = []
+                for key in client.scan_iter(f"{MANAGED_USER_PREFIX}*"):
+                    payload = _load_json(client, str(key))
+                    if payload:
+                        rows.append(payload)
+                rows.sort(key=lambda item: str(item.get("username") or ""))
+                return rows
+            finally:
+                client.close()
+    return sorted(_memory_managed_users.values(), key=lambda item: str(item.get("username") or ""))
+
+
+def list_managed_users(settings: Settings) -> list[dict[str, str]]:
+    rows: list[dict[str, str]] = []
+    for payload in _list_managed_user_payloads(settings):
+        username = str(payload.get("username") or "")
+        if not username:
+            continue
+        rows.append(
+            {
+                "username": username,
+                "role": str(payload.get("role") or "user"),
+                "display_name": str(payload.get("display_name") or username),
+            }
+        )
+    return rows
+
+
+def create_managed_user(
+    settings: Settings,
+    username: str,
+    password: str,
+    role: str,
+    display_name: str,
+) -> dict[str, str]:
+    normalized = canonical_username(username)
+    normalized_role = role.strip().lower()
+    if normalized_role not in {"user", "admin"}:
+        raise ValueError("role must be either 'user' or 'admin'.")
+    if not password:
+        raise ValueError("password is required.")
+
+    if normalized in DEMO_USERS_BY_NAME:
+        raise ValueError("username already exists in built-in demo users.")
+
+    existing_usernames = {item["username"] for item in list_managed_users(settings)}
+    if normalized in existing_usernames:
+        raise ValueError("username already exists.")
+
+    payload = {
+        "username": normalized,
+        "password_hash": _hash_password(password),
+        "role": normalized_role,
+        "display_name": display_name.strip() or normalized,
+        "created_at": _iso_now(),
+        "updated_at": _iso_now(),
+    }
+
+    client = _redis_client(settings)
+    if client is not None:
+        try:
+            _save_json(client, _managed_user_key(normalized), payload)
+        finally:
+            client.close()
+    else:
+        _memory_managed_users[normalized] = dict(payload)
+
+    return {
+        "username": normalized,
+        "role": normalized_role,
+        "display_name": payload["display_name"],
+    }
+
+
+def _managed_user_by_name(settings: Settings | None, username: str) -> DemoUser | None:
+    normalized = canonical_username(username)
+
+    if settings is not None:
+        client = _redis_client(settings)
+        if client is not None:
+            try:
+                payload = _load_json(client, _managed_user_key(normalized))
+            finally:
+                client.close()
+            if payload:
+                user = _managed_user_from_payload(payload)
+                if user.username:
+                    return user
+
+    payload = _memory_managed_users.get(normalized)
+    if payload:
+        user = _managed_user_from_payload(payload)
+        if user.username:
+            return user
+    return None
+
+
+def list_demo_users(settings: Settings | None = None) -> list[dict[str, str]]:
+    base_rows = [
         {
             "username": user.username,
             "role": user.role,
@@ -156,23 +302,38 @@ def list_demo_users() -> list[dict[str, str]]:
         }
         for user in DEMO_USERS
     ]
+    if settings is None:
+        return base_rows
+
+    merged = {row["username"]: row for row in base_rows}
+    for row in list_managed_users(settings):
+        merged[row["username"]] = row
+    return sorted(merged.values(), key=lambda item: item["username"])
 
 
-def list_sandbox_users() -> list[DemoUser]:
-    return [user for user in DEMO_USERS if user.role == "user"]
+def list_sandbox_users(settings: Settings | None = None) -> list[DemoUser]:
+    rows = [user for user in DEMO_USERS if user.role == "user"]
+    for payload in _list_managed_user_payloads(settings):
+        managed = _managed_user_from_payload(payload)
+        if managed.role == "user" and managed.username:
+            rows.append(managed)
+    return rows
 
 
-def get_demo_user(username: str) -> DemoUser:
+def get_demo_user(username: str, settings: Settings | None = None) -> DemoUser:
     normalized = canonical_username(username)
     user = DEMO_USERS_BY_NAME.get(normalized)
     if user is None:
-        raise ValueError("Unknown demo user.")
+        managed = _managed_user_by_name(settings, normalized)
+        if managed is None:
+            raise ValueError("Unknown demo user.")
+        return managed
     return user
 
 
-def authenticate_demo_user(username: str, password: str) -> DemoUser:
-    user = get_demo_user(username)
-    if user.password != password:
+def authenticate_demo_user(username: str, password: str, settings: Settings | None = None) -> DemoUser:
+    user = get_demo_user(username, settings)
+    if not _verify_password(password, user.password):
         raise ValueError("Invalid username or password.")
     return user
 
@@ -213,8 +374,9 @@ def get_auth_session(settings: Settings, token: str | None) -> dict[str, Any] | 
     jwt_payload = _jwt_decode(token, settings)
     if jwt_payload is not None:
         username = str(jwt_payload.get("sub", ""))
-        user = DEMO_USERS_BY_NAME.get(username)
-        if user is None:
+        try:
+            user = get_demo_user(username, settings)
+        except ValueError:
             return None
         role = str(jwt_payload.get("role") or user.role)
         display_name = str(jwt_payload.get("display_name") or user.display_name)
@@ -286,12 +448,12 @@ def _save_metrics(settings: Settings, username: str, payload: dict[str, Any]) ->
 
 
 def get_user_metrics(settings: Settings, username: str) -> dict[str, Any]:
-    user = get_demo_user(username)
+    user = get_demo_user(username, settings)
     return _load_metrics(settings, user)
 
 
 def record_demo_login(settings: Settings, username: str) -> dict[str, Any]:
-    user = get_demo_user(username)
+    user = get_demo_user(username, settings)
     metrics = _load_metrics(settings, user)
     metrics["login_count"] += 1
     metrics["last_login_at"] = _iso_now()
@@ -300,7 +462,7 @@ def record_demo_login(settings: Settings, username: str) -> dict[str, Any]:
 
 
 def record_lab_launch(settings: Settings, username: str, created_at: str | None = None) -> dict[str, Any]:
-    user = get_demo_user(username)
+    user = get_demo_user(username, settings)
     metrics = _load_metrics(settings, user)
     started_at = created_at or _iso_now()
     metrics["launch_count"] += 1
@@ -312,7 +474,7 @@ def record_lab_launch(settings: Settings, username: str, created_at: str | None 
 
 
 def record_lab_stop(settings: Settings, username: str) -> dict[str, Any]:
-    user = get_demo_user(username)
+    user = get_demo_user(username, settings)
     metrics = _load_metrics(settings, user)
     if metrics.get("active_since"):
         metrics["total_session_seconds"] += _seconds_between(metrics["active_since"])
@@ -324,7 +486,7 @@ def record_lab_stop(settings: Settings, username: str) -> dict[str, Any]:
 
 
 def sync_session_activity(settings: Settings, username: str, session: dict[str, Any]) -> dict[str, Any]:
-    user = get_demo_user(username)
+    user = get_demo_user(username, settings)
     metrics = _load_metrics(settings, user)
     status = str(session.get("status") or "idle")
     active = status in {"ready", "provisioning"}
@@ -352,7 +514,7 @@ def current_session_seconds(metrics: dict[str, Any]) -> int:
 def build_user_usage(settings: Settings, username: str) -> dict[str, Any]:
     from app.services.jupyter_sessions import get_lab_session
 
-    user = get_demo_user(username)
+    user = get_demo_user(username, settings)
     try:
         session = get_lab_session(settings, user.username)
         metrics = sync_session_activity(settings, user.username, session)
@@ -389,7 +551,7 @@ def build_admin_overview(settings: Settings) -> dict[str, Any]:
     from app.services.jupyter_sessions import get_lab_session
 
     rows: list[dict[str, Any]] = []
-    for user in list_sandbox_users():
+    for user in list_sandbox_users(settings):
         try:
             session = get_lab_session(settings, user.username)
             metrics = sync_session_activity(settings, user.username, session)

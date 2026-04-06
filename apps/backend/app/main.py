@@ -1,10 +1,13 @@
 from pathlib import Path
+from urllib.parse import urlparse
 
 from fastapi import Depends, FastAPI, Header, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.config import get_settings
 from app.models import (
+    AnalysisEnvironmentListResponse,
+    AnalysisEnvironmentUpsertRequest,
     AdminSandboxOverviewResponse,
     ControlPlaneDashboardResponse,
     ControlPlaneLoginRequest,
@@ -14,13 +17,25 @@ from app.models import (
     DemoUserLoginRequest,
     DemoUserLoginResponse,
     DemoUserSessionResponse,
+    EnvironmentRequestCreateRequest,
+    EnvironmentRequestItem,
+    EnvironmentRequestListResponse,
+    EnvironmentRequestReviewRequest,
     LabSessionRequest,
+    LabConnectResponse,
     LabSessionResponse,
+    ManagedUserCreateRequest,
+    ManagedUserListResponse,
+    ResourceRequestCreateRequest,
+    ResourceRequestItem,
+    ResourceRequestListResponse,
+    ResourceRequestReviewRequest,
     SnapshotStatusResponse,
     TeradataBootstrapRequest,
     TeradataBootstrapResponse,
     TeradataQueryRequest,
     TeradataQueryResponse,
+    UserLabPolicyResponse,
     UserUsageResponse,
 )
 from app.services.catalog import quick_links, runtime_profile, sample_queries
@@ -33,6 +48,7 @@ from app.services.control_plane import (
 from app.services.demo_users import (
     authenticate_demo_user,
     build_admin_overview,
+    create_managed_user,
     delete_auth_session,
     get_auth_session,
     build_user_usage,
@@ -42,6 +58,18 @@ from app.services.demo_users import (
 )
 from app.services.jupyter_sessions import delete_lab_session, ensure_lab_session, get_lab_session
 from app.services.jupyter_snapshots import create_snapshot_publish_job, get_snapshot_status
+from app.services.lab_governance import (
+    list_analysis_environments,
+    list_environment_requests,
+    list_resource_requests,
+    review_environment_request,
+    review_resource_request,
+    submit_environment_request,
+    submit_resource_request,
+    upsert_analysis_environment,
+    get_user_lab_launch_profile,
+    get_user_lab_policy,
+)
 from app.services.lab_identity import canonical_username
 from app.services.mongo import get_mongo_status
 from app.services.redis_store import get_redis_status
@@ -73,12 +101,15 @@ def resolve_auth_token(
     authorization: str | None,
     x_auth_token: str | None,
 ) -> str | None:
-    if authorization:
-        parts = authorization.strip().split(" ", 1)
+    if isinstance(authorization, str) and authorization:
+        raw = authorization.strip()
+        parts = raw.split(" ", 1)
         if len(parts) == 2 and parts[0].lower() == "bearer" and parts[1].strip():
             return parts[1].strip()
+        if raw:
+            return raw
 
-    if x_auth_token:
+    if isinstance(x_auth_token, str) and x_auth_token:
         token = x_auth_token.strip()
         if token:
             return token
@@ -138,6 +169,13 @@ def authorize_username_access(current_user: dict[str, object], username: str) ->
     return normalized
 
 
+def _lab_public_origin(settings) -> tuple[str, str]:
+    parsed = urlparse(settings.frontend_url)
+    scheme = parsed.scheme or "http"
+    host = parsed.hostname or "localhost"
+    return scheme, host
+
+
 @app.get("/healthz")
 def healthz() -> dict[str, object]:
     settings = get_settings()
@@ -170,14 +208,41 @@ def notebooks() -> dict[str, list[str]]:
 
 @app.get("/api/demo-users")
 def demo_users() -> dict[str, object]:
-    return {"items": list_demo_users()}
+    settings = get_settings()
+    return {"items": list_demo_users(settings)}
+
+
+@app.get("/api/admin/users", response_model=ManagedUserListResponse)
+def admin_list_users(_current_user=Depends(require_admin_user)) -> ManagedUserListResponse:
+    settings = get_settings()
+    rows = list_demo_users(settings)
+    return ManagedUserListResponse(items=[DemoUserInfo(**row) for row in rows])
+
+
+@app.post("/api/admin/users", response_model=DemoUserInfo)
+def admin_create_user(
+    request: ManagedUserCreateRequest,
+    _current_user=Depends(require_admin_user),
+) -> DemoUserInfo:
+    settings = get_settings()
+    try:
+        row = create_managed_user(
+            settings=settings,
+            username=request.username,
+            password=request.password,
+            role=request.role,
+            display_name=request.display_name,
+        )
+        return DemoUserInfo(**row)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
 
 
 @app.post("/api/auth/login", response_model=DemoUserLoginResponse)
 def login_demo_user(request: DemoUserLoginRequest) -> DemoUserLoginResponse:
     settings = get_settings()
     try:
-        user = authenticate_demo_user(request.username, request.password)
+        user = authenticate_demo_user(request.username, request.password, settings)
     except ValueError as exc:
         raise HTTPException(status_code=401, detail=str(exc)) from exc
 
@@ -334,6 +399,179 @@ def bootstrap_teradata(
         raise HTTPException(status_code=503, detail=str(exc)) from exc
 
 
+@app.get("/api/admin/analysis-environments", response_model=AnalysisEnvironmentListResponse)
+def admin_list_analysis_environments(
+    include_inactive: bool = True,
+    _current_user=Depends(require_admin_user),
+) -> AnalysisEnvironmentListResponse:
+    settings = get_settings()
+    items = list_analysis_environments(settings, include_inactive=include_inactive)
+    return AnalysisEnvironmentListResponse(items=items)
+
+
+@app.get("/api/analysis-environments", response_model=AnalysisEnvironmentListResponse)
+def list_active_analysis_environments(
+    _current_user=Depends(require_authenticated_user),
+) -> AnalysisEnvironmentListResponse:
+    settings = get_settings()
+    items = list_analysis_environments(settings, include_inactive=False)
+    return AnalysisEnvironmentListResponse(items=items)
+
+
+@app.post("/api/admin/analysis-environments", response_model=AnalysisEnvironmentListResponse)
+def admin_upsert_analysis_environment(
+    request: AnalysisEnvironmentUpsertRequest,
+    current_user=Depends(require_admin_user),
+) -> AnalysisEnvironmentListResponse:
+    settings = get_settings()
+    try:
+        upsert_analysis_environment(
+            settings=settings,
+            env_id=request.env_id,
+            name=request.name,
+            image=request.image,
+            description=request.description,
+            gpu_enabled=request.gpu_enabled,
+            is_active=request.is_active,
+            updated_by=str(current_user.get("username") or "admin"),
+        )
+        return AnalysisEnvironmentListResponse(
+            items=list_analysis_environments(settings, include_inactive=True),
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@app.post("/api/resource-requests", response_model=ResourceRequestItem)
+def create_resource_request(
+    request: ResourceRequestCreateRequest,
+    current_user=Depends(require_authenticated_user),
+) -> ResourceRequestItem:
+    settings = get_settings()
+    username = str(current_user["username"])
+    try:
+        payload = submit_resource_request(
+            settings=settings,
+            username=username,
+            vcpu=request.vcpu,
+            memory_gib=request.memory_gib,
+            disk_gib=request.disk_gib,
+            note=request.note,
+        )
+        return ResourceRequestItem(**payload)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@app.get("/api/resource-requests/me", response_model=ResourceRequestListResponse)
+def list_my_resource_requests(current_user=Depends(require_authenticated_user)) -> ResourceRequestListResponse:
+    settings = get_settings()
+    username = str(current_user["username"])
+    rows = list_resource_requests(settings, username=username)
+    return ResourceRequestListResponse(items=[ResourceRequestItem(**row) for row in rows])
+
+
+@app.get("/api/admin/resource-requests", response_model=ResourceRequestListResponse)
+def admin_list_resource_requests(
+    status: str | None = None,
+    _current_user=Depends(require_admin_user),
+) -> ResourceRequestListResponse:
+    settings = get_settings()
+    rows = list_resource_requests(settings, status=status)
+    return ResourceRequestListResponse(items=[ResourceRequestItem(**row) for row in rows])
+
+
+@app.post("/api/admin/resource-requests/{request_id}/review", response_model=ResourceRequestItem)
+def admin_review_resource_request(
+    request_id: str,
+    request: ResourceRequestReviewRequest,
+    current_user=Depends(require_admin_user),
+) -> ResourceRequestItem:
+    settings = get_settings()
+    try:
+        row = review_resource_request(
+            settings=settings,
+            request_id=request_id,
+            approved=request.approved,
+            reviewed_by=str(current_user.get("username") or "admin"),
+            note=request.note,
+        )
+        return ResourceRequestItem(**row)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except RuntimeError as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
+
+
+@app.post("/api/environment-requests", response_model=EnvironmentRequestItem)
+def create_environment_request(
+    request: EnvironmentRequestCreateRequest,
+    current_user=Depends(require_authenticated_user),
+) -> EnvironmentRequestItem:
+    settings = get_settings()
+    username = str(current_user["username"])
+    try:
+        row = submit_environment_request(
+            settings=settings,
+            username=username,
+            env_id=request.env_id,
+            note=request.note,
+        )
+        return EnvironmentRequestItem(**row)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@app.get("/api/environment-requests/me", response_model=EnvironmentRequestListResponse)
+def list_my_environment_requests(current_user=Depends(require_authenticated_user)) -> EnvironmentRequestListResponse:
+    settings = get_settings()
+    username = str(current_user["username"])
+    rows = list_environment_requests(settings, username=username)
+    return EnvironmentRequestListResponse(items=[EnvironmentRequestItem(**row) for row in rows])
+
+
+@app.get("/api/admin/environment-requests", response_model=EnvironmentRequestListResponse)
+def admin_list_environment_requests(
+    status: str | None = None,
+    _current_user=Depends(require_admin_user),
+) -> EnvironmentRequestListResponse:
+    settings = get_settings()
+    rows = list_environment_requests(settings, status=status)
+    return EnvironmentRequestListResponse(items=[EnvironmentRequestItem(**row) for row in rows])
+
+
+@app.post("/api/admin/environment-requests/{request_id}/review", response_model=EnvironmentRequestItem)
+def admin_review_environment_request(
+    request_id: str,
+    request: EnvironmentRequestReviewRequest,
+    current_user=Depends(require_admin_user),
+) -> EnvironmentRequestItem:
+    settings = get_settings()
+    try:
+        row = review_environment_request(
+            settings=settings,
+            request_id=request_id,
+            approved=request.approved,
+            reviewed_by=str(current_user.get("username") or "admin"),
+            note=request.note,
+        )
+        return EnvironmentRequestItem(**row)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except RuntimeError as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
+
+
+@app.get("/api/users/me/lab-policy", response_model=UserLabPolicyResponse)
+def read_my_lab_policy(current_user=Depends(require_authenticated_user)) -> UserLabPolicyResponse:
+    settings = get_settings()
+    username = str(current_user["username"])
+    try:
+        return UserLabPolicyResponse(**get_user_lab_policy(settings, username))
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
 @app.post("/api/jupyter/sessions", response_model=LabSessionResponse)
 def create_jupyter_session(
     request: LabSessionRequest,
@@ -342,6 +580,9 @@ def create_jupyter_session(
     settings = get_settings()
     try:
         username = authorize_username_access(current_user, request.username)
+        if settings.lab_governance_enabled:
+            launch_profile = get_user_lab_launch_profile(settings, username)
+            return LabSessionResponse(**ensure_lab_session(settings, username, launch_profile))
         return LabSessionResponse(**ensure_lab_session(settings, username))
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
@@ -377,6 +618,34 @@ def remove_jupyter_session(
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     except RuntimeError as exc:
         raise HTTPException(status_code=503, detail=str(exc)) from exc
+
+
+@app.get("/api/jupyter/connect/{username}", response_model=LabConnectResponse)
+def connect_jupyter_session(
+    username: str,
+    current_user=Depends(require_authenticated_user),
+) -> LabConnectResponse:
+    settings = get_settings()
+    try:
+        allowed_username = authorize_username_access(current_user, username)
+        session = get_lab_session(settings, allowed_username)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except RuntimeError as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
+
+    if not session.get("ready") or not session.get("node_port"):
+        raise HTTPException(status_code=409, detail="JupyterLab session is not ready yet.")
+
+    scheme, host = _lab_public_origin(settings)
+    redirect_url = (
+        f"{scheme}://{host}:{int(session['node_port'])}/lab"
+        f"?token={session['token']}"
+    )
+    return LabConnectResponse(
+        redirect_url=redirect_url,
+        detail="Ownership verified. Redirect to personal JupyterLab.",
+    )
 
 
 @app.get("/api/jupyter/snapshots/{username}", response_model=SnapshotStatusResponse)
@@ -424,7 +693,7 @@ def read_admin_sandbox_overview(_current_user=Depends(require_admin_user)) -> Ad
 def control_plane_login(request: ControlPlaneLoginRequest) -> ControlPlaneLoginResponse:
     settings = get_settings()
     try:
-        user = authenticate_demo_user(request.username, request.password)
+        user = authenticate_demo_user(request.username, request.password, settings)
     except ValueError:
         if not verify_control_plane_credentials(settings, request.username, request.password):
             raise HTTPException(status_code=401, detail="Invalid control-plane credentials.") from None

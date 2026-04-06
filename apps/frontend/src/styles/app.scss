@@ -217,9 +217,31 @@ body {
   margin-top: 18px;
 }
 
+.request-form-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+  gap: 12px;
+  margin-top: 14px;
+}
+
 .lab-input {
   flex: 1 1 260px;
   min-width: 220px;
+}
+
+.request-wide-input {
+  grid-column: span 2;
+}
+
+.request-note-input {
+  margin-top: 12px;
+}
+
+.request-switch-grid {
+  margin-top: 10px;
+  display: flex;
+  gap: 18px;
+  flex-wrap: wrap;
 }
 
 .lab-progress {
@@ -344,6 +366,12 @@ body {
   font-weight: 700;
 }
 
+.table-action-row {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
 .inventory-separator {
   margin: 14px 0;
 }
@@ -421,5 +449,9 @@ body {
 
   .admin-login-grid {
     flex-direction: column;
+  }
+
+  .request-wide-input {
+    grid-column: span 1;
   }
 }

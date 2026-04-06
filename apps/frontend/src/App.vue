@@ -272,7 +272,7 @@
                   no-caps
                   icon="open_in_new"
                   label="Open Lab"
-                  :disable="!labLaunchUrl"
+                  :disable="!labSession.ready"
                   @click="openLab"
                 />
                 <q-btn
@@ -402,6 +402,560 @@
                   Snapshot Image: {{ snapshotState.image }}
                 </div>
               </q-banner>
+            </q-card-section>
+          </q-card>
+        </section>
+
+        <section v-if="isUser" id="user-governance-panel" class="content-grid nav-anchor">
+          <q-card flat class="surface-card">
+            <q-card-section>
+              <div class="row items-center justify-between q-col-gutter-md">
+                <div>
+                  <div class="section-title">Request Workflow</div>
+                  <div class="card-title">리소스/분석환경 신청 상태</div>
+                </div>
+                <q-badge :color="userPolicyBadgeColor" rounded>
+                  {{ userPolicyBadgeLabel }}
+                </q-badge>
+              </div>
+
+              <p class="muted">
+                사용자 리소스 요청 승인 후 분석환경을 신청합니다. 두 단계가 승인되면 개인 전용
+                PVC/이미지 정책으로 JupyterLab 실행이 허용됩니다.
+              </p>
+
+              <div class="chip-grid">
+                <q-chip color="white" text-color="dark" square>
+                  <strong>governance</strong>&nbsp;{{ userLabPolicy.governance_enabled ? "on" : "off" }}
+                </q-chip>
+                <q-chip color="white" text-color="dark" square>
+                  <strong>ready</strong>&nbsp;{{ userLabPolicy.ready ? "yes" : "no" }}
+                </q-chip>
+                <q-chip v-if="userLabPolicy.vcpu" color="white" text-color="dark" square>
+                  <strong>vcpu</strong>&nbsp;{{ userLabPolicy.vcpu }}
+                </q-chip>
+                <q-chip v-if="userLabPolicy.memory_gib" color="white" text-color="dark" square>
+                  <strong>memory</strong>&nbsp;{{ userLabPolicy.memory_gib }}Gi
+                </q-chip>
+                <q-chip v-if="userLabPolicy.disk_gib" color="white" text-color="dark" square>
+                  <strong>disk</strong>&nbsp;{{ userLabPolicy.disk_gib }}Gi
+                </q-chip>
+                <q-chip v-if="userLabPolicy.analysis_env_id" color="white" text-color="dark" square>
+                  <strong>env</strong>&nbsp;{{ userLabPolicy.analysis_env_id }}
+                </q-chip>
+              </div>
+
+              <div class="lab-form">
+                <q-btn
+                  outline
+                  color="dark"
+                  no-caps
+                  icon="sync"
+                  label="Refresh Requests"
+                  :loading="governanceLoading"
+                  @click="loadUserGovernanceData"
+                />
+              </div>
+
+              <q-linear-progress v-if="governanceLoading" indeterminate color="dark" class="lab-progress" />
+
+              <q-banner rounded class="banner-note lab-banner">
+                <div><strong>Policy</strong> {{ userLabPolicy.detail }}</div>
+                <div v-if="userLabPolicy.pvc_name">PVC: {{ userLabPolicy.pvc_name }}</div>
+                <div v-if="userLabPolicy.analysis_image" class="lab-url">
+                  Image: {{ userLabPolicy.analysis_image }}
+                </div>
+              </q-banner>
+            </q-card-section>
+          </q-card>
+
+          <q-card flat class="surface-card">
+            <q-card-section>
+              <div class="section-title">Step 1</div>
+              <div class="card-title">리소스 할당 신청</div>
+
+              <div class="request-form-grid">
+                <q-input
+                  v-model.number="resourceRequestForm.vcpu"
+                  dense
+                  outlined
+                  color="dark"
+                  type="number"
+                  min="1"
+                  max="64"
+                  label="vCPU"
+                  class="lab-input"
+                />
+                <q-input
+                  v-model.number="resourceRequestForm.memory_gib"
+                  dense
+                  outlined
+                  color="dark"
+                  type="number"
+                  min="1"
+                  max="512"
+                  label="Memory (GiB)"
+                  class="lab-input"
+                />
+                <q-input
+                  v-model.number="resourceRequestForm.disk_gib"
+                  dense
+                  outlined
+                  color="dark"
+                  type="number"
+                  min="1"
+                  max="2048"
+                  label="Disk (GiB)"
+                  class="lab-input"
+                />
+              </div>
+              <q-input
+                v-model="resourceRequestForm.note"
+                dense
+                outlined
+                color="dark"
+                type="textarea"
+                autogrow
+                label="요청 메모 (선택)"
+                class="request-note-input"
+              />
+
+              <div class="lab-form">
+                <q-btn
+                  color="dark"
+                  unelevated
+                  no-caps
+                  icon="send"
+                  label="Submit Resource Request"
+                  :loading="governanceLoading"
+                  :disable="!canSubmitResourceRequest"
+                  @click="submitResourceRequest"
+                />
+              </div>
+
+              <q-separator class="inventory-separator" />
+
+              <q-table
+                flat
+                :rows="userResourceRequests"
+                :columns="userResourceRequestColumns"
+                row-key="request_id"
+                :rows-per-page-options="[5, 10, 20]"
+                :pagination="{ rowsPerPage: 5 }"
+              >
+                <template #body-cell-status="props">
+                  <q-td :props="props">
+                    <q-badge :color="requestStatusColor(props.value)" rounded>
+                      {{ props.value }}
+                    </q-badge>
+                  </q-td>
+                </template>
+                <template #body-cell-updated_at="props">
+                  <q-td :props="props">
+                    {{ formatDateTime(props.value) }}
+                  </q-td>
+                </template>
+                <template #body-cell-review_note="props">
+                  <q-td :props="props">
+                    {{ props.value || "-" }}
+                  </q-td>
+                </template>
+                <template #body-cell-pvc_name="props">
+                  <q-td :props="props">
+                    {{ props.value || "-" }}
+                  </q-td>
+                </template>
+              </q-table>
+            </q-card-section>
+          </q-card>
+
+          <q-card flat class="surface-card">
+            <q-card-section>
+              <div class="section-title">Step 2</div>
+              <div class="card-title">분석환경 신청</div>
+
+              <div class="request-form-grid">
+                <q-select
+                  v-model="environmentRequestForm.env_id"
+                  dense
+                  outlined
+                  color="dark"
+                  emit-value
+                  map-options
+                  option-label="label"
+                  option-value="value"
+                  :options="analysisEnvironmentOptions"
+                  label="Analysis Environment"
+                  class="lab-input"
+                />
+              </div>
+              <q-input
+                v-model="environmentRequestForm.note"
+                dense
+                outlined
+                color="dark"
+                type="textarea"
+                autogrow
+                label="요청 메모 (선택)"
+                class="request-note-input"
+              />
+
+              <div class="lab-form">
+                <q-btn
+                  color="dark"
+                  unelevated
+                  no-caps
+                  icon="send"
+                  label="Submit Environment Request"
+                  :loading="governanceLoading"
+                  :disable="!canSubmitEnvironmentRequest"
+                  @click="submitEnvironmentRequest"
+                />
+              </div>
+
+              <q-separator class="inventory-separator" />
+
+              <q-table
+                flat
+                :rows="userEnvironmentRequests"
+                :columns="userEnvironmentRequestColumns"
+                row-key="request_id"
+                :rows-per-page-options="[5, 10, 20]"
+                :pagination="{ rowsPerPage: 5 }"
+              >
+                <template #body-cell-status="props">
+                  <q-td :props="props">
+                    <q-badge :color="requestStatusColor(props.value)" rounded>
+                      {{ props.value }}
+                    </q-badge>
+                  </q-td>
+                </template>
+                <template #body-cell-updated_at="props">
+                  <q-td :props="props">
+                    {{ formatDateTime(props.value) }}
+                  </q-td>
+                </template>
+                <template #body-cell-review_note="props">
+                  <q-td :props="props">
+                    {{ props.value || "-" }}
+                  </q-td>
+                </template>
+              </q-table>
+            </q-card-section>
+          </q-card>
+        </section>
+
+        <section
+          v-if="isAdmin"
+          id="governance-admin-panel"
+          class="content-grid control-plane-anchor nav-anchor"
+        >
+          <q-card flat class="surface-card">
+            <q-card-section>
+              <div class="row items-center justify-between q-col-gutter-md">
+                <div>
+                  <div class="section-title">Governance Admin</div>
+                  <div class="card-title">신청/승인 운영 대시보드</div>
+                </div>
+                <q-badge :color="pendingGovernanceCount ? 'warning' : 'positive'" rounded>
+                  {{ pendingGovernanceCount }} pending
+                </q-badge>
+              </div>
+
+              <div class="chip-grid">
+                <q-chip color="white" text-color="dark" square>
+                  <strong>users</strong>&nbsp;{{ adminManagedUsers.length }}
+                </q-chip>
+                <q-chip color="white" text-color="dark" square>
+                  <strong>envs</strong>&nbsp;{{ adminAnalysisEnvironments.length }}
+                </q-chip>
+                <q-chip color="white" text-color="dark" square>
+                  <strong>resource pending</strong>&nbsp;{{ pendingResourceRequestCount }}
+                </q-chip>
+                <q-chip color="white" text-color="dark" square>
+                  <strong>environment pending</strong>&nbsp;{{ pendingEnvironmentRequestCount }}
+                </q-chip>
+              </div>
+
+              <div class="lab-form">
+                <q-btn
+                  outline
+                  color="dark"
+                  no-caps
+                  icon="sync"
+                  label="Refresh Governance"
+                  :loading="governanceAdminLoading"
+                  @click="loadAdminGovernanceData"
+                />
+              </div>
+              <q-linear-progress
+                v-if="governanceAdminLoading"
+                indeterminate
+                color="dark"
+                class="lab-progress"
+              />
+            </q-card-section>
+          </q-card>
+
+          <q-card flat class="surface-card">
+            <q-card-section>
+              <div class="section-title">User Provisioning</div>
+              <div class="card-title">관리자 수동 사용자 생성</div>
+              <div class="request-form-grid">
+                <q-input
+                  v-model="adminUserForm.username"
+                  dense
+                  outlined
+                  color="dark"
+                  label="Username (email)"
+                  class="lab-input"
+                />
+                <q-input
+                  v-model="adminUserForm.display_name"
+                  dense
+                  outlined
+                  color="dark"
+                  label="Display Name"
+                  class="lab-input"
+                />
+                <q-input
+                  v-model="adminUserForm.password"
+                  dense
+                  outlined
+                  color="dark"
+                  type="password"
+                  label="Password"
+                  class="lab-input"
+                />
+                <q-select
+                  v-model="adminUserForm.role"
+                  dense
+                  outlined
+                  color="dark"
+                  :options="['user', 'admin']"
+                  label="Role"
+                  class="lab-input"
+                />
+              </div>
+              <div class="lab-form">
+                <q-btn
+                  color="dark"
+                  unelevated
+                  no-caps
+                  icon="person_add"
+                  label="Create User"
+                  :loading="governanceAdminLoading"
+                  :disable="!canCreateManagedUser"
+                  @click="createManagedUser"
+                />
+              </div>
+
+              <q-separator class="inventory-separator" />
+
+              <q-table
+                flat
+                :rows="adminManagedUsers"
+                :columns="managedUserColumns"
+                row-key="username"
+                :rows-per-page-options="[5, 10, 20]"
+                :pagination="{ rowsPerPage: 5 }"
+              />
+            </q-card-section>
+          </q-card>
+
+          <q-card flat class="surface-card">
+            <q-card-section>
+              <div class="section-title">Analysis Environment</div>
+              <div class="card-title">분석환경 이미지 등록/갱신</div>
+              <div class="request-form-grid">
+                <q-input
+                  v-model="analysisEnvForm.env_id"
+                  dense
+                  outlined
+                  color="dark"
+                  label="Environment ID"
+                  class="lab-input"
+                />
+                <q-input
+                  v-model="analysisEnvForm.name"
+                  dense
+                  outlined
+                  color="dark"
+                  label="Name"
+                  class="lab-input"
+                />
+                <q-input
+                  v-model="analysisEnvForm.image"
+                  dense
+                  outlined
+                  color="dark"
+                  label="Image"
+                  class="lab-input request-wide-input"
+                />
+                <q-input
+                  v-model="analysisEnvForm.description"
+                  dense
+                  outlined
+                  color="dark"
+                  label="Description"
+                  class="lab-input request-wide-input"
+                />
+              </div>
+              <div class="request-switch-grid">
+                <q-toggle v-model="analysisEnvForm.gpu_enabled" color="dark" label="GPU Enabled" />
+                <q-toggle v-model="analysisEnvForm.is_active" color="dark" label="Active" />
+              </div>
+              <div class="lab-form">
+                <q-btn
+                  color="dark"
+                  unelevated
+                  no-caps
+                  icon="add_box"
+                  label="Upsert Environment"
+                  :loading="governanceAdminLoading"
+                  :disable="!canUpsertAnalysisEnvironment"
+                  @click="upsertAnalysisEnvironment"
+                />
+              </div>
+
+              <q-separator class="inventory-separator" />
+
+              <q-table
+                flat
+                :rows="adminAnalysisEnvironments"
+                :columns="analysisEnvironmentColumns"
+                row-key="env_id"
+                :rows-per-page-options="[5, 10, 20]"
+                :pagination="{ rowsPerPage: 5 }"
+              >
+                <template #body-cell-gpu_enabled="props">
+                  <q-td :props="props">
+                    <q-badge :color="props.value ? 'secondary' : 'grey-7'" rounded>
+                      {{ props.value ? "gpu" : "cpu" }}
+                    </q-badge>
+                  </q-td>
+                </template>
+                <template #body-cell-is_active="props">
+                  <q-td :props="props">
+                    <q-badge :color="props.value ? 'positive' : 'negative'" rounded>
+                      {{ props.value ? "active" : "inactive" }}
+                    </q-badge>
+                  </q-td>
+                </template>
+                <template #body-cell-updated_at="props">
+                  <q-td :props="props">
+                    {{ formatDateTime(props.value) }}
+                  </q-td>
+                </template>
+              </q-table>
+            </q-card-section>
+          </q-card>
+
+          <q-card flat class="surface-card">
+            <q-card-section>
+              <div class="section-title">Resource Approvals</div>
+              <div class="card-title">리소스 신청 승인/반려</div>
+              <q-table
+                flat
+                :rows="adminResourceRequests"
+                :columns="adminResourceRequestColumns"
+                row-key="request_id"
+                :rows-per-page-options="[5, 10, 20]"
+                :pagination="{ rowsPerPage: 8 }"
+              >
+                <template #body-cell-status="props">
+                  <q-td :props="props">
+                    <q-badge :color="requestStatusColor(props.value)" rounded>
+                      {{ props.value }}
+                    </q-badge>
+                  </q-td>
+                </template>
+                <template #body-cell-updated_at="props">
+                  <q-td :props="props">
+                    {{ formatDateTime(props.value) }}
+                  </q-td>
+                </template>
+                <template #body-cell-actions="props">
+                  <q-td :props="props">
+                    <div v-if="props.row.status === 'pending'" class="table-action-row">
+                      <q-btn
+                        dense
+                        no-caps
+                        color="positive"
+                        icon="check"
+                        label="Approve"
+                        :loading="isReviewLoading(`resource:${props.row.request_id}`)"
+                        @click="reviewResourceRequest(props.row, true)"
+                      />
+                      <q-btn
+                        dense
+                        no-caps
+                        outline
+                        color="negative"
+                        icon="close"
+                        label="Reject"
+                        :loading="isReviewLoading(`resource:${props.row.request_id}`)"
+                        @click="reviewResourceRequest(props.row, false)"
+                      />
+                    </div>
+                    <span v-else>{{ props.row.reviewed_by || "-" }}</span>
+                  </q-td>
+                </template>
+              </q-table>
+            </q-card-section>
+          </q-card>
+
+          <q-card flat class="surface-card">
+            <q-card-section>
+              <div class="section-title">Environment Approvals</div>
+              <div class="card-title">분석환경 신청 승인/반려</div>
+              <q-table
+                flat
+                :rows="adminEnvironmentRequests"
+                :columns="adminEnvironmentRequestColumns"
+                row-key="request_id"
+                :rows-per-page-options="[5, 10, 20]"
+                :pagination="{ rowsPerPage: 8 }"
+              >
+                <template #body-cell-status="props">
+                  <q-td :props="props">
+                    <q-badge :color="requestStatusColor(props.value)" rounded>
+                      {{ props.value }}
+                    </q-badge>
+                  </q-td>
+                </template>
+                <template #body-cell-updated_at="props">
+                  <q-td :props="props">
+                    {{ formatDateTime(props.value) }}
+                  </q-td>
+                </template>
+                <template #body-cell-actions="props">
+                  <q-td :props="props">
+                    <div v-if="props.row.status === 'pending'" class="table-action-row">
+                      <q-btn
+                        dense
+                        no-caps
+                        color="positive"
+                        icon="check"
+                        label="Approve"
+                        :loading="isReviewLoading(`environment:${props.row.request_id}`)"
+                        @click="reviewEnvironmentRequest(props.row, true)"
+                      />
+                      <q-btn
+                        dense
+                        no-caps
+                        outline
+                        color="negative"
+                        icon="close"
+                        label="Reject"
+                        :loading="isReviewLoading(`environment:${props.row.request_id}`)"
+                        @click="reviewEnvironmentRequest(props.row, false)"
+                      />
+                    </div>
+                    <span v-else>{{ props.row.reviewed_by || "-" }}</span>
+                  </q-td>
+                </template>
+              </q-table>
             </q-card-section>
           </q-card>
         </section>
@@ -773,6 +1327,45 @@ const snapshotState = ref(emptySnapshotState());
 const adminOverview = ref(emptyAdminOverview());
 const userUsage = ref(emptyUserUsage());
 const controlPlane = ref(emptyControlPlaneState());
+const userLabPolicy = ref(emptyUserLabPolicy());
+const userResourceRequests = ref([]);
+const userEnvironmentRequests = ref([]);
+const availableAnalysisEnvs = ref([]);
+const adminManagedUsers = ref([]);
+const adminResourceRequests = ref([]);
+const adminEnvironmentRequests = ref([]);
+const adminAnalysisEnvironments = ref([]);
+const governanceLoading = ref(false);
+const governanceAdminLoading = ref(false);
+const reviewLoading = ref({});
+
+const resourceRequestForm = ref({
+  vcpu: 2,
+  memory_gib: 1,
+  disk_gib: 10,
+  note: "",
+});
+
+const environmentRequestForm = ref({
+  env_id: "",
+  note: "",
+});
+
+const adminUserForm = ref({
+  username: "",
+  display_name: "",
+  password: "123456",
+  role: "user",
+});
+
+const analysisEnvForm = ref({
+  env_id: "jupyter-teradata-extension",
+  name: "Jupyter Teradata Extension",
+  image: "",
+  description: "",
+  gpu_enabled: false,
+  is_active: true,
+});
 
 const dashboard = ref({
   runtime: {},
@@ -801,6 +1394,57 @@ const isUser = computed(() => appSession.value.user?.role === "user");
 const managedUsername = computed(() => (isUser.value ? appSession.value.user.username : ""));
 const backendAppVersion = computed(() => dashboard.value.runtime.backend_version || "-");
 const usageSummary = computed(() => userUsage.value.summary);
+const analysisEnvironmentOptions = computed(() =>
+  availableAnalysisEnvs.value.map((item) => ({
+    label: `${item.name}${item.gpu_enabled ? " (GPU)" : ""} - ${item.env_id}`,
+    value: item.env_id,
+  })),
+);
+const pendingResourceRequestCount = computed(
+  () => adminResourceRequests.value.filter((item) => item.status === "pending").length,
+);
+const pendingEnvironmentRequestCount = computed(
+  () => adminEnvironmentRequests.value.filter((item) => item.status === "pending").length,
+);
+const pendingGovernanceCount = computed(
+  () => pendingResourceRequestCount.value + pendingEnvironmentRequestCount.value,
+);
+const canSubmitResourceRequest = computed(() => {
+  const vcpu = Number(resourceRequestForm.value.vcpu);
+  const memory = Number(resourceRequestForm.value.memory_gib);
+  const disk = Number(resourceRequestForm.value.disk_gib);
+  return Number.isFinite(vcpu) && Number.isFinite(memory) && Number.isFinite(disk) && vcpu >= 1 && memory >= 1 && disk >= 1;
+});
+const canSubmitEnvironmentRequest = computed(
+  () => Boolean(String(environmentRequestForm.value.env_id || "").trim()),
+);
+const canCreateManagedUser = computed(() => {
+  return (
+    Boolean(String(adminUserForm.value.username || "").trim()) &&
+    Boolean(String(adminUserForm.value.password || "").trim()) &&
+    Boolean(String(adminUserForm.value.display_name || "").trim()) &&
+    ["user", "admin"].includes(String(adminUserForm.value.role || ""))
+  );
+});
+const canUpsertAnalysisEnvironment = computed(() => {
+  return (
+    Boolean(String(analysisEnvForm.value.env_id || "").trim()) &&
+    Boolean(String(analysisEnvForm.value.name || "").trim()) &&
+    Boolean(String(analysisEnvForm.value.image || "").trim())
+  );
+});
+const userPolicyBadgeLabel = computed(() => {
+  if (!userLabPolicy.value.governance_enabled) {
+    return "governance off";
+  }
+  return userLabPolicy.value.ready ? "ready" : "approval pending";
+});
+const userPolicyBadgeColor = computed(() => {
+  if (!userLabPolicy.value.governance_enabled) {
+    return "grey-7";
+  }
+  return userLabPolicy.value.ready ? "positive" : "warning";
+});
 
 const menuNavLinks = computed(() => {
   if (!isAuthenticated.value) {
@@ -843,6 +1487,12 @@ const menuNavLinks = computed(() => {
         description: "사용자 sandbox 상태",
       },
       {
+        id: "governance-admin-panel",
+        label: "신청/승인 운영",
+        icon: "approval",
+        description: "계정/환경/요청 승인",
+      },
+      {
         id: "control-plane-panel",
         label: "Control Plane",
         icon: "hub",
@@ -876,6 +1526,12 @@ const featureNavLinks = computed(() => {
 
   if (isUser.value) {
     links.unshift(
+      {
+        id: "user-governance-panel",
+        label: "신청 상태",
+        icon: "fact_check",
+        description: "리소스/환경 요청",
+      },
       {
         id: "workspace-snapshot-panel",
         label: "Workspace Snapshot",
@@ -1021,6 +1677,62 @@ const podColumns = [
   { name: "status", label: "Status", field: "status", align: "left" },
   { name: "restarts", label: "Restarts", field: "restarts", align: "right" },
   { name: "node_name", label: "Node", field: "node_name", align: "left" },
+];
+
+const managedUserColumns = [
+  { name: "display_name", label: "Display Name", field: "display_name", align: "left" },
+  { name: "username", label: "Username", field: "username", align: "left" },
+  { name: "role", label: "Role", field: "role", align: "left" },
+];
+
+const analysisEnvironmentColumns = [
+  { name: "env_id", label: "Env ID", field: "env_id", align: "left" },
+  { name: "name", label: "Name", field: "name", align: "left" },
+  { name: "image", label: "Image", field: "image", align: "left" },
+  { name: "gpu_enabled", label: "Compute", field: "gpu_enabled", align: "left" },
+  { name: "is_active", label: "State", field: "is_active", align: "left" },
+  { name: "updated_at", label: "Updated", field: "updated_at", align: "left" },
+];
+
+const userResourceRequestColumns = [
+  { name: "request_id", label: "Request ID", field: "request_id", align: "left" },
+  { name: "status", label: "Status", field: "status", align: "left" },
+  { name: "vcpu", label: "vCPU", field: "vcpu", align: "right" },
+  { name: "memory_gib", label: "Memory", field: "memory_gib", align: "right" },
+  { name: "disk_gib", label: "Disk", field: "disk_gib", align: "right" },
+  { name: "pvc_name", label: "PVC", field: "pvc_name", align: "left" },
+  { name: "review_note", label: "Review Note", field: "review_note", align: "left" },
+  { name: "updated_at", label: "Updated", field: "updated_at", align: "left" },
+];
+
+const userEnvironmentRequestColumns = [
+  { name: "request_id", label: "Request ID", field: "request_id", align: "left" },
+  { name: "env_id", label: "Env ID", field: "env_id", align: "left" },
+  { name: "status", label: "Status", field: "status", align: "left" },
+  { name: "review_note", label: "Review Note", field: "review_note", align: "left" },
+  { name: "updated_at", label: "Updated", field: "updated_at", align: "left" },
+];
+
+const adminResourceRequestColumns = [
+  { name: "request_id", label: "Request ID", field: "request_id", align: "left" },
+  { name: "username", label: "User", field: "username", align: "left" },
+  { name: "status", label: "Status", field: "status", align: "left" },
+  { name: "vcpu", label: "vCPU", field: "vcpu", align: "right" },
+  { name: "memory_gib", label: "Memory", field: "memory_gib", align: "right" },
+  { name: "disk_gib", label: "Disk", field: "disk_gib", align: "right" },
+  { name: "review_note", label: "Review Note", field: "review_note", align: "left" },
+  { name: "updated_at", label: "Updated", field: "updated_at", align: "left" },
+  { name: "actions", label: "Actions", field: "actions", align: "left" },
+];
+
+const adminEnvironmentRequestColumns = [
+  { name: "request_id", label: "Request ID", field: "request_id", align: "left" },
+  { name: "username", label: "User", field: "username", align: "left" },
+  { name: "env_id", label: "Env ID", field: "env_id", align: "left" },
+  { name: "status", label: "Status", field: "status", align: "left" },
+  { name: "review_note", label: "Review Note", field: "review_note", align: "left" },
+  { name: "updated_at", label: "Updated", field: "updated_at", align: "left" },
+  { name: "actions", label: "Actions", field: "actions", align: "left" },
 ];
 
 const adminUserGridDefaultColDef = {
@@ -1169,6 +1881,21 @@ function emptyControlPlaneState() {
   };
 }
 
+function emptyUserLabPolicy() {
+  return {
+    username: "",
+    governance_enabled: false,
+    ready: false,
+    vcpu: null,
+    memory_gib: null,
+    disk_gib: null,
+    pvc_name: null,
+    analysis_env_id: null,
+    analysis_image: null,
+    detail: "Load request workflow status after login.",
+  };
+}
+
 function authHeaders(extraHeaders = {}) {
   const headers = { ...extraHeaders };
   if (appSession.value.token) {
@@ -1280,6 +2007,23 @@ function podStatusColor(status) {
   return "negative";
 }
 
+function requestStatusColor(status) {
+  if (status === "approved") {
+    return "positive";
+  }
+  if (status === "pending") {
+    return "warning";
+  }
+  if (status === "rejected") {
+    return "negative";
+  }
+  return "grey-7";
+}
+
+function isReviewLoading(key) {
+  return Boolean(reviewLoading.value[key]);
+}
+
 function applyDemoAccount(account) {
   loginForm.value = {
     username: account.username,
@@ -1341,8 +2085,27 @@ function resetRoleScopedState() {
   labSession.value = emptyLabSession();
   snapshotState.value = emptySnapshotState();
   userUsage.value = emptyUserUsage();
+  userLabPolicy.value = emptyUserLabPolicy();
+  userResourceRequests.value = [];
+  userEnvironmentRequests.value = [];
+  availableAnalysisEnvs.value = [];
   adminOverview.value = emptyAdminOverview();
+  adminManagedUsers.value = [];
+  adminResourceRequests.value = [];
+  adminEnvironmentRequests.value = [];
+  adminAnalysisEnvironments.value = [];
+  reviewLoading.value = {};
   controlPlane.value = emptyControlPlaneState();
+  resourceRequestForm.value = {
+    vcpu: 2,
+    memory_gib: 1,
+    disk_gib: 10,
+    note: "",
+  };
+  environmentRequestForm.value = {
+    env_id: "",
+    note: "",
+  };
 }
 
 async function loadDemoUsers() {
@@ -1375,6 +2138,339 @@ async function loadUserUsage(options = {}) {
     }
   } finally {
     usageLoading.value = false;
+  }
+}
+
+async function loadUserGovernanceData(options = {}) {
+  if (!isUser.value || governanceLoading.value) {
+    return;
+  }
+
+  governanceLoading.value = true;
+  try {
+    const [policyResponse, resourceResponse, environmentResponse, envCatalogResponse] = await Promise.all([
+      fetch(`${apiBaseUrl}/api/users/me/lab-policy`, { headers: authHeaders() }),
+      fetch(`${apiBaseUrl}/api/resource-requests/me`, { headers: authHeaders() }),
+      fetch(`${apiBaseUrl}/api/environment-requests/me`, { headers: authHeaders() }),
+      fetch(`${apiBaseUrl}/api/analysis-environments`, { headers: authHeaders() }),
+    ]);
+    const [policyPayload, resourcePayload, environmentPayload, envCatalogPayload] = await Promise.all([
+      parseJson(policyResponse),
+      parseJson(resourceResponse),
+      parseJson(environmentResponse),
+      parseJson(envCatalogResponse),
+    ]);
+
+    userLabPolicy.value = {
+      ...emptyUserLabPolicy(),
+      ...policyPayload,
+    };
+    userResourceRequests.value = resourcePayload.items || [];
+    userEnvironmentRequests.value = environmentPayload.items || [];
+    availableAnalysisEnvs.value = envCatalogPayload.items || [];
+
+    const envIds = availableAnalysisEnvs.value.map((item) => item.env_id);
+    if (!envIds.includes(environmentRequestForm.value.env_id)) {
+      environmentRequestForm.value = {
+        ...environmentRequestForm.value,
+        env_id: envIds[0] || "",
+      };
+    }
+  } catch (error) {
+    if (!options.silent) {
+      Notify.create({
+        type: "negative",
+        message: error.message,
+      });
+    }
+  } finally {
+    governanceLoading.value = false;
+  }
+}
+
+async function loadAdminGovernanceData(options = {}) {
+  if (!isAdmin.value || governanceAdminLoading.value) {
+    return;
+  }
+
+  governanceAdminLoading.value = true;
+  try {
+    const [usersResponse, envsResponse, resourceResponse, environmentResponse] = await Promise.all([
+      fetch(`${apiBaseUrl}/api/admin/users`, { headers: authHeaders() }),
+      fetch(`${apiBaseUrl}/api/admin/analysis-environments?include_inactive=true`, {
+        headers: authHeaders(),
+      }),
+      fetch(`${apiBaseUrl}/api/admin/resource-requests`, { headers: authHeaders() }),
+      fetch(`${apiBaseUrl}/api/admin/environment-requests`, { headers: authHeaders() }),
+    ]);
+    const [usersPayload, envsPayload, resourcePayload, environmentPayload] = await Promise.all([
+      parseJson(usersResponse),
+      parseJson(envsResponse),
+      parseJson(resourceResponse),
+      parseJson(environmentResponse),
+    ]);
+    adminManagedUsers.value = usersPayload.items || [];
+    adminAnalysisEnvironments.value = envsPayload.items || [];
+    adminResourceRequests.value = resourcePayload.items || [];
+    adminEnvironmentRequests.value = environmentPayload.items || [];
+  } catch (error) {
+    if (!options.silent) {
+      Notify.create({
+        type: "negative",
+        message: error.message,
+      });
+    }
+  } finally {
+    governanceAdminLoading.value = false;
+  }
+}
+
+async function submitResourceRequest() {
+  if (!isUser.value || governanceLoading.value || !canSubmitResourceRequest.value) {
+    return;
+  }
+
+  governanceLoading.value = true;
+  try {
+    const response = await fetch(`${apiBaseUrl}/api/resource-requests`, {
+      method: "POST",
+      headers: authHeaders({
+        "Content-Type": "application/json",
+      }),
+      body: JSON.stringify({
+        vcpu: Number(resourceRequestForm.value.vcpu),
+        memory_gib: Number(resourceRequestForm.value.memory_gib),
+        disk_gib: Number(resourceRequestForm.value.disk_gib),
+        note: resourceRequestForm.value.note || "",
+      }),
+    });
+    await parseJson(response);
+    resourceRequestForm.value = {
+      ...resourceRequestForm.value,
+      note: "",
+    };
+    Notify.create({
+      type: "positive",
+      message: "Resource request submitted.",
+    });
+    governanceLoading.value = false;
+    await loadUserGovernanceData({ silent: true });
+  } catch (error) {
+    Notify.create({
+      type: "negative",
+      message: error.message,
+    });
+  } finally {
+    governanceLoading.value = false;
+  }
+}
+
+async function submitEnvironmentRequest() {
+  if (!isUser.value || governanceLoading.value || !canSubmitEnvironmentRequest.value) {
+    return;
+  }
+
+  governanceLoading.value = true;
+  try {
+    const response = await fetch(`${apiBaseUrl}/api/environment-requests`, {
+      method: "POST",
+      headers: authHeaders({
+        "Content-Type": "application/json",
+      }),
+      body: JSON.stringify({
+        env_id: String(environmentRequestForm.value.env_id || "").trim(),
+        note: environmentRequestForm.value.note || "",
+      }),
+    });
+    await parseJson(response);
+    environmentRequestForm.value = {
+      ...environmentRequestForm.value,
+      note: "",
+    };
+    Notify.create({
+      type: "positive",
+      message: "Environment request submitted.",
+    });
+    governanceLoading.value = false;
+    await loadUserGovernanceData({ silent: true });
+  } catch (error) {
+    Notify.create({
+      type: "negative",
+      message: error.message,
+    });
+  } finally {
+    governanceLoading.value = false;
+  }
+}
+
+async function createManagedUser() {
+  if (!isAdmin.value || governanceAdminLoading.value || !canCreateManagedUser.value) {
+    return;
+  }
+
+  governanceAdminLoading.value = true;
+  try {
+    const response = await fetch(`${apiBaseUrl}/api/admin/users`, {
+      method: "POST",
+      headers: authHeaders({
+        "Content-Type": "application/json",
+      }),
+      body: JSON.stringify({
+        username: String(adminUserForm.value.username || "").trim(),
+        password: String(adminUserForm.value.password || ""),
+        role: String(adminUserForm.value.role || "user"),
+        display_name: String(adminUserForm.value.display_name || "").trim(),
+      }),
+    });
+    await parseJson(response);
+    adminUserForm.value = {
+      username: "",
+      display_name: "",
+      password: "123456",
+      role: "user",
+    };
+    Notify.create({
+      type: "positive",
+      message: "Managed user created.",
+    });
+    governanceAdminLoading.value = false;
+    await Promise.all([loadAdminGovernanceData({ silent: true }), loadDemoUsers()]);
+  } catch (error) {
+    Notify.create({
+      type: "negative",
+      message: error.message,
+    });
+  } finally {
+    governanceAdminLoading.value = false;
+  }
+}
+
+async function upsertAnalysisEnvironment() {
+  if (!isAdmin.value || governanceAdminLoading.value || !canUpsertAnalysisEnvironment.value) {
+    return;
+  }
+
+  governanceAdminLoading.value = true;
+  try {
+    const response = await fetch(`${apiBaseUrl}/api/admin/analysis-environments`, {
+      method: "POST",
+      headers: authHeaders({
+        "Content-Type": "application/json",
+      }),
+      body: JSON.stringify({
+        env_id: String(analysisEnvForm.value.env_id || "").trim().toLowerCase(),
+        name: String(analysisEnvForm.value.name || "").trim(),
+        image: String(analysisEnvForm.value.image || "").trim(),
+        description: String(analysisEnvForm.value.description || "").trim(),
+        gpu_enabled: Boolean(analysisEnvForm.value.gpu_enabled),
+        is_active: Boolean(analysisEnvForm.value.is_active),
+      }),
+    });
+    const payload = await parseJson(response);
+    adminAnalysisEnvironments.value = payload.items || [];
+    Notify.create({
+      type: "positive",
+      message: "Analysis environment upserted.",
+    });
+  } catch (error) {
+    Notify.create({
+      type: "negative",
+      message: error.message,
+    });
+  } finally {
+    governanceAdminLoading.value = false;
+  }
+}
+
+async function reviewResourceRequest(item, approved) {
+  if (!isAdmin.value) {
+    return;
+  }
+  const key = `resource:${item.request_id}`;
+  if (reviewLoading.value[key]) {
+    return;
+  }
+
+  reviewLoading.value = {
+    ...reviewLoading.value,
+    [key]: true,
+  };
+  try {
+    const response = await fetch(
+      `${apiBaseUrl}/api/admin/resource-requests/${encodeURIComponent(item.request_id)}/review`,
+      {
+        method: "POST",
+        headers: authHeaders({
+          "Content-Type": "application/json",
+        }),
+        body: JSON.stringify({
+          approved: Boolean(approved),
+          note: approved ? "Approved via web UI." : "Rejected via web UI.",
+        }),
+      },
+    );
+    await parseJson(response);
+    Notify.create({
+      type: approved ? "positive" : "warning",
+      message: approved ? "Resource request approved." : "Resource request rejected.",
+    });
+    await Promise.all([loadAdminGovernanceData({ silent: true }), loadAdminOverview({ silent: true })]);
+  } catch (error) {
+    Notify.create({
+      type: "negative",
+      message: error.message,
+    });
+  } finally {
+    reviewLoading.value = {
+      ...reviewLoading.value,
+      [key]: false,
+    };
+  }
+}
+
+async function reviewEnvironmentRequest(item, approved) {
+  if (!isAdmin.value) {
+    return;
+  }
+  const key = `environment:${item.request_id}`;
+  if (reviewLoading.value[key]) {
+    return;
+  }
+
+  reviewLoading.value = {
+    ...reviewLoading.value,
+    [key]: true,
+  };
+  try {
+    const response = await fetch(
+      `${apiBaseUrl}/api/admin/environment-requests/${encodeURIComponent(item.request_id)}/review`,
+      {
+        method: "POST",
+        headers: authHeaders({
+          "Content-Type": "application/json",
+        }),
+        body: JSON.stringify({
+          approved: Boolean(approved),
+          note: approved ? "Approved via web UI." : "Rejected via web UI.",
+        }),
+      },
+    );
+    await parseJson(response);
+    Notify.create({
+      type: approved ? "positive" : "warning",
+      message: approved ? "Environment request approved." : "Environment request rejected.",
+    });
+    await loadAdminGovernanceData({ silent: true });
+  } catch (error) {
+    Notify.create({
+      type: "negative",
+      message: error.message,
+    });
+  } finally {
+    reviewLoading.value = {
+      ...reviewLoading.value,
+      [key]: false,
+    };
   }
 }
 
@@ -1453,8 +2549,10 @@ async function loginApp() {
         });
       }
       await loadUserUsage({ silent: true });
+      await loadUserGovernanceData({ silent: true });
     } else if (authenticatedUser.role === "admin") {
       await loadAdminOverview({ silent: true });
+      await loadAdminGovernanceData({ silent: true });
       await loadControlPlaneDashboard({ silent: true });
       startAdminPolling();
     }
@@ -1888,15 +2986,45 @@ async function loadControlPlaneDashboard(options = {}) {
   }
 }
 
-function openLab() {
-  if (!labLaunchUrl.value) {
+async function openLab() {
+  if (!isUser.value || !managedUsername.value) {
+    Notify.create({
+      type: "warning",
+      message: "User login is required.",
+    });
+    return;
+  }
+  if (!labSession.value.ready) {
     Notify.create({
       type: "warning",
       message: "JupyterLab is not ready yet.",
     });
     return;
   }
-  window.open(labLaunchUrl.value, "_blank", "noopener");
+
+  try {
+    const response = await fetch(
+      `${apiBaseUrl}/api/jupyter/connect/${encodeURIComponent(managedUsername.value)}`,
+      {
+        headers: authHeaders(),
+      },
+    );
+    const payload = await parseJson(response);
+    window.open(payload.redirect_url, "_blank", "noopener");
+  } catch (error) {
+    if (labLaunchUrl.value) {
+      window.open(labLaunchUrl.value, "_blank", "noopener");
+      Notify.create({
+        type: "warning",
+        message: `Connect API fallback used: ${error.message}`,
+      });
+      return;
+    }
+    Notify.create({
+      type: "negative",
+      message: error.message,
+    });
+  }
 }
 
 onMounted(async () => {
@@ -1924,10 +3052,12 @@ onMounted(async () => {
       });
     }
     await loadUserUsage({ silent: true });
+    await loadUserGovernanceData({ silent: true });
   }
 
   if (isAdmin.value) {
     await loadAdminOverview({ silent: true });
+    await loadAdminGovernanceData({ silent: true });
     await loadControlPlaneDashboard({ silent: true });
     startAdminPolling();
   }

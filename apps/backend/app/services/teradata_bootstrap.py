@@ -12,9 +12,19 @@ def _default_sql_path() -> Path:
     return Path(__file__).resolve().parents[1] / "sql" / "teradata" / "bootstrap.sql"
 
 
+def _default_mock_sql_path() -> Path:
+    return Path(__file__).resolve().parents[1] / "sql" / "teradata" / "bootstrap.mock.sql"
+
+
+def _normalized_dbms(settings: Settings) -> str:
+    return (settings.teradata_dbms or "teradata").strip().lower()
+
+
 def _resolve_sql_path(settings: Settings) -> Path:
     if settings.teradata_bootstrap_sql_path:
         return Path(settings.teradata_bootstrap_sql_path)
+    if _normalized_dbms(settings) == "postgres":
+        return _default_mock_sql_path()
     return _default_sql_path()
 
 
@@ -138,6 +148,10 @@ def _extract_statements(sql_text: str) -> list[str]:
 
 
 def _validate_bootstrap_target(settings: Settings) -> None:
+    dbms = _normalized_dbms(settings)
+    if dbms not in {"teradata", "postgres"}:
+        raise ValueError(f"Unsupported PLATFORM_TERADATA_DBMS: {dbms}")
+
     if settings.teradata_fake_mode:
         raise ValueError(
             "PLATFORM_TERADATA_FAKE_MODE is true. Disable fake mode to run Teradata bootstrap."
@@ -159,6 +173,7 @@ def _validate_bootstrap_target(settings: Settings) -> None:
 
 def run_teradata_bootstrap(settings: Settings, dry_run: bool = True) -> dict[str, Any]:
     _validate_bootstrap_target(settings)
+    dbms = _normalized_dbms(settings)
 
     sql_path = _resolve_sql_path(settings)
     if not sql_path.exists():
@@ -185,22 +200,40 @@ def run_teradata_bootstrap(settings: Settings, dry_run: bool = True) -> dict[str
             "note": "Dry-run succeeded. Set dry_run=false to execute bootstrap statements.",
         }
 
-    try:
-        import teradatasql
-    except ImportError as exc:  # pragma: no cover - import availability depends on runtime image
-        raise RuntimeError(f"teradatasql import failed: {exc}") from exc
-
     connection = None
     executed_count = 0
 
     try:
-        connection = teradatasql.connect(
-            host=settings.teradata_host,
-            user=settings.teradata_user,
-            password=settings.teradata_password,
-            database=settings.teradata_database,
-            encryptdata="true" if settings.teradata_encryptdata else "false",
-        )
+        if dbms == "teradata":
+            try:
+                import teradatasql
+            except ImportError as exc:  # pragma: no cover - import availability depends on runtime image
+                raise RuntimeError(f"teradatasql import failed: {exc}") from exc
+
+            connection = teradatasql.connect(
+                host=settings.teradata_host,
+                user=settings.teradata_user,
+                password=settings.teradata_password,
+                database=settings.teradata_database,
+                encryptdata="true" if settings.teradata_encryptdata else "false",
+            )
+        else:
+            try:
+                import psycopg
+            except ImportError as exc:  # pragma: no cover - import availability depends on runtime image
+                raise RuntimeError(f"psycopg import failed: {exc}") from exc
+
+            connect_kwargs = {
+                "host": settings.teradata_host,
+                "user": settings.teradata_user,
+                "password": settings.teradata_password,
+                "dbname": settings.teradata_database,
+                "sslmode": "require" if settings.teradata_encryptdata else "disable",
+            }
+            if settings.teradata_port:
+                connect_kwargs["port"] = settings.teradata_port
+            connection = psycopg.connect(**connect_kwargs)
+
         with connection.cursor() as cursor:
             for index, statement in enumerate(statements, start=1):
                 try:
@@ -224,7 +257,7 @@ def run_teradata_bootstrap(settings: Settings, dry_run: bool = True) -> dict[str
             "executed_count": executed_count,
             "dry_run": False,
             "statement_previews": previews,
-            "note": "Teradata bootstrap statements were executed successfully.",
+            "note": f"Bootstrap statements were executed successfully on {dbms}.",
         }
     except RuntimeError:
         raise
