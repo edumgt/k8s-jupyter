@@ -12,6 +12,15 @@ from app.models import (
     ControlPlaneDashboardResponse,
     ControlPlaneLoginRequest,
     ControlPlaneLoginResponse,
+    DataxflowAirflowRegisterRequest,
+    DataxflowCatalogResponse,
+    DataxflowJobCreateRequest,
+    DataxflowJobItem,
+    DataxflowJobListResponse,
+    DataxflowJobRunResponse,
+    DataxflowJobUpdateRequest,
+    DataxflowOverviewResponse,
+    DataxflowRunItem,
     DashboardResponse,
     DemoUserInfo,
     DemoUserLoginRequest,
@@ -44,6 +53,16 @@ from app.services.control_plane import (
     build_control_plane_token,
     verify_control_plane_credentials,
     verify_control_plane_token,
+)
+from app.services.dataxflow_jobs import (
+    build_overview as build_dataxflow_overview,
+    compile_job_procedure as compile_dataxflow_job_procedure,
+    create_job as create_dataxflow_job,
+    list_catalog as list_dataxflow_catalog,
+    list_jobs as list_dataxflow_jobs,
+    register_airflow as register_dataxflow_airflow,
+    run_job as run_dataxflow_job,
+    update_job as update_dataxflow_job,
 )
 from app.services.demo_users import (
     authenticate_demo_user,
@@ -292,6 +311,138 @@ def read_my_usage(current_user=Depends(require_authenticated_user)) -> UserUsage
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     except RuntimeError as exc:
         raise HTTPException(status_code=503, detail=str(exc)) from exc
+
+
+@app.get("/api/dataxflow/catalog", response_model=DataxflowCatalogResponse)
+def read_dataxflow_catalog(
+    _current_user=Depends(require_authenticated_user),
+) -> DataxflowCatalogResponse:
+    settings = get_settings()
+    return DataxflowCatalogResponse(**list_dataxflow_catalog(settings))
+
+
+@app.get("/api/dataxflow/jobs", response_model=DataxflowJobListResponse)
+def read_dataxflow_jobs(
+    _current_user=Depends(require_authenticated_user),
+) -> DataxflowJobListResponse:
+    settings = get_settings()
+    rows = list_dataxflow_jobs(settings)
+    return DataxflowJobListResponse(items=[DataxflowJobItem(**row) for row in rows])
+
+
+@app.post("/api/dataxflow/jobs", response_model=DataxflowJobItem)
+def create_dataxflow_batch_job(
+    request: DataxflowJobCreateRequest,
+    current_user=Depends(require_authenticated_user),
+) -> DataxflowJobItem:
+    settings = get_settings()
+    try:
+        row = create_dataxflow_job(
+            settings=settings,
+            name=request.name,
+            description=request.description,
+            source_system_id=request.source_system_id,
+            source_table=request.source_table,
+            target_system_id=request.target_system_id,
+            target_table=request.target_table,
+            batch_frequency=request.batch_frequency,
+            load_condition=request.load_condition,
+            owner_username=str(current_user.get("username") or ""),
+            owner_display_name=str(current_user.get("display_name") or current_user.get("username") or ""),
+        )
+        return DataxflowJobItem(**row)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@app.patch("/api/dataxflow/jobs/{job_id}", response_model=DataxflowJobItem)
+def patch_dataxflow_batch_job(
+    job_id: str,
+    request: DataxflowJobUpdateRequest,
+    _current_user=Depends(require_authenticated_user),
+) -> DataxflowJobItem:
+    settings = get_settings()
+    try:
+        row = update_dataxflow_job(
+            settings=settings,
+            job_id=job_id,
+            name=request.name,
+            description=request.description,
+            source_system_id=request.source_system_id,
+            source_table=request.source_table,
+            target_system_id=request.target_system_id,
+            target_table=request.target_table,
+            batch_frequency=request.batch_frequency,
+            load_condition=request.load_condition,
+        )
+        return DataxflowJobItem(**row)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@app.post("/api/dataxflow/jobs/{job_id}/run", response_model=DataxflowJobRunResponse)
+def run_dataxflow_batch_job(
+    job_id: str,
+    current_user=Depends(require_authenticated_user),
+) -> DataxflowJobRunResponse:
+    settings = get_settings()
+    try:
+        row, run_payload = run_dataxflow_job(
+            settings=settings,
+            job_id=job_id,
+            executed_by=str(current_user.get("username") or ""),
+        )
+        return DataxflowJobRunResponse(
+            job=DataxflowJobItem(**row),
+            run=DataxflowRunItem(**run_payload),
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@app.post("/api/dataxflow/jobs/{job_id}/compile", response_model=DataxflowJobItem)
+def compile_dataxflow_batch_job(
+    job_id: str,
+    current_user=Depends(require_authenticated_user),
+) -> DataxflowJobItem:
+    settings = get_settings()
+    try:
+        row = compile_dataxflow_job_procedure(
+            settings=settings,
+            job_id=job_id,
+            compiled_by=str(current_user.get("username") or ""),
+        )
+        return DataxflowJobItem(**row)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@app.post("/api/dataxflow/jobs/{job_id}/airflow", response_model=DataxflowJobItem)
+def register_dataxflow_batch_job_airflow(
+    job_id: str,
+    request: DataxflowAirflowRegisterRequest,
+    current_user=Depends(require_authenticated_user),
+) -> DataxflowJobItem:
+    settings = get_settings()
+    try:
+        row = register_dataxflow_airflow(
+            settings=settings,
+            job_id=job_id,
+            cron=request.cron,
+            dag_id=request.dag_id,
+            registered_by=str(current_user.get("username") or ""),
+        )
+        return DataxflowJobItem(**row)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@app.get("/api/dataxflow/overview", response_model=DataxflowOverviewResponse)
+def read_dataxflow_overview(
+    _current_user=Depends(require_authenticated_user),
+) -> DataxflowOverviewResponse:
+    settings = get_settings()
+    return DataxflowOverviewResponse(**build_dataxflow_overview(settings))
 
 
 @app.get("/api/dashboard", response_model=DashboardResponse)

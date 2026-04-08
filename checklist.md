@@ -26,17 +26,18 @@
 | 16 | ELT Backend (Python 3.12, FastAPI, Uvicorn) | 구현됨 | `apps/backend/requirements.txt`, `apps/backend/Dockerfile`, `apps/backend/app/main.py` | 핵심 백엔드 스택 충족 |
 | 17 | ELT Backend SQLAlchemy 사용 | 구현됨 | `apps/backend/requirements.txt`, `apps/backend/app/services/teradata.py` | PostgreSQL mock 질의 경로를 SQLAlchemy 기반으로 전환 |
 | 18 | ELT Frontend (Node22, Vue3, Quasar SPA) | 구현됨 | `apps/dataxflow-frontend/package.json` | 요구 스택 충족 |
-| 19 | ELT Frontend Axios/Chartjs | 구현됨 | `apps/dataxflow-frontend/package.json`, `apps/dataxflow-frontend/src/App.vue` | API 요청을 axios로 전환하고 사용자 사용량 Chart.js 시각화 적용 |
-| 20 | ELT 배치업무(잡 생성/프로시저/스케줄링 연동) | 부분구현 | `apps/backend/app/services/teradata_bootstrap.py`, `infra/k8s/dataxflow/overlays/dev/airflow.yaml` | Bootstrap/배포는 있으나 요청서 수준의 전체 배치관리 기능은 보강 필요 |
+| 19 | ELT Frontend Axios/Chartjs | 구현됨 | `apps/dataxflow-frontend/package.json`, `apps/dataxflow-frontend/src/App.vue` | 업무 포털 화면에서 axios 기반 API 호출 및 배치주기/실행시간 Chart.js 시각화 적용 |
+| 20 | ELT 배치업무(잡 생성/프로시저/스케줄링 연동) | 구현됨 | `apps/backend/app/services/dataxflow_jobs.py`, `apps/backend/app/main.py`, `apps/dataxflow-frontend/src/App.vue` | 로그인 후 배치잡 등록/수정, 테스트 실행, 프로시저 컴파일, Airflow 등록, 실행 이력/통계 UI 및 API 연동 완료 |
 | 21 | 설치/운영 가이드 문서화 | 구현됨 | `docs/fss-office-vmware-practice.md`, `docs/fss-office-server-map.md`, `infra/k8s/fss/README.md` | 반입 전/후 체크포인트 문서화 |
-| 22 | 산출물(manifest/yaml) 정리 및 전달 준비 | 부분구현 | `infra/k8s/fss/*`, `scripts/setup_fss_platform.sh` | 리포 내 정리는 되어 있으나 외부 Git push 자동화는 별도 운영 절차 필요 |
+| 22 | 산출물(manifest/yaml) 정리 및 전달 준비 | 부분구현 | `infra/k8s/fss/*`, `scripts/setup_fss_platform.sh`, `scripts/prime_nexus_from_env.sh`, `scripts/verify_nexus_dependencies.sh` | 매니페스트/스크립트 정리 + Nexus(PyPI/npm) 의존성 프라이밍/검증은 완료. 외부 Git push 자동화는 별도 운영 절차 필요 |
 
 ## 우선 조치 항목
 
 - [ ] P1: `Rook-Ceph over NFS` 또는 대체 스토리지 전략 확정 후 실제 배포 매니페스트 추가
 - [ ] P1: Ansible 기본값을 `1.35.3` 요구와 일치하도록 버전 핀 전략 확정
 - [x] P1: ELT 스택 요구서 기준으로 `SQLAlchemy`, `Axios`, `Chartjs` 적용 여부 확정(적용 완료, Nexus seed 목록 반영)
-- [ ] P2: ELT 배치잡 관리(잡 등록/변경/스케줄/실행 이력) 기능 갭 상세화 및 API/UI 보강
+- [x] P1: Nexus(PyPI/npm) 의존성 캐시 프라이밍/검증 실행 (`prime_nexus_from_env.sh`, `verify_nexus_dependencies.sh`)
+- [x] P2: ELT 배치잡 관리(잡 등록/변경/스케줄/실행 이력) 기능 갭 상세화 및 API/UI 보강
 - [ ] P2: ADW Node 백엔드의 snapshot publish 실구현 완료
 - [ ] P3: worker-ml 스케줄링 정책(affinity/taint/toleration/nodeSelector) 표준 매니페스트화
 - [ ] P3: 반입 후 전환(DNS, Harbor secure, NFS endpoint) 검증 결과를 운영 체크리스트에 추가

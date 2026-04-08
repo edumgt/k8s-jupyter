@@ -1,77 +1,49 @@
 <template>
-  <q-layout view="lHh Lpr lFf">
+  <q-layout view="lHh Lpr lFf" class="app-layout">
+    <q-header v-if="isAuthenticated" bordered class="header-shell">
+      <q-toolbar class="toolbar-shell">
+        <div class="toolbar-brand">
+          <div class="brand-eyebrow">Analysis Environment Server</div>
+          <div class="brand-title">platform.local Jupyter 운영 포털</div>
+        </div>
+        <q-space />
+        <div class="toolbar-user">
+          <q-chip square color="white" text-color="dark" icon="person">
+            {{ appSession.user.display_name }} ({{ appSession.user.role }})
+          </q-chip>
+          <q-btn
+            flat
+            dense
+            color="negative"
+            no-caps
+            icon="logout"
+            label="로그아웃"
+            :loading="authLoading"
+            @click="logoutApp"
+          />
+        </div>
+      </q-toolbar>
+    </q-header>
+
     <q-page-container>
-      <q-page :class="['page-shell', { 'page-shell-with-offcanvas': showDashboard && leftDrawerOpen }]">
-        <aside v-if="showDashboard" class="offcanvas-panel" :class="{ 'is-open': leftDrawerOpen }">
-          <div class="offcanvas-head">
-            <div class="section-title">Offcanvas Navigation</div>
-            <div class="card-title">좌측 링크</div>
-          </div>
-
-          <div class="offcanvas-section">
-            <div class="offcanvas-group-title">메뉴</div>
-            <q-list class="offcanvas-list" separator>
-              <q-item
-                v-for="link in menuNavLinks"
-                :key="link.id"
-                clickable
-                v-ripple
-                class="offcanvas-link-item"
-                @click="scrollToSection(link.id)"
-              >
-                <q-item-section avatar>
-                  <q-icon :name="link.icon" color="dark" />
-                </q-item-section>
-                <q-item-section>
-                  <q-item-label>{{ link.label }}</q-item-label>
-                  <q-item-label caption>{{ link.description }}</q-item-label>
-                </q-item-section>
-              </q-item>
-            </q-list>
-          </div>
-
-          <div class="offcanvas-section">
-            <div class="offcanvas-group-title">기능</div>
-            <q-list class="offcanvas-list" separator>
-              <q-item
-                v-for="link in featureNavLinks"
-                :key="link.id"
-                clickable
-                v-ripple
-                class="offcanvas-link-item"
-                @click="scrollToSection(link.id)"
-              >
-                <q-item-section avatar>
-                  <q-icon :name="link.icon" color="dark" />
-                </q-item-section>
-                <q-item-section>
-                  <q-item-label>{{ link.label }}</q-item-label>
-                  <q-item-label caption>{{ link.description }}</q-item-label>
-                </q-item-section>
-              </q-item>
-            </q-list>
-          </div>
-        </aside>
-
-        <div v-if="showDashboard && leftDrawerOpen" class="offcanvas-backdrop" @click="leftDrawerOpen = false" />
-
-        <section v-if="!showDashboard" class="login-screen">
-          <q-card flat class="surface-card login-page-card">
+      <q-page class="page-shell">
+        <section v-if="!isAuthenticated" class="login-shell">
+          <q-card flat class="surface-card login-card">
             <q-card-section>
-              <div class="section-title">JWT Login</div>
-              <div class="card-title">플랫폼 로그인</div>
-              <p class="muted">
-                사이트 첫 화면은 로그인 전용 화면입니다. 백엔드 JWT 로그인(`/api/auth/login`) 성공 후
-                사용자 role(user/admin)에 맞는 화면으로 이동합니다.
+              <div class="section-eyebrow">금감원 DX 중장기 사업</div>
+              <h1 class="hero-title">Jupyter 분석환경 로그인</h1>
+              <p class="hero-description">
+                문서 기준 분석환경 서버 흐름으로 구성된 포털입니다. 로그인 후 사용자 신청,
+                관리자 승인, 개인 JupyterLab 실행/접속을 처리합니다.
               </p>
-              <div class="admin-login-grid">
+
+              <div class="login-grid">
                 <q-input
                   v-model="loginForm.username"
                   dense
                   outlined
                   color="dark"
-                  label="Username (Email)"
-                  class="admin-input"
+                  label="Username"
                   @keyup.enter="loginApp"
                 />
                 <q-input
@@ -79,9 +51,8 @@
                   dense
                   outlined
                   color="dark"
-                  type="password"
                   label="Password"
-                  class="admin-input"
+                  type="password"
                   @keyup.enter="loginApp"
                 />
                 <q-btn
@@ -89,17 +60,16 @@
                   unelevated
                   no-caps
                   icon="login"
-                  label="JWT Login"
+                  label="로그인"
                   :loading="authLoading"
-                  :disable="!loginForm.username || !loginForm.password"
+                  :disable="!canLogin"
                   @click="loginApp"
                 />
               </div>
-              <q-banner rounded class="banner-note login-token-note">
-                로그인 후 토큰은 로컬 세션에 저장되며 `Authorization: Bearer`와 `X-Auth-Token` 헤더로
-                API 인증에 사용됩니다.
-              </q-banner>
-              <div class="demo-account-grid modal-account-grid">
+
+              <q-separator class="q-my-md" />
+              <div class="section-eyebrow">데모 계정</div>
+              <div class="account-grid">
                 <q-btn
                   v-for="account in demoAccounts"
                   :key="account.username"
@@ -115,466 +85,237 @@
         </section>
 
         <template v-else>
-          <q-btn
-            class="offcanvas-toggle"
-            :class="{ 'offcanvas-toggle-shifted': leftDrawerOpen }"
-            round
-            dense
-            unelevated
-            color="dark"
-            icon="menu"
-            aria-label="Toggle navigation menu"
-            @click="leftDrawerOpen = !leftDrawerOpen"
-          />
-
-          <section id="overview-panel" class="hero-panel nav-anchor">
-            <div class="eyebrow">K8s Data Platform OVA</div>
-            <h1>데모 사용자 로그인부터 Jupyter sandbox, 관리자 모니터링까지 한 화면에서</h1>
-            <p>
-              `test1@test.com`, `test2@test.com` 사용자는 로그인 후 본인 전용 Jupyter pod를 실행할 수
-              있고, `admin@test.com` 관리자는 사용자별 실행 여부, 사용시간, 사용회수와 cluster
-              inventory를 같은 웹앱에서 확인할 수 있습니다.
-            </p>
-            <div class="hero-actions">
-              <q-btn
-                color="dark"
-                unelevated
-                no-caps
-                icon="refresh"
-                label="Reload Dashboard"
-                @click="loadDashboard"
-              />
-              <q-btn
-                outline
-                color="dark"
-                no-caps
-                icon="play_circle"
-                label="Run ANSI SQL"
-                @click="runFirstQuery"
-              />
+          <section class="hero-panel surface-card">
+            <div class="hero-header">
+              <div>
+                <div class="section-eyebrow">Workflow</div>
+                <h2>신청 · 승인 · 실행 · 접속</h2>
+                <p>
+                  사용자는 리소스/분석환경을 신청하고, 관리자는 승인 후 개인 전용 Jupyter Pod를
+                  실행할 수 있습니다. 실행 후 소유권 검증을 거쳐 개인 URL로 연결됩니다.
+                </p>
+              </div>
+              <div class="hero-actions">
+                <q-btn
+                  outline
+                  color="dark"
+                  no-caps
+                  icon="refresh"
+                  label="전체 새로고침"
+                  :loading="pageLoading"
+                  @click="loadPageData"
+                />
+              </div>
             </div>
-            <div class="chip-grid">
-              <q-chip color="white" text-color="dark" square>
-                <strong>frontend</strong>&nbsp;v{{ frontendAppVersion }}
-              </q-chip>
-              <q-chip color="white" text-color="dark" square>
-                <strong>backend</strong>&nbsp;v{{ backendAppVersion }}
-              </q-chip>
+
+            <div class="workflow-steps">
+              <div class="step-chip">1. 리소스 신청</div>
+              <div class="step-chip">2. 분석환경 신청</div>
+              <div class="step-chip">3. 관리자 승인</div>
+              <div class="step-chip">4. JupyterLab 실행/접속</div>
             </div>
           </section>
 
-          <section id="session-panel" class="content-grid nav-anchor">
-            <q-card flat class="surface-card auth-card">
+          <section class="kpi-grid">
+            <q-card v-for="card in topMetrics" :key="card.key" flat class="surface-card kpi-card">
               <q-card-section>
-                <div class="row items-center justify-between q-col-gutter-md">
-                  <div>
-                    <div class="section-title">Sandbox Login</div>
-                    <div class="card-title">데모 사용자 / 관리자 인증</div>
-                  </div>
-                  <q-badge color="positive" rounded>
-                    {{ appSession.user.role }}
-                  </q-badge>
+                <div class="kpi-label">{{ card.label }}</div>
+                <div class="kpi-value">{{ card.value }}</div>
+                <div class="kpi-note">{{ card.note }}</div>
+              </q-card-section>
+            </q-card>
+          </section>
+
+          <section class="main-grid">
+            <q-card flat class="surface-card">
+              <q-card-section>
+                <div class="section-eyebrow">My JupyterLab</div>
+                <div class="section-title">개인 분석환경 실행</div>
+
+                <div class="chip-grid q-mt-sm">
+                  <q-chip color="white" text-color="dark" square>
+                    <strong>User</strong>&nbsp;{{ managedUsername }}
+                  </q-chip>
+                  <q-chip color="white" text-color="dark" square>
+                    <strong>Status</strong>&nbsp;{{ labSession.status }}
+                  </q-chip>
+                  <q-chip color="white" text-color="dark" square>
+                    <strong>Ready</strong>&nbsp;{{ labSession.ready ? "yes" : "no" }}
+                  </q-chip>
                 </div>
 
-                <p class="muted">
-                  사용자는 본인 계정으로만 Jupyter sandbox를 시작할 수 있고, 관리자는 별도 관리자
-                  모드에서 사용자 sandbox 사용 현황과 control plane을 모니터링합니다.
-                </p>
+                <div class="lab-form">
+                  <q-btn
+                    color="dark"
+                    unelevated
+                    no-caps
+                    icon="rocket_launch"
+                    label="내 환경 실행"
+                    :loading="sessionLoading"
+                    @click="startLabSession"
+                  />
+                  <q-btn
+                    outline
+                    color="dark"
+                    no-caps
+                    icon="sync"
+                    label="상태 새로고침"
+                    :loading="sessionLoading"
+                    @click="refreshLabSession"
+                  />
+                  <q-btn
+                    outline
+                    color="dark"
+                    no-caps
+                    icon="open_in_new"
+                    label="Jupyter 열기"
+                    :disable="!labSession.ready"
+                    @click="openLab"
+                  />
+                  <q-btn
+                    flat
+                    color="negative"
+                    no-caps
+                    icon="delete"
+                    label="환경 종료"
+                    :loading="sessionLoading"
+                    @click="stopLabSession"
+                  />
+                </div>
 
-                <div class="auth-session-bar">
-                  <div class="chip-grid">
-                    <q-chip color="white" text-color="dark" square>
-                      <strong>User</strong>&nbsp;{{ appSession.user.display_name }}
-                    </q-chip>
-                    <q-chip color="white" text-color="dark" square>
-                      <strong>Email</strong>&nbsp;{{ appSession.user.username }}
-                    </q-chip>
-                    <q-chip color="white" text-color="dark" square>
-                      <strong>Role</strong>&nbsp;{{ appSession.user.role }}
-                    </q-chip>
+                <q-banner rounded class="banner-note q-mt-md">
+                  <div><strong>Detail:</strong> {{ labSession.detail }}</div>
+                  <div v-if="labSession.pod_name"><strong>Pod:</strong> {{ labSession.pod_name }}</div>
+                  <div v-if="labSession.service_name"><strong>Service:</strong> {{ labSession.service_name }}</div>
+                  <div v-if="labSession.workspace_subpath">
+                    <strong>Workspace:</strong> {{ labSession.workspace_subpath }}
                   </div>
-                  <div class="hero-actions">
-                    <q-btn
-                      v-if="isAdmin"
-                      outline
-                      color="dark"
-                      no-caps
-                      icon="monitor"
-                      label="Refresh Admin Overview"
-                      :loading="adminLoading"
-                      @click="loadAdminOverview"
-                    />
-                    <q-btn
-                      flat
-                      color="negative"
-                      no-caps
-                      icon="logout"
-                      label="Logout"
-                      :loading="authLoading"
-                      @click="logoutApp"
-                    />
+                  <div v-if="labSession.image" class="mono-line"><strong>Image:</strong> {{ labSession.image }}</div>
+                  <div v-if="labLaunchUrl" class="mono-line"><strong>URL:</strong> {{ labLaunchUrl }}</div>
+                </q-banner>
+              </q-card-section>
+            </q-card>
+
+            <q-card flat class="surface-card">
+              <q-card-section>
+                <div class="section-eyebrow">Policy</div>
+                <div class="section-title">리소스/환경 승인 정책</div>
+
+                <div class="chip-grid q-mt-sm">
+                  <q-chip color="white" text-color="dark" square>
+                    <strong>governance</strong>&nbsp;{{ userLabPolicy.governance_enabled ? "on" : "off" }}
+                  </q-chip>
+                  <q-chip color="white" text-color="dark" square>
+                    <strong>ready</strong>&nbsp;{{ userLabPolicy.ready ? "yes" : "no" }}
+                  </q-chip>
+                  <q-chip v-if="userLabPolicy.vcpu" color="white" text-color="dark" square>
+                    <strong>vcpu</strong>&nbsp;{{ userLabPolicy.vcpu }}
+                  </q-chip>
+                  <q-chip v-if="userLabPolicy.memory_gib" color="white" text-color="dark" square>
+                    <strong>memory</strong>&nbsp;{{ userLabPolicy.memory_gib }}Gi
+                  </q-chip>
+                  <q-chip v-if="userLabPolicy.disk_gib" color="white" text-color="dark" square>
+                    <strong>disk</strong>&nbsp;{{ userLabPolicy.disk_gib }}Gi
+                  </q-chip>
+                </div>
+
+                <q-banner rounded class="banner-note q-mt-md">
+                  <div>{{ userLabPolicy.detail }}</div>
+                  <div v-if="userLabPolicy.pvc_name"><strong>PVC:</strong> {{ userLabPolicy.pvc_name }}</div>
+                  <div v-if="userLabPolicy.analysis_env_id">
+                    <strong>Env:</strong> {{ userLabPolicy.analysis_env_id }}
                   </div>
+                  <div v-if="userLabPolicy.analysis_image" class="mono-line">
+                    <strong>Image:</strong> {{ userLabPolicy.analysis_image }}
+                  </div>
+                </q-banner>
+
+                <q-separator class="q-my-md" />
+
+                <div class="section-eyebrow">Usage (Chart.js)</div>
+                <div class="section-title">내 사용 통계</div>
+                <div class="chip-grid q-mt-sm">
+                  <q-chip color="white" text-color="dark" square>
+                    login {{ usageSummary.login_count }}
+                  </q-chip>
+                  <q-chip color="white" text-color="dark" square>
+                    launch {{ usageSummary.launch_count }}
+                  </q-chip>
+                  <q-chip color="white" text-color="dark" square>
+                    total {{ formatDuration(usageSummary.total_session_seconds) }}
+                  </q-chip>
+                </div>
+                <div class="chart-shell q-mt-sm">
+                  <canvas ref="usageChartCanvas" />
                 </div>
               </q-card-section>
             </q-card>
           </section>
 
-        <section v-if="isUser" id="user-lab-panel" class="content-grid nav-anchor">
-          <q-card flat class="surface-card lab-card">
-            <q-card-section>
-              <div class="row items-center justify-between q-col-gutter-md">
-                <div>
-                  <div class="section-title">Personal JupyterLab</div>
-                  <div class="card-title">로그인한 사용자 전용 sandbox</div>
+          <section class="table-grid" v-if="isUser">
+            <q-card flat class="surface-card">
+              <q-card-section>
+                <div class="section-eyebrow">Step 1</div>
+                <div class="section-title">리소스 신청</div>
+
+                <div class="form-grid q-mt-sm">
+                  <q-input v-model.number="resourceRequestForm.vcpu" type="number" dense outlined label="vCPU" color="dark" />
+                  <q-input v-model.number="resourceRequestForm.memory_gib" type="number" dense outlined label="Memory (GiB)" color="dark" />
+                  <q-input v-model.number="resourceRequestForm.disk_gib" type="number" dense outlined label="Disk (GiB)" color="dark" />
                 </div>
-                <q-badge :color="labStatusColor" rounded>
-                  {{ labSession.status }}
-                </q-badge>
-              </div>
-
-              <p class="muted">
-                현재 로그인한 계정 <strong>{{ managedUsername }}</strong> 전용 Jupyter pod를 시작합니다.
-                backend는 사용자별 PVC subPath와 snapshot 이미지를 확인하고, 준비가 끝나면 새 탭으로
-                JupyterLab을 열 수 있습니다.
-              </p>
-
-              <div class="chip-grid">
-                <q-chip color="white" text-color="dark" square>
-                  <strong>User</strong>&nbsp;{{ managedUsername }}
-                </q-chip>
-                <q-chip color="white" text-color="dark" square>
-                  <strong>Workspace</strong>&nbsp;{{ labSession.workspace_subpath || "not created" }}
-                </q-chip>
-              </div>
-
-              <div class="lab-form">
-                <q-btn
+                <q-input
+                  v-model="resourceRequestForm.note"
+                  dense
+                  outlined
                   color="dark"
-                  unelevated
-                  no-caps
-                  icon="rocket_launch"
-                  label="Start My Sandbox"
-                  :loading="sessionLoading"
-                  @click="startLabSession"
+                  type="textarea"
+                  autogrow
+                  label="요청 메모"
+                  class="q-mt-sm"
                 />
-                <q-btn
-                  outline
-                  color="dark"
-                  no-caps
-                  icon="sync"
-                  label="Refresh"
-                  :loading="sessionLoading"
-                  @click="refreshLabSession"
-                />
-                <q-btn
-                  outline
-                  color="dark"
-                  no-caps
-                  icon="open_in_new"
-                  label="Open Lab"
-                  :disable="!labSession.ready"
-                  @click="openLab"
-                />
-                <q-btn
+                <div class="lab-form">
+                  <q-btn
+                    color="dark"
+                    unelevated
+                    no-caps
+                    icon="send"
+                    label="리소스 신청"
+                    :loading="governanceLoading"
+                    :disable="!canSubmitResource"
+                    @click="submitResourceRequest"
+                  />
+                </div>
+
+                <q-separator class="q-my-md" />
+
+                <q-table
                   flat
-                  color="negative"
-                  no-caps
-                  icon="delete"
-                  label="Stop Lab"
-                  :loading="sessionLoading"
-                  @click="stopLabSession"
-                />
-              </div>
+                  :rows="userResourceRequests"
+                  :columns="userResourceRequestColumns"
+                  row-key="request_id"
+                  :rows-per-page-options="[5, 10, 20]"
+                  :pagination="{ rowsPerPage: 5 }"
+                >
+                  <template #body-cell-status="props">
+                    <q-td :props="props">
+                      <q-badge rounded :color="requestStatusColor(props.value)">{{ props.value }}</q-badge>
+                    </q-td>
+                  </template>
+                  <template #body-cell-updated_at="props">
+                    <q-td :props="props">{{ formatDateTime(props.value) }}</q-td>
+                  </template>
+                  <template #body-cell-review_note="props">
+                    <q-td :props="props">{{ props.value || "-" }}</q-td>
+                  </template>
+                </q-table>
+              </q-card-section>
+            </q-card>
 
-              <q-linear-progress
-                v-if="labSession.status === 'provisioning'"
-                indeterminate
-                color="dark"
-                class="lab-progress"
-              />
+            <q-card flat class="surface-card">
+              <q-card-section>
+                <div class="section-eyebrow">Step 2</div>
+                <div class="section-title">분석환경 신청</div>
 
-              <q-banner rounded class="banner-note lab-banner">
-                <div><strong>Status</strong> {{ labSession.detail }}</div>
-                <div v-if="labSession.pod_name">Pod: {{ labSession.pod_name }}</div>
-                <div v-if="labSession.service_name">Service: {{ labSession.service_name }}</div>
-                <div v-if="labSession.workspace_subpath">Workspace: {{ labSession.workspace_subpath }}</div>
-                <div v-if="labSession.node_port">NodePort: {{ labSession.node_port }}</div>
-                <div v-if="labSession.image" class="lab-url">Image: {{ labSession.image }}</div>
-                <div v-if="labSession.snapshot_status">Snapshot Publish: {{ labSession.snapshot_status }}</div>
-                <div v-if="labSession.snapshot_job_name">Snapshot Job: {{ labSession.snapshot_job_name }}</div>
-                <div v-if="labSession.snapshot_detail">Snapshot Detail: {{ labSession.snapshot_detail }}</div>
-                <div v-if="labLaunchUrl" class="lab-url">{{ labLaunchUrl }}</div>
-              </q-banner>
-            </q-card-section>
-          </q-card>
-
-          <q-card id="user-usage-panel" flat class="surface-card nav-anchor">
-            <q-card-section>
-              <div class="row items-center justify-between q-col-gutter-md">
-                <div>
-                  <div class="section-title">My Jupyter Usage History</div>
-                  <div class="card-title">내 계정 사용 이력</div>
-                </div>
-                <q-badge :color="usageSummary.current_status === 'ready' ? 'positive' : 'grey-7'" rounded>
-                  {{ usageSummary.current_status }}
-                </q-badge>
-              </div>
-
-              <q-linear-progress v-if="usageLoading" indeterminate color="dark" class="lab-progress" />
-
-              <div class="chip-grid">
-                <q-chip color="white" text-color="dark" square>
-                  <strong>logins</strong>&nbsp;{{ usageSummary.login_count }}
-                </q-chip>
-                <q-chip color="white" text-color="dark" square>
-                  <strong>launches</strong>&nbsp;{{ usageSummary.launch_count }}
-                </q-chip>
-                <q-chip color="white" text-color="dark" square>
-                  <strong>current use</strong>&nbsp;{{ formatDuration(usageSummary.current_session_seconds) }}
-                </q-chip>
-                <q-chip color="white" text-color="dark" square>
-                  <strong>total use</strong>&nbsp;{{ formatDuration(usageSummary.total_session_seconds) }}
-                </q-chip>
-              </div>
-
-              <q-banner rounded class="banner-note lab-banner">
-                <div><strong>Last Login</strong> {{ formatDateTime(usageSummary.last_login_at) }}</div>
-                <div><strong>Last Launch</strong> {{ formatDateTime(usageSummary.last_launch_at) }}</div>
-                <div><strong>Last Stop</strong> {{ formatDateTime(usageSummary.last_stop_at) }}</div>
-                <div v-if="usageSummary.pod_name"><strong>Pod</strong> {{ usageSummary.pod_name }}</div>
-              </q-banner>
-            </q-card-section>
-          </q-card>
-
-          <q-card id="workspace-snapshot-panel" flat class="surface-card nav-anchor">
-            <q-card-section>
-              <div class="row items-center justify-between q-col-gutter-md">
-                <div>
-                  <div class="section-title">Workspace Snapshot</div>
-                  <div class="card-title">개인 sandbox 복원 이미지</div>
-                </div>
-                <q-badge :color="snapshotStatusColor" rounded>
-                  {{ snapshotState.status }}
-                </q-badge>
-              </div>
-
-              <p class="muted">
-                PVC `users/&lt;session-id&gt;`에 저장된 작업 내용을 Harbor snapshot으로 publish할 수
-                있습니다. 다음 로그인 시 backend가 이 이미지를 우선 사용합니다.
-              </p>
-
-              <div class="lab-form">
-                <q-btn
-                  color="dark"
-                  unelevated
-                  no-caps
-                  icon="cloud_upload"
-                  label="Publish Snapshot"
-                  :loading="snapshotLoading"
-                  @click="publishSnapshot"
-                />
-                <q-btn
-                  outline
-                  color="dark"
-                  no-caps
-                  icon="inventory_2"
-                  label="Refresh Snapshot"
-                  :loading="snapshotLoading"
-                  @click="refreshSnapshotStatus"
-                />
-              </div>
-
-              <q-linear-progress
-                v-if="snapshotState.status === 'building'"
-                indeterminate
-                color="dark"
-                class="lab-progress"
-              />
-
-              <q-banner rounded class="banner-note lab-banner">
-                <div><strong>Status</strong> {{ snapshotState.detail }}</div>
-                <div v-if="snapshotState.job_name">Job: {{ snapshotState.job_name }}</div>
-                <div v-if="snapshotState.workspace_subpath">
-                  Workspace: {{ snapshotState.workspace_subpath }}
-                </div>
-                <div v-if="snapshotState.published_at">Published: {{ snapshotState.published_at }}</div>
-                <div v-if="snapshotState.image" class="lab-url">
-                  Snapshot Image: {{ snapshotState.image }}
-                </div>
-              </q-banner>
-            </q-card-section>
-          </q-card>
-        </section>
-
-        <section v-if="isUser" id="user-governance-panel" class="content-grid nav-anchor">
-          <q-card flat class="surface-card">
-            <q-card-section>
-              <div class="row items-center justify-between q-col-gutter-md">
-                <div>
-                  <div class="section-title">Request Workflow</div>
-                  <div class="card-title">리소스/분석환경 신청 상태</div>
-                </div>
-                <q-badge :color="userPolicyBadgeColor" rounded>
-                  {{ userPolicyBadgeLabel }}
-                </q-badge>
-              </div>
-
-              <p class="muted">
-                사용자 리소스 요청 승인 후 분석환경을 신청합니다. 두 단계가 승인되면 개인 전용
-                PVC/이미지 정책으로 JupyterLab 실행이 허용됩니다.
-              </p>
-
-              <div class="chip-grid">
-                <q-chip color="white" text-color="dark" square>
-                  <strong>governance</strong>&nbsp;{{ userLabPolicy.governance_enabled ? "on" : "off" }}
-                </q-chip>
-                <q-chip color="white" text-color="dark" square>
-                  <strong>ready</strong>&nbsp;{{ userLabPolicy.ready ? "yes" : "no" }}
-                </q-chip>
-                <q-chip v-if="userLabPolicy.vcpu" color="white" text-color="dark" square>
-                  <strong>vcpu</strong>&nbsp;{{ userLabPolicy.vcpu }}
-                </q-chip>
-                <q-chip v-if="userLabPolicy.memory_gib" color="white" text-color="dark" square>
-                  <strong>memory</strong>&nbsp;{{ userLabPolicy.memory_gib }}Gi
-                </q-chip>
-                <q-chip v-if="userLabPolicy.disk_gib" color="white" text-color="dark" square>
-                  <strong>disk</strong>&nbsp;{{ userLabPolicy.disk_gib }}Gi
-                </q-chip>
-                <q-chip v-if="userLabPolicy.analysis_env_id" color="white" text-color="dark" square>
-                  <strong>env</strong>&nbsp;{{ userLabPolicy.analysis_env_id }}
-                </q-chip>
-              </div>
-
-              <div class="lab-form">
-                <q-btn
-                  outline
-                  color="dark"
-                  no-caps
-                  icon="sync"
-                  label="Refresh Requests"
-                  :loading="governanceLoading"
-                  @click="loadUserGovernanceData"
-                />
-              </div>
-
-              <q-linear-progress v-if="governanceLoading" indeterminate color="dark" class="lab-progress" />
-
-              <q-banner rounded class="banner-note lab-banner">
-                <div><strong>Policy</strong> {{ userLabPolicy.detail }}</div>
-                <div v-if="userLabPolicy.pvc_name">PVC: {{ userLabPolicy.pvc_name }}</div>
-                <div v-if="userLabPolicy.analysis_image" class="lab-url">
-                  Image: {{ userLabPolicy.analysis_image }}
-                </div>
-              </q-banner>
-            </q-card-section>
-          </q-card>
-
-          <q-card flat class="surface-card">
-            <q-card-section>
-              <div class="section-title">Step 1</div>
-              <div class="card-title">리소스 할당 신청</div>
-
-              <div class="request-form-grid">
-                <q-input
-                  v-model.number="resourceRequestForm.vcpu"
-                  dense
-                  outlined
-                  color="dark"
-                  type="number"
-                  min="1"
-                  max="64"
-                  label="vCPU"
-                  class="lab-input"
-                />
-                <q-input
-                  v-model.number="resourceRequestForm.memory_gib"
-                  dense
-                  outlined
-                  color="dark"
-                  type="number"
-                  min="1"
-                  max="512"
-                  label="Memory (GiB)"
-                  class="lab-input"
-                />
-                <q-input
-                  v-model.number="resourceRequestForm.disk_gib"
-                  dense
-                  outlined
-                  color="dark"
-                  type="number"
-                  min="1"
-                  max="2048"
-                  label="Disk (GiB)"
-                  class="lab-input"
-                />
-              </div>
-              <q-input
-                v-model="resourceRequestForm.note"
-                dense
-                outlined
-                color="dark"
-                type="textarea"
-                autogrow
-                label="요청 메모 (선택)"
-                class="request-note-input"
-              />
-
-              <div class="lab-form">
-                <q-btn
-                  color="dark"
-                  unelevated
-                  no-caps
-                  icon="send"
-                  label="Submit Resource Request"
-                  :loading="governanceLoading"
-                  :disable="!canSubmitResourceRequest"
-                  @click="submitResourceRequest"
-                />
-              </div>
-
-              <q-separator class="inventory-separator" />
-
-              <q-table
-                flat
-                :rows="userResourceRequests"
-                :columns="userResourceRequestColumns"
-                row-key="request_id"
-                :rows-per-page-options="[5, 10, 20]"
-                :pagination="{ rowsPerPage: 5 }"
-              >
-                <template #body-cell-status="props">
-                  <q-td :props="props">
-                    <q-badge :color="requestStatusColor(props.value)" rounded>
-                      {{ props.value }}
-                    </q-badge>
-                  </q-td>
-                </template>
-                <template #body-cell-updated_at="props">
-                  <q-td :props="props">
-                    {{ formatDateTime(props.value) }}
-                  </q-td>
-                </template>
-                <template #body-cell-review_note="props">
-                  <q-td :props="props">
-                    {{ props.value || "-" }}
-                  </q-td>
-                </template>
-                <template #body-cell-pvc_name="props">
-                  <q-td :props="props">
-                    {{ props.value || "-" }}
-                  </q-td>
-                </template>
-              </q-table>
-            </q-card-section>
-          </q-card>
-
-          <q-card flat class="surface-card">
-            <q-card-section>
-              <div class="section-title">Step 2</div>
-              <div class="card-title">분석환경 신청</div>
-
-              <div class="request-form-grid">
                 <q-select
                   v-model="environmentRequestForm.env_id"
                   dense
@@ -586,696 +327,284 @@
                   option-value="value"
                   :options="analysisEnvironmentOptions"
                   label="Analysis Environment"
-                  class="lab-input"
+                  class="q-mt-sm"
                 />
-              </div>
-              <q-input
-                v-model="environmentRequestForm.note"
-                dense
-                outlined
-                color="dark"
-                type="textarea"
-                autogrow
-                label="요청 메모 (선택)"
-                class="request-note-input"
-              />
-
-              <div class="lab-form">
-                <q-btn
+                <q-input
+                  v-model="environmentRequestForm.note"
+                  dense
+                  outlined
                   color="dark"
-                  unelevated
-                  no-caps
-                  icon="send"
-                  label="Submit Environment Request"
-                  :loading="governanceLoading"
-                  :disable="!canSubmitEnvironmentRequest"
-                  @click="submitEnvironmentRequest"
+                  type="textarea"
+                  autogrow
+                  label="요청 메모"
+                  class="q-mt-sm"
                 />
-              </div>
-
-              <q-separator class="inventory-separator" />
-
-              <q-table
-                flat
-                :rows="userEnvironmentRequests"
-                :columns="userEnvironmentRequestColumns"
-                row-key="request_id"
-                :rows-per-page-options="[5, 10, 20]"
-                :pagination="{ rowsPerPage: 5 }"
-              >
-                <template #body-cell-status="props">
-                  <q-td :props="props">
-                    <q-badge :color="requestStatusColor(props.value)" rounded>
-                      {{ props.value }}
-                    </q-badge>
-                  </q-td>
-                </template>
-                <template #body-cell-updated_at="props">
-                  <q-td :props="props">
-                    {{ formatDateTime(props.value) }}
-                  </q-td>
-                </template>
-                <template #body-cell-review_note="props">
-                  <q-td :props="props">
-                    {{ props.value || "-" }}
-                  </q-td>
-                </template>
-              </q-table>
-            </q-card-section>
-          </q-card>
-        </section>
-
-        <section
-          v-if="isAdmin"
-          id="governance-admin-panel"
-          class="content-grid control-plane-anchor nav-anchor"
-        >
-          <q-card flat class="surface-card">
-            <q-card-section>
-              <div class="row items-center justify-between q-col-gutter-md">
-                <div>
-                  <div class="section-title">Governance Admin</div>
-                  <div class="card-title">신청/승인 운영 대시보드</div>
+                <div class="lab-form">
+                  <q-btn
+                    color="dark"
+                    unelevated
+                    no-caps
+                    icon="send"
+                    label="환경 신청"
+                    :loading="governanceLoading"
+                    :disable="!canSubmitEnvironment"
+                    @click="submitEnvironmentRequest"
+                  />
                 </div>
-                <q-badge :color="pendingGovernanceCount ? 'warning' : 'positive'" rounded>
-                  {{ pendingGovernanceCount }} pending
-                </q-badge>
-              </div>
 
-              <div class="chip-grid">
-                <q-chip color="white" text-color="dark" square>
-                  <strong>users</strong>&nbsp;{{ adminManagedUsers.length }}
-                </q-chip>
-                <q-chip color="white" text-color="dark" square>
-                  <strong>envs</strong>&nbsp;{{ adminAnalysisEnvironments.length }}
-                </q-chip>
-                <q-chip color="white" text-color="dark" square>
-                  <strong>resource pending</strong>&nbsp;{{ pendingResourceRequestCount }}
-                </q-chip>
-                <q-chip color="white" text-color="dark" square>
-                  <strong>environment pending</strong>&nbsp;{{ pendingEnvironmentRequestCount }}
-                </q-chip>
-              </div>
+                <q-separator class="q-my-md" />
 
-              <div class="lab-form">
-                <q-btn
-                  outline
-                  color="dark"
-                  no-caps
-                  icon="sync"
-                  label="Refresh Governance"
-                  :loading="governanceAdminLoading"
-                  @click="loadAdminGovernanceData"
-                />
-              </div>
-              <q-linear-progress
-                v-if="governanceAdminLoading"
-                indeterminate
-                color="dark"
-                class="lab-progress"
-              />
-            </q-card-section>
-          </q-card>
-
-          <q-card flat class="surface-card">
-            <q-card-section>
-              <div class="section-title">User Provisioning</div>
-              <div class="card-title">관리자 수동 사용자 생성</div>
-              <div class="request-form-grid">
-                <q-input
-                  v-model="adminUserForm.username"
-                  dense
-                  outlined
-                  color="dark"
-                  label="Username (email)"
-                  class="lab-input"
-                />
-                <q-input
-                  v-model="adminUserForm.display_name"
-                  dense
-                  outlined
-                  color="dark"
-                  label="Display Name"
-                  class="lab-input"
-                />
-                <q-input
-                  v-model="adminUserForm.password"
-                  dense
-                  outlined
-                  color="dark"
-                  type="password"
-                  label="Password"
-                  class="lab-input"
-                />
-                <q-select
-                  v-model="adminUserForm.role"
-                  dense
-                  outlined
-                  color="dark"
-                  :options="['user', 'admin']"
-                  label="Role"
-                  class="lab-input"
-                />
-              </div>
-              <div class="lab-form">
-                <q-btn
-                  color="dark"
-                  unelevated
-                  no-caps
-                  icon="person_add"
-                  label="Create User"
-                  :loading="governanceAdminLoading"
-                  :disable="!canCreateManagedUser"
-                  @click="createManagedUser"
-                />
-              </div>
-
-              <q-separator class="inventory-separator" />
-
-              <q-table
-                flat
-                :rows="adminManagedUsers"
-                :columns="managedUserColumns"
-                row-key="username"
-                :rows-per-page-options="[5, 10, 20]"
-                :pagination="{ rowsPerPage: 5 }"
-              />
-            </q-card-section>
-          </q-card>
-
-          <q-card flat class="surface-card">
-            <q-card-section>
-              <div class="section-title">Analysis Environment</div>
-              <div class="card-title">분석환경 이미지 등록/갱신</div>
-              <div class="request-form-grid">
-                <q-input
-                  v-model="analysisEnvForm.env_id"
-                  dense
-                  outlined
-                  color="dark"
-                  label="Environment ID"
-                  class="lab-input"
-                />
-                <q-input
-                  v-model="analysisEnvForm.name"
-                  dense
-                  outlined
-                  color="dark"
-                  label="Name"
-                  class="lab-input"
-                />
-                <q-input
-                  v-model="analysisEnvForm.image"
-                  dense
-                  outlined
-                  color="dark"
-                  label="Image"
-                  class="lab-input request-wide-input"
-                />
-                <q-input
-                  v-model="analysisEnvForm.description"
-                  dense
-                  outlined
-                  color="dark"
-                  label="Description"
-                  class="lab-input request-wide-input"
-                />
-              </div>
-              <div class="request-switch-grid">
-                <q-toggle v-model="analysisEnvForm.gpu_enabled" color="dark" label="GPU Enabled" />
-                <q-toggle v-model="analysisEnvForm.is_active" color="dark" label="Active" />
-              </div>
-              <div class="lab-form">
-                <q-btn
-                  color="dark"
-                  unelevated
-                  no-caps
-                  icon="add_box"
-                  label="Upsert Environment"
-                  :loading="governanceAdminLoading"
-                  :disable="!canUpsertAnalysisEnvironment"
-                  @click="upsertAnalysisEnvironment"
-                />
-              </div>
-
-              <q-separator class="inventory-separator" />
-
-              <q-table
-                flat
-                :rows="adminAnalysisEnvironments"
-                :columns="analysisEnvironmentColumns"
-                row-key="env_id"
-                :rows-per-page-options="[5, 10, 20]"
-                :pagination="{ rowsPerPage: 5 }"
-              >
-                <template #body-cell-gpu_enabled="props">
-                  <q-td :props="props">
-                    <q-badge :color="props.value ? 'secondary' : 'grey-7'" rounded>
-                      {{ props.value ? "gpu" : "cpu" }}
-                    </q-badge>
-                  </q-td>
-                </template>
-                <template #body-cell-is_active="props">
-                  <q-td :props="props">
-                    <q-badge :color="props.value ? 'positive' : 'negative'" rounded>
-                      {{ props.value ? "active" : "inactive" }}
-                    </q-badge>
-                  </q-td>
-                </template>
-                <template #body-cell-updated_at="props">
-                  <q-td :props="props">
-                    {{ formatDateTime(props.value) }}
-                  </q-td>
-                </template>
-              </q-table>
-            </q-card-section>
-          </q-card>
-
-          <q-card flat class="surface-card">
-            <q-card-section>
-              <div class="section-title">Resource Approvals</div>
-              <div class="card-title">리소스 신청 승인/반려</div>
-              <q-table
-                flat
-                :rows="adminResourceRequests"
-                :columns="adminResourceRequestColumns"
-                row-key="request_id"
-                :rows-per-page-options="[5, 10, 20]"
-                :pagination="{ rowsPerPage: 8 }"
-              >
-                <template #body-cell-status="props">
-                  <q-td :props="props">
-                    <q-badge :color="requestStatusColor(props.value)" rounded>
-                      {{ props.value }}
-                    </q-badge>
-                  </q-td>
-                </template>
-                <template #body-cell-updated_at="props">
-                  <q-td :props="props">
-                    {{ formatDateTime(props.value) }}
-                  </q-td>
-                </template>
-                <template #body-cell-actions="props">
-                  <q-td :props="props">
-                    <div v-if="props.row.status === 'pending'" class="table-action-row">
-                      <q-btn
-                        dense
-                        no-caps
-                        color="positive"
-                        icon="check"
-                        label="Approve"
-                        :loading="isReviewLoading(`resource:${props.row.request_id}`)"
-                        @click="reviewResourceRequest(props.row, true)"
-                      />
-                      <q-btn
-                        dense
-                        no-caps
-                        outline
-                        color="negative"
-                        icon="close"
-                        label="Reject"
-                        :loading="isReviewLoading(`resource:${props.row.request_id}`)"
-                        @click="reviewResourceRequest(props.row, false)"
-                      />
-                    </div>
-                    <span v-else>{{ props.row.reviewed_by || "-" }}</span>
-                  </q-td>
-                </template>
-              </q-table>
-            </q-card-section>
-          </q-card>
-
-          <q-card flat class="surface-card">
-            <q-card-section>
-              <div class="section-title">Environment Approvals</div>
-              <div class="card-title">분석환경 신청 승인/반려</div>
-              <q-table
-                flat
-                :rows="adminEnvironmentRequests"
-                :columns="adminEnvironmentRequestColumns"
-                row-key="request_id"
-                :rows-per-page-options="[5, 10, 20]"
-                :pagination="{ rowsPerPage: 8 }"
-              >
-                <template #body-cell-status="props">
-                  <q-td :props="props">
-                    <q-badge :color="requestStatusColor(props.value)" rounded>
-                      {{ props.value }}
-                    </q-badge>
-                  </q-td>
-                </template>
-                <template #body-cell-updated_at="props">
-                  <q-td :props="props">
-                    {{ formatDateTime(props.value) }}
-                  </q-td>
-                </template>
-                <template #body-cell-actions="props">
-                  <q-td :props="props">
-                    <div v-if="props.row.status === 'pending'" class="table-action-row">
-                      <q-btn
-                        dense
-                        no-caps
-                        color="positive"
-                        icon="check"
-                        label="Approve"
-                        :loading="isReviewLoading(`environment:${props.row.request_id}`)"
-                        @click="reviewEnvironmentRequest(props.row, true)"
-                      />
-                      <q-btn
-                        dense
-                        no-caps
-                        outline
-                        color="negative"
-                        icon="close"
-                        label="Reject"
-                        :loading="isReviewLoading(`environment:${props.row.request_id}`)"
-                        @click="reviewEnvironmentRequest(props.row, false)"
-                      />
-                    </div>
-                    <span v-else>{{ props.row.reviewed_by || "-" }}</span>
-                  </q-td>
-                </template>
-              </q-table>
-            </q-card-section>
-          </q-card>
-        </section>
-
-        <section v-if="isAdmin" id="sandbox-admin" class="content-grid control-plane-anchor nav-anchor">
-          <q-card flat class="surface-card">
-            <q-card-section>
-              <div class="row items-center justify-between q-col-gutter-md">
-                <div>
-                  <div class="section-title">Admin Monitoring</div>
-                  <div class="card-title">사용자별 Jupyter sandbox 모니터링</div>
-                </div>
-                <q-badge :color="adminOverview.summary.running_user_count ? 'positive' : 'grey-7'" rounded>
-                  {{ adminOverview.summary.running_user_count }} running
-                </q-badge>
-              </div>
-
-              <p class="muted">
-                관리자는 `test1@test.com`, `test2@test.com` 사용자 sandbox의 실행 여부, 현재 사용시간,
-                누적 사용시간, 로그인 회수, Jupyter 실행 회수를 확인할 수 있습니다.
-              </p>
-
-              <div class="chip-grid">
-                <q-chip
-                  v-for="item in adminSummaryItems"
-                  :key="item.label"
-                  color="white"
-                  text-color="dark"
-                  square
+                <q-table
+                  flat
+                  :rows="userEnvironmentRequests"
+                  :columns="userEnvironmentRequestColumns"
+                  row-key="request_id"
+                  :rows-per-page-options="[5, 10, 20]"
+                  :pagination="{ rowsPerPage: 5 }"
                 >
-                  <strong>{{ item.label }}</strong>&nbsp;{{ item.value }}
-                </q-chip>
-              </div>
+                  <template #body-cell-status="props">
+                    <q-td :props="props">
+                      <q-badge rounded :color="requestStatusColor(props.value)">{{ props.value }}</q-badge>
+                    </q-td>
+                  </template>
+                  <template #body-cell-updated_at="props">
+                    <q-td :props="props">{{ formatDateTime(props.value) }}</q-td>
+                  </template>
+                  <template #body-cell-review_note="props">
+                    <q-td :props="props">{{ props.value || "-" }}</q-td>
+                  </template>
+                </q-table>
+              </q-card-section>
+            </q-card>
+          </section>
 
-              <q-banner rounded class="banner-note lab-banner">
-                {{ adminMonitorMessage }}
-              </q-banner>
-            </q-card-section>
-          </q-card>
+          <section v-if="isAdmin" class="table-grid">
+            <q-card flat class="surface-card">
+              <q-card-section>
+                <div class="section-eyebrow">Admin Governance</div>
+                <div class="section-title">신청 승인 처리</div>
 
-          <q-card flat class="surface-card inventory-card">
-            <q-card-section>
-              <div class="section-title">User List (AG Grid CE)</div>
-              <q-linear-progress v-if="adminLoading" indeterminate color="dark" class="inventory-separator" />
-              <div class="ag-theme-quartz admin-user-grid">
-                <AgGridVue
-                  :rowData="adminOverview.users"
-                  :columnDefs="adminUserGridColumns"
-                  :defaultColDef="adminUserGridDefaultColDef"
-                  :pagination="true"
-                  :paginationPageSize="8"
-                  :animateRows="true"
-                  domLayout="autoHeight"
-                />
-              </div>
-            </q-card-section>
-          </q-card>
-        </section>
-
-        <section
-          v-if="isAdmin"
-          id="control-plane-panel"
-          class="content-grid control-plane-anchor nav-anchor"
-        >
-          <q-card flat class="surface-card">
-            <q-card-section>
-              <div class="row items-center justify-between q-col-gutter-md">
-                <div>
-                  <div class="section-title">Control Plane Dashboard</div>
-                  <div class="card-title">관리자 모드 cluster inventory</div>
-                </div>
-                <q-badge :color="isAdmin ? 'positive' : 'grey-7'" rounded>
-                  {{ isAdmin ? "admin session" : "admin required" }}
-                </q-badge>
-              </div>
-
-              <p class="muted">
-                관리자 계정으로 로그인하면 node / pod inventory를 읽어 오고 namespace 필터로 cluster
-                전체 상태를 확인할 수 있습니다.
-              </p>
-
-              <div v-if="isAdmin" class="admin-toolbar">
-                <div class="chip-grid">
-                  <q-chip
-                    v-for="item in controlPlaneSummaryItems"
-                    :key="item.label"
-                    color="white"
-                    text-color="dark"
-                    square
-                  >
-                    <strong>{{ item.label }}</strong>&nbsp;{{ item.value }}
+                <div class="chip-grid q-mt-sm">
+                  <q-chip color="white" text-color="dark" square>
+                    resource pending {{ pendingResourceRequests.length }}
+                  </q-chip>
+                  <q-chip color="white" text-color="dark" square>
+                    environment pending {{ pendingEnvironmentRequests.length }}
                   </q-chip>
                 </div>
-                <div class="hero-actions">
-                  <q-select
-                    v-model="controlPlane.namespace"
+
+                <q-separator class="q-my-md" />
+
+                <div class="section-subtitle">리소스 신청 승인</div>
+                <q-table
+                  flat
+                  :rows="pendingResourceRequests"
+                  :columns="adminResourceRequestColumns"
+                  row-key="request_id"
+                  :rows-per-page-options="[5, 10, 20]"
+                  :pagination="{ rowsPerPage: 5 }"
+                >
+                  <template #body-cell-status="props">
+                    <q-td :props="props">
+                      <q-badge rounded :color="requestStatusColor(props.value)">{{ props.value }}</q-badge>
+                    </q-td>
+                  </template>
+                  <template #body-cell-actions="props">
+                    <q-td :props="props" class="actions-cell">
+                      <q-btn dense flat color="positive" icon="check" @click="reviewResourceRequest(props.row, true)" />
+                      <q-btn dense flat color="negative" icon="close" @click="reviewResourceRequest(props.row, false)" />
+                    </q-td>
+                  </template>
+                </q-table>
+
+                <q-separator class="q-my-md" />
+
+                <div class="section-subtitle">분석환경 신청 승인</div>
+                <q-table
+                  flat
+                  :rows="pendingEnvironmentRequests"
+                  :columns="adminEnvironmentRequestColumns"
+                  row-key="request_id"
+                  :rows-per-page-options="[5, 10, 20]"
+                  :pagination="{ rowsPerPage: 5 }"
+                >
+                  <template #body-cell-status="props">
+                    <q-td :props="props">
+                      <q-badge rounded :color="requestStatusColor(props.value)">{{ props.value }}</q-badge>
+                    </q-td>
+                  </template>
+                  <template #body-cell-actions="props">
+                    <q-td :props="props" class="actions-cell">
+                      <q-btn dense flat color="positive" icon="check" @click="reviewEnvironmentRequest(props.row, true)" />
+                      <q-btn dense flat color="negative" icon="close" @click="reviewEnvironmentRequest(props.row, false)" />
+                    </q-td>
+                  </template>
+                </q-table>
+              </q-card-section>
+            </q-card>
+
+            <q-card flat class="surface-card">
+              <q-card-section>
+                <div class="section-eyebrow">Admin Provisioning</div>
+                <div class="section-title">사용자/이미지 등록</div>
+
+                <div class="section-subtitle q-mt-sm">사용자 생성</div>
+                <div class="form-grid q-mt-xs">
+                  <q-input v-model="adminUserForm.username" dense outlined color="dark" label="Username" />
+                  <q-input v-model="adminUserForm.display_name" dense outlined color="dark" label="Display Name" />
+                  <q-input v-model="adminUserForm.password" dense outlined color="dark" label="Password" type="password" />
+                  <q-select v-model="adminUserForm.role" dense outlined color="dark" :options="['user', 'admin']" label="Role" />
+                </div>
+                <div class="lab-form">
+                  <q-btn
+                    color="dark"
+                    unelevated
+                    no-caps
+                    icon="person_add"
+                    label="사용자 생성"
+                    :loading="governanceAdminLoading"
+                    :disable="!canCreateUser"
+                    @click="createManagedUser"
+                  />
+                </div>
+
+                <q-separator class="q-my-md" />
+
+                <div class="section-subtitle">분석환경 이미지 등록</div>
+                <div class="form-grid q-mt-xs">
+                  <q-input v-model="adminEnvironmentForm.env_id" dense outlined color="dark" label="env_id" />
+                  <q-input v-model="adminEnvironmentForm.name" dense outlined color="dark" label="Name" />
+                  <q-input v-model="adminEnvironmentForm.image" dense outlined color="dark" label="Image" class="wide-cell" />
+                  <q-input v-model="adminEnvironmentForm.description" dense outlined color="dark" label="Description" class="wide-cell" />
+                  <q-toggle v-model="adminEnvironmentForm.gpu_enabled" label="GPU Enabled" color="dark" />
+                  <q-toggle v-model="adminEnvironmentForm.is_active" label="Active" color="dark" />
+                </div>
+                <div class="lab-form">
+                  <q-btn
+                    color="dark"
+                    unelevated
+                    no-caps
+                    icon="inventory_2"
+                    label="환경 등록/수정"
+                    :loading="governanceAdminLoading"
+                    :disable="!canUpsertEnvironment"
+                    @click="upsertAnalysisEnvironment"
+                  />
+                </div>
+
+                <q-separator class="q-my-md" />
+                <q-table
+                  flat
+                  :rows="adminAnalysisEnvironments"
+                  :columns="adminEnvironmentColumns"
+                  row-key="env_id"
+                  :rows-per-page-options="[5, 10, 20]"
+                  :pagination="{ rowsPerPage: 5 }"
+                >
+                  <template #body-cell-is_active="props">
+                    <q-td :props="props">
+                      <q-badge rounded :color="props.value ? 'positive' : 'grey-7'">
+                        {{ props.value ? "active" : "inactive" }}
+                      </q-badge>
+                    </q-td>
+                  </template>
+                </q-table>
+              </q-card-section>
+            </q-card>
+
+            <q-card flat class="surface-card">
+              <q-card-section>
+                <div class="section-eyebrow">Admin Monitor</div>
+                <div class="section-title">사용자별 Sandbox 현황</div>
+
+                <div class="chip-grid q-mt-sm">
+                  <q-chip color="white" text-color="dark" square>
+                    users {{ adminOverview.summary.sandbox_user_count || 0 }}
+                  </q-chip>
+                  <q-chip color="white" text-color="dark" square>
+                    running {{ adminOverview.summary.running_user_count || 0 }}
+                  </q-chip>
+                  <q-chip color="white" text-color="dark" square>
+                    ready {{ adminOverview.summary.ready_user_count || 0 }}
+                  </q-chip>
+                </div>
+
+                <div class="chart-shell q-mt-sm">
+                  <canvas ref="adminChartCanvas" />
+                </div>
+
+                <q-table
+                  flat
+                  :rows="adminOverview.users"
+                  :columns="adminSandboxColumns"
+                  row-key="username"
+                  :rows-per-page-options="[5, 10, 20]"
+                  :pagination="{ rowsPerPage: 5 }"
+                  class="q-mt-sm"
+                >
+                  <template #body-cell-status="props">
+                    <q-td :props="props">
+                      <q-badge rounded :color="labStatusColor(props.value)">{{ props.value }}</q-badge>
+                    </q-td>
+                  </template>
+                </q-table>
+              </q-card-section>
+            </q-card>
+
+            <q-card flat class="surface-card">
+              <q-card-section>
+                <div class="section-eyebrow">Control Plane</div>
+                <div class="section-title">노드/팟 인벤토리</div>
+
+                <div class="lab-form q-mt-sm">
+                  <q-input
+                    v-model="controlPlaneNamespace"
                     dense
                     outlined
                     color="dark"
-                    label="Pod Namespace"
-                    :options="controlPlane.namespaces"
-                    class="namespace-select"
-                    @update:model-value="loadControlPlaneDashboard"
+                    label="Namespace (all 또는 이름)"
+                    class="namespace-input"
                   />
                   <q-btn
                     outline
                     color="dark"
                     no-caps
                     icon="sync"
-                    label="Refresh"
-                    :loading="controlPlane.loading"
-                    @click="loadControlPlaneDashboard"
+                    label="Control Plane 새로고침"
+                    :loading="controlPlaneLoading"
+                    @click="loadControlPlane"
                   />
                 </div>
-              </div>
 
-              <q-banner rounded class="banner-note lab-banner">
-                {{ controlPlaneMessage }}
-              </q-banner>
-            </q-card-section>
-          </q-card>
+                <q-banner rounded class="banner-note q-mt-md">
+                  <div><strong>Cluster:</strong> {{ controlPlane.summary.cluster_name || "-" }}</div>
+                  <div><strong>Version:</strong> {{ controlPlane.summary.cluster_version || "-" }}</div>
+                  <div><strong>Nodes:</strong> {{ controlPlane.summary.ready_node_count || 0 }}/{{ controlPlane.summary.node_count || 0 }}</div>
+                  <div><strong>Pods:</strong> {{ controlPlane.summary.running_pod_count || 0 }}/{{ controlPlane.summary.pod_count || 0 }}</div>
+                </q-banner>
 
-          <q-card v-if="isAdmin" flat class="surface-card inventory-card">
-            <q-card-section>
-              <q-tabs
-                v-model="controlPlane.activeTab"
-                align="left"
-                active-color="dark"
-                indicator-color="dark"
-                no-caps
-              >
-                <q-tab name="nodes" label="Nodes" icon="dns" />
-                <q-tab name="pods" label="Pods" icon="deployed_code" />
-              </q-tabs>
+                <q-separator class="q-my-md" />
 
-              <q-separator class="inventory-separator" />
-
-              <q-tab-panels v-model="controlPlane.activeTab" animated class="inventory-panels">
-                <q-tab-panel name="nodes">
-                  <q-table
-                    flat
-                    :rows="controlPlane.nodes"
-                    :columns="nodeColumns"
-                    row-key="name"
-                    :rows-per-page-options="[0]"
-                    hide-pagination
-                    :loading="controlPlane.loading"
-                  >
-                    <template #body-cell-ready="props">
-                      <q-td :props="props">
-                        <q-badge :color="props.value ? 'positive' : 'negative'" rounded>
-                          {{ props.value ? "Ready" : "Check" }}
-                        </q-badge>
-                      </q-td>
-                    </template>
-                  </q-table>
-                </q-tab-panel>
-
-                <q-tab-panel name="pods">
-                  <q-table
-                    flat
-                    :rows="controlPlane.pods"
-                    :columns="podColumns"
-                    row-key="name"
-                    :rows-per-page-options="[0]"
-                    hide-pagination
-                    :loading="controlPlane.loading"
-                  >
-                    <template #body-cell-status="props">
-                      <q-td :props="props">
-                        <q-badge :color="podStatusColor(props.value)" rounded>
-                          {{ props.value }}
-                        </q-badge>
-                      </q-td>
-                    </template>
-                  </q-table>
-                </q-tab-panel>
-              </q-tab-panels>
-            </q-card-section>
-          </q-card>
-        </section>
-
-        <section id="services-panel" class="section-grid nav-anchor">
-          <q-card v-for="service in dashboard.services" :key="service.name" flat class="status-card">
-            <q-card-section>
-              <div class="row items-center justify-between">
-                <div>
-                  <div class="card-label">{{ service.kind }}</div>
-                  <div class="card-title">{{ service.name }}</div>
-                </div>
-                <q-badge :color="service.ok ? 'positive' : 'negative'" rounded>
-                  {{ service.ok ? "ready" : "check" }}
-                </q-badge>
-              </div>
-              <div class="card-endpoint">{{ service.endpoint }}</div>
-              <div class="card-detail">{{ service.detail }}</div>
-            </q-card-section>
-          </q-card>
-        </section>
-
-        <section id="runtime-panel" class="content-grid nav-anchor">
-          <q-card flat class="surface-card">
-            <q-card-section>
-              <div class="section-title">Runtime Profile</div>
-              <div class="chip-grid">
-                <q-chip
-                  v-for="(value, key) in dashboard.runtime"
-                  :key="key"
-                  color="white"
-                  text-color="dark"
-                  square
+                <div class="section-subtitle">Nodes</div>
+                <q-table
+                  flat
+                  :rows="controlPlane.nodes"
+                  :columns="controlPlaneNodeColumns"
+                  row-key="name"
+                  :rows-per-page-options="[5, 10, 20]"
+                  :pagination="{ rowsPerPage: 5 }"
                 >
-                  <strong>{{ key }}</strong>&nbsp;{{ value }}
-                </q-chip>
-              </div>
-            </q-card-section>
-          </q-card>
-
-          <q-card flat class="surface-card">
-            <q-card-section>
-              <div class="section-title">Quick Links</div>
-              <div class="button-grid">
-                <q-btn
-                  v-for="link in dashboard.quick_links"
-                  :key="link.name"
-                  :href="link.url"
-                  target="_blank"
-                  no-caps
-                  outline
-                  color="dark"
-                  class="link-button"
-                >
-                  <div class="text-left full-width">
-                    <div class="link-title">{{ link.name }}</div>
-                    <div class="link-description">{{ link.description }}</div>
-                  </div>
-                </q-btn>
-              </div>
-            </q-card-section>
-          </q-card>
-        </section>
-
-        <section id="sample-panel" class="content-grid nav-anchor">
-          <q-card flat class="surface-card">
-            <q-card-section>
-              <div class="section-title">Sample ANSI SQL</div>
-              <q-table
-                flat
-                :rows="dashboard.sample_queries"
-                :columns="queryColumns"
-                row-key="name"
-                :rows-per-page-options="[0]"
-                hide-pagination
-              >
-                <template #body-cell-sql="props">
-                  <q-td :props="props">
-                    <code class="sql-preview">{{ props.value }}</code>
-                  </q-td>
-                </template>
-              </q-table>
-            </q-card-section>
-          </q-card>
-
-          <q-card flat class="surface-card">
-            <q-card-section>
-              <div class="section-title">Notebook Workspace</div>
-              <div v-if="dashboard.notebooks.length" class="notebook-list">
-                <q-chip
-                  v-for="notebook in dashboard.notebooks"
-                  :key="notebook"
-                  icon="book"
-                  color="secondary"
-                  text-color="white"
-                >
-                  {{ notebook }}
-                </q-chip>
-              </div>
-              <q-banner v-else rounded class="banner-note">
-                Shared notebook volume is empty. Personal Jupyter sessions still start with the
-                image-bundled sample notebook.
-              </q-banner>
-            </q-card-section>
-          </q-card>
-        </section>
-
-        <section id="query-panel" class="content-grid nav-anchor">
-          <q-card flat class="surface-card">
-            <q-card-section>
-              <div class="section-title">Teradata Mode</div>
-              <p class="muted">{{ dashboard.teradata.note }}</p>
-              <q-banner rounded class="banner-note">
-                Current mode: <strong>{{ dashboard.teradata.mode }}</strong>
-              </q-banner>
-            </q-card-section>
-          </q-card>
-
-          <q-card flat class="surface-card">
-            <q-card-section>
-              <div class="section-title">Query Result</div>
-              <q-inner-loading :showing="queryLoading || loading">
-                <q-spinner-grid color="dark" size="42px" />
-              </q-inner-loading>
-              <q-markup-table flat class="result-table" v-if="queryResult.rows.length">
-                <thead>
-                  <tr>
-                    <th v-for="column in queryResult.columns" :key="column">{{ column }}</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  <tr v-for="(row, rowIndex) in queryResult.rows" :key="rowIndex">
-                    <td v-for="column in queryResult.columns" :key="column">{{ row[column] }}</td>
-                  </tr>
-                </tbody>
-              </q-markup-table>
-              <q-banner v-else rounded class="banner-note">
-                Run the first sample query to preview the Teradata response shape.
-              </q-banner>
-            </q-card-section>
-          </q-card>
-        </section>
+                  <template #body-cell-ready="props">
+                    <q-td :props="props">
+                      <q-badge rounded :color="props.value ? 'positive' : 'negative'">
+                        {{ props.value ? "ready" : "not-ready" }}
+                      </q-badge>
+                    </q-td>
+                  </template>
+                </q-table>
+              </q-card-section>
+            </q-card>
+          </section>
         </template>
       </q-page>
     </q-page-container>
@@ -1283,88 +612,82 @@
 </template>
 
 <script setup>
-import { Notify } from "quasar";
-import { computed, onMounted, onUnmounted, ref } from "vue";
-import { AgGridVue } from "ag-grid-vue3";
-import frontendPackage from "../package.json";
+import { computed, nextTick, onBeforeUnmount, onMounted, reactive, ref } from "vue";
+import axios from "axios";
+import {
+  BarElement,
+  CategoryScale,
+  Chart,
+  DoughnutController,
+  ArcElement,
+  Legend,
+  LinearScale,
+  Tooltip,
+} from "chart.js";
+import { useQuasar } from "quasar";
 
-const browserProtocol = typeof window !== "undefined" ? window.location.protocol : "http:";
-const browserHost = typeof window !== "undefined" ? window.location.hostname : "localhost";
-const apiBaseUrl = import.meta.env.VITE_API_BASE_URL || `${browserProtocol}//${browserHost}`;
-const frontendAppVersion = frontendPackage.version;
+Chart.register(
+  BarElement,
+  CategoryScale,
+  DoughnutController,
+  ArcElement,
+  Legend,
+  LinearScale,
+  Tooltip,
+);
 
-const savedAuthToken =
-  typeof window !== "undefined" ? window.localStorage.getItem("appAuthToken") || "" : "";
-const savedAuthUser =
-  typeof window !== "undefined" && window.localStorage.getItem("appAuthUser")
-    ? JSON.parse(window.localStorage.getItem("appAuthUser"))
-    : null;
+const AUTH_TOKEN_KEY = "platform.auth.token";
+const $q = useQuasar();
 
-const loading = ref(true);
-const queryLoading = ref(false);
-const authLoading = ref(false);
-const sessionLoading = ref(false);
-const snapshotLoading = ref(false);
-const adminLoading = ref(false);
-const usageLoading = ref(false);
-const leftDrawerOpen = ref(typeof window !== "undefined" ? window.innerWidth >= 1024 : true);
-const authResolved = ref(false);
+function resolveApiBaseUrl() {
+  const envValue = String(import.meta.env.VITE_API_BASE_URL || "").trim();
+  if (envValue) return envValue.replace(/\/+$/, "");
+  if (typeof window !== "undefined") {
+    const host = window.location.hostname;
+    if (host.includes("platform.local")) {
+      if (host.startsWith("dev.")) return `${window.location.protocol}//dev-api.platform.local`;
+      if (host.startsWith("www.")) return `${window.location.protocol}//api.platform.local`;
+      return `${window.location.protocol}//api.platform.local`;
+    }
+    return window.location.origin;
+  }
+  return "http://api.platform.local";
+}
 
-const demoAccounts = ref([
-  { username: "test1@test.com", role: "user", display_name: "Test User 1" },
-  { username: "test2@test.com", role: "user", display_name: "Test User 2" },
-  { username: "admin@test.com", role: "admin", display_name: "Platform Admin" },
-]);
-
-const loginForm = ref({
-  username: savedAuthUser?.username || "test1@test.com",
-  password: "123456",
+const api = axios.create({
+  baseURL: resolveApiBaseUrl(),
+  timeout: 15000,
 });
 
-const appSession = ref(emptyAppSession(savedAuthToken, savedAuthUser));
-const labSession = ref(emptyLabSession());
-const snapshotState = ref(emptySnapshotState());
-const adminOverview = ref(emptyAdminOverview());
-const userUsage = ref(emptyUserUsage());
-const controlPlane = ref(emptyControlPlaneState());
-const userLabPolicy = ref(emptyUserLabPolicy());
-const userResourceRequests = ref([]);
-const userEnvironmentRequests = ref([]);
-const availableAnalysisEnvs = ref([]);
-const adminManagedUsers = ref([]);
-const adminResourceRequests = ref([]);
-const adminEnvironmentRequests = ref([]);
-const adminAnalysisEnvironments = ref([]);
-const governanceLoading = ref(false);
-const governanceAdminLoading = ref(false);
-const reviewLoading = ref({});
-
-const resourceRequestForm = ref({
-  vcpu: 2,
-  memory_gib: 1,
-  disk_gib: 10,
-  note: "",
+const authToken = ref(localStorage.getItem(AUTH_TOKEN_KEY) || "");
+api.interceptors.request.use((config) => {
+  if (authToken.value) {
+    config.headers = {
+      ...config.headers,
+      Authorization: `Bearer ${authToken.value}`,
+      "X-Auth-Token": authToken.value,
+    };
+  }
+  return config;
 });
 
-const environmentRequestForm = ref({
-  env_id: "",
-  note: "",
-});
-
-const adminUserForm = ref({
+const loginForm = reactive({
   username: "",
-  display_name: "",
-  password: "123456",
-  role: "user",
+  password: "",
 });
 
-const analysisEnvForm = ref({
-  env_id: "jupyter-teradata-extension",
-  name: "Jupyter Teradata Extension",
-  image: "",
-  description: "",
-  gpu_enabled: false,
-  is_active: true,
+const demoAccounts = [
+  { username: "admin@test.com", password: "123456", display_name: "Platform Admin" },
+  { username: "test1@test.com", password: "123456", display_name: "Test User 1" },
+  { username: "test2@test.com", password: "123456", display_name: "Test User 2" },
+];
+
+const appSession = reactive({
+  user: {
+    username: "",
+    display_name: "",
+    role: "user",
+  },
 });
 
 const dashboard = ref({
@@ -1379,1692 +702,764 @@ const dashboard = ref({
   },
 });
 
-const queryResult = ref({
-  columns: [],
-  rows: [],
+const labSession = reactive({
+  status: "idle",
+  ready: false,
+  detail: "로그인 후 개인 환경을 실행할 수 있습니다.",
+  pod_name: "",
+  service_name: "",
+  workspace_subpath: "",
+  image: "",
+  token: "",
 });
 
-let labPollHandle = null;
-let adminPollHandle = null;
+const userLabPolicy = reactive({
+  governance_enabled: true,
+  ready: false,
+  detail: "정책 정보를 불러오는 중입니다.",
+  vcpu: null,
+  memory_gib: null,
+  disk_gib: null,
+  pvc_name: null,
+  analysis_env_id: null,
+  analysis_image: null,
+});
 
-const isAuthenticated = computed(() => appSession.value.authenticated);
-const showDashboard = computed(() => authResolved.value && isAuthenticated.value);
-const isAdmin = computed(() => appSession.value.user?.role === "admin");
-const isUser = computed(() => appSession.value.user?.role === "user");
-const managedUsername = computed(() => (isUser.value ? appSession.value.user.username : ""));
-const backendAppVersion = computed(() => dashboard.value.runtime.backend_version || "-");
-const usageSummary = computed(() => userUsage.value.summary);
+const usageSummary = reactive({
+  current_status: "idle",
+  login_count: 0,
+  launch_count: 0,
+  current_session_seconds: 0,
+  total_session_seconds: 0,
+  pod_name: "",
+  last_login_at: null,
+  last_launch_at: null,
+  last_stop_at: null,
+});
+
+const userResourceRequests = ref([]);
+const userEnvironmentRequests = ref([]);
+const analysisEnvironments = ref([]);
+
+const adminManagedUsers = ref([]);
+const adminAnalysisEnvironments = ref([]);
+const adminResourceRequests = ref([]);
+const adminEnvironmentRequests = ref([]);
+
+const adminOverview = ref({
+  summary: {
+    sandbox_user_count: 0,
+    running_user_count: 0,
+    ready_user_count: 0,
+    total_login_count: 0,
+    total_launch_count: 0,
+    total_session_seconds: 0,
+  },
+  users: [],
+});
+
+const controlPlane = ref({
+  summary: {
+    cluster_name: "-",
+    cluster_version: "-",
+    current_namespace: "all",
+    namespace_count: 0,
+    node_count: 0,
+    ready_node_count: 0,
+    pod_count: 0,
+    running_pod_count: 0,
+  },
+  namespaces: [],
+  nodes: [],
+  pods: [],
+});
+
+const controlPlaneNamespace = ref("all");
+
+const resourceRequestForm = reactive({
+  vcpu: 2,
+  memory_gib: 2,
+  disk_gib: 10,
+  note: "",
+});
+
+const environmentRequestForm = reactive({
+  env_id: "",
+  note: "",
+});
+
+const adminUserForm = reactive({
+  username: "",
+  display_name: "",
+  password: "",
+  role: "user",
+});
+
+const adminEnvironmentForm = reactive({
+  env_id: "",
+  name: "",
+  image: "",
+  description: "",
+  gpu_enabled: false,
+  is_active: true,
+});
+
+const authLoading = ref(false);
+const pageLoading = ref(false);
+const sessionLoading = ref(false);
+const governanceLoading = ref(false);
+const governanceAdminLoading = ref(false);
+const controlPlaneLoading = ref(false);
+
+const labLaunchUrl = ref("");
+const usageChartCanvas = ref(null);
+const adminChartCanvas = ref(null);
+let usageChart = null;
+let adminChart = null;
+
+const isAuthenticated = computed(() => Boolean(appSession.user.username));
+const isAdmin = computed(() => appSession.user.role === "admin");
+const isUser = computed(() => isAuthenticated.value && appSession.user.role !== "admin");
+const managedUsername = computed(() => appSession.user.username || "");
+const canLogin = computed(() => Boolean(loginForm.username.trim() && loginForm.password.trim()));
+
+const canSubmitResource = computed(() =>
+  Boolean(
+    Number(resourceRequestForm.vcpu) > 0 &&
+      Number(resourceRequestForm.memory_gib) > 0 &&
+      Number(resourceRequestForm.disk_gib) > 0,
+  ),
+);
+
+const canSubmitEnvironment = computed(() => Boolean(environmentRequestForm.env_id));
+
+const canCreateUser = computed(() =>
+  Boolean(
+    adminUserForm.username.trim() &&
+      adminUserForm.display_name.trim() &&
+      adminUserForm.password.trim() &&
+      adminUserForm.role,
+  ),
+);
+
+const canUpsertEnvironment = computed(() =>
+  Boolean(
+    adminEnvironmentForm.env_id.trim() &&
+      adminEnvironmentForm.name.trim() &&
+      adminEnvironmentForm.image.trim(),
+  ),
+);
+
+const pendingResourceRequests = computed(() =>
+  adminResourceRequests.value.filter((item) => item.status === "pending"),
+);
+const pendingEnvironmentRequests = computed(() =>
+  adminEnvironmentRequests.value.filter((item) => item.status === "pending"),
+);
+
+const topMetrics = computed(() => {
+  const summary = adminOverview.value.summary || {};
+  return [
+    {
+      key: "status",
+      label: "내 상태",
+      value: labSession.status || "idle",
+      note: userLabPolicy.ready ? "Jupyter 실행 가능" : "승인 필요",
+    },
+    {
+      key: "logins",
+      label: "내 로그인 횟수",
+      value: usageSummary.login_count || 0,
+      note: `launch ${usageSummary.launch_count || 0}`,
+    },
+    {
+      key: "running",
+      label: "실행 사용자 수",
+      value: summary.running_user_count || 0,
+      note: `ready ${summary.ready_user_count || 0}`,
+    },
+    {
+      key: "pending",
+      label: "대기 승인",
+      value: pendingResourceRequests.value.length + pendingEnvironmentRequests.value.length,
+      note: `resource ${pendingResourceRequests.value.length}, env ${pendingEnvironmentRequests.value.length}`,
+    },
+  ];
+});
+
 const analysisEnvironmentOptions = computed(() =>
-  availableAnalysisEnvs.value.map((item) => ({
-    label: `${item.name}${item.gpu_enabled ? " (GPU)" : ""} - ${item.env_id}`,
+  analysisEnvironments.value.map((item) => ({
     value: item.env_id,
+    label: `${item.name} (${item.env_id})`,
   })),
 );
-const pendingResourceRequestCount = computed(
-  () => adminResourceRequests.value.filter((item) => item.status === "pending").length,
-);
-const pendingEnvironmentRequestCount = computed(
-  () => adminEnvironmentRequests.value.filter((item) => item.status === "pending").length,
-);
-const pendingGovernanceCount = computed(
-  () => pendingResourceRequestCount.value + pendingEnvironmentRequestCount.value,
-);
-const canSubmitResourceRequest = computed(() => {
-  const vcpu = Number(resourceRequestForm.value.vcpu);
-  const memory = Number(resourceRequestForm.value.memory_gib);
-  const disk = Number(resourceRequestForm.value.disk_gib);
-  return Number.isFinite(vcpu) && Number.isFinite(memory) && Number.isFinite(disk) && vcpu >= 1 && memory >= 1 && disk >= 1;
-});
-const canSubmitEnvironmentRequest = computed(
-  () => Boolean(String(environmentRequestForm.value.env_id || "").trim()),
-);
-const canCreateManagedUser = computed(() => {
-  return (
-    Boolean(String(adminUserForm.value.username || "").trim()) &&
-    Boolean(String(adminUserForm.value.password || "").trim()) &&
-    Boolean(String(adminUserForm.value.display_name || "").trim()) &&
-    ["user", "admin"].includes(String(adminUserForm.value.role || ""))
-  );
-});
-const canUpsertAnalysisEnvironment = computed(() => {
-  return (
-    Boolean(String(analysisEnvForm.value.env_id || "").trim()) &&
-    Boolean(String(analysisEnvForm.value.name || "").trim()) &&
-    Boolean(String(analysisEnvForm.value.image || "").trim())
-  );
-});
-const userPolicyBadgeLabel = computed(() => {
-  if (!userLabPolicy.value.governance_enabled) {
-    return "governance off";
-  }
-  return userLabPolicy.value.ready ? "ready" : "approval pending";
-});
-const userPolicyBadgeColor = computed(() => {
-  if (!userLabPolicy.value.governance_enabled) {
-    return "grey-7";
-  }
-  return userLabPolicy.value.ready ? "positive" : "warning";
-});
 
-const menuNavLinks = computed(() => {
-  if (!isAuthenticated.value) {
-    return [];
-  }
-
-  const links = [
-    {
-      id: "overview-panel",
-      label: "대시보드 개요",
-      icon: "space_dashboard",
-      description: "서비스와 버전 상태 요약",
-    },
-    {
-      id: "session-panel",
-      label: "세션 정보",
-      icon: "manage_accounts",
-      description: "로그인 사용자와 역할",
-    },
-    {
-      id: "services-panel",
-      label: "서비스 상태",
-      icon: "dns",
-      description: "구성 요소 readiness",
-    },
-    {
-      id: "runtime-panel",
-      label: "런타임/링크",
-      icon: "link",
-      description: "실행 정보와 quick links",
-    },
-  ];
-
-  if (isAdmin.value) {
-    links.push(
-      {
-        id: "sandbox-admin",
-        label: "Admin 모니터링",
-        icon: "monitor_heart",
-        description: "사용자 sandbox 상태",
-      },
-      {
-        id: "governance-admin-panel",
-        label: "신청/승인 운영",
-        icon: "approval",
-        description: "계정/환경/요청 승인",
-      },
-      {
-        id: "control-plane-panel",
-        label: "Control Plane",
-        icon: "hub",
-        description: "노드/파드 인벤토리",
-      },
-    );
-  }
-
-  return links;
-});
-
-const featureNavLinks = computed(() => {
-  if (!isAuthenticated.value) {
-    return [];
-  }
-
-  const links = [
-    {
-      id: "sample-panel",
-      label: "Sample ANSI SQL",
-      icon: "dataset",
-      description: "샘플 쿼리 목록",
-    },
-    {
-      id: "query-panel",
-      label: "Query Result",
-      icon: "table_view",
-      description: "Teradata 응답 미리보기",
-    },
-  ];
-
-  if (isUser.value) {
-    links.unshift(
-      {
-        id: "user-governance-panel",
-        label: "신청 상태",
-        icon: "fact_check",
-        description: "리소스/환경 요청",
-      },
-      {
-        id: "workspace-snapshot-panel",
-        label: "Workspace Snapshot",
-        icon: "cloud_upload",
-        description: "개인 이미지 publish",
-      },
-      {
-        id: "user-usage-panel",
-        label: "사용 이력",
-        icon: "history",
-        description: "로그인/실행/사용시간",
-      },
-      {
-        id: "user-lab-panel",
-        label: "개인 JupyterLab",
-        icon: "rocket_launch",
-        description: "샌드박스 실행/중지",
-      },
-    );
-  }
-
-  return links;
-});
-
-const labStatusColor = computed(() => {
-  if (labSession.value.status === "ready") {
-    return "positive";
-  }
-  if (labSession.value.status === "provisioning") {
-    return "warning";
-  }
-  if (labSession.value.status === "failed") {
-    return "negative";
-  }
-  return "grey-7";
-});
-
-const labLaunchUrl = computed(() => {
-  if (!labSession.value.ready || !labSession.value.node_port || !labSession.value.token) {
-    return "";
-  }
-  return (
-    `${browserProtocol}//${browserHost}:${labSession.value.node_port}/lab` +
-    `?token=${encodeURIComponent(labSession.value.token)}`
-  );
-});
-
-const snapshotStatusColor = computed(() => {
-  if (snapshotState.value.status === "ready") {
-    return "positive";
-  }
-  if (snapshotState.value.status === "building" || snapshotState.value.status === "pending") {
-    return "warning";
-  }
-  if (snapshotState.value.status === "failed") {
-    return "negative";
-  }
-  return "grey-7";
-});
-
-const adminSummaryItems = computed(() => [
-  {
-    label: "users",
-    value: `${adminOverview.value.summary.ready_user_count}/${adminOverview.value.summary.sandbox_user_count} ready`,
-  },
-  {
-    label: "running",
-    value: adminOverview.value.summary.running_user_count,
-  },
-  {
-    label: "logins",
-    value: adminOverview.value.summary.total_login_count,
-  },
-  {
-    label: "launches",
-    value: adminOverview.value.summary.total_launch_count,
-  },
-  {
-    label: "total use",
-    value: formatDuration(adminOverview.value.summary.total_session_seconds),
-  },
-]);
-
-const adminMonitorMessage = computed(() => {
-  if (!isAdmin.value) {
-    return "Admin login is required to monitor user sandboxes.";
-  }
-  if (!adminOverview.value.users.length) {
-    return "Sandbox monitoring data will appear here after users log in and start Jupyter.";
-  }
-  return `Tracking ${adminOverview.value.users.length} demo users with ${adminOverview.value.summary.running_user_count} active sandbox sessions.`;
-});
-
-const controlPlaneSummaryItems = computed(() => [
-  {
-    label: "cluster",
-    value: controlPlane.value.summary.cluster_name,
-  },
-  {
-    label: "version",
-    value: controlPlane.value.summary.cluster_version,
-  },
-  {
-    label: "nodes",
-    value: `${controlPlane.value.summary.ready_node_count}/${controlPlane.value.summary.node_count} ready`,
-  },
-  {
-    label: "pods",
-    value: `${controlPlane.value.summary.running_pod_count}/${controlPlane.value.summary.pod_count} running`,
-  },
-  {
-    label: "namespace",
-    value: controlPlane.value.summary.current_namespace,
-  },
-]);
-
-const controlPlaneMessage = computed(() => {
-  if (!isAdmin.value) {
-    return "Log in with admin@test.com / 123456 to unlock the control-plane dashboard.";
-  }
-  return `Loaded ${controlPlane.value.nodes.length} nodes and ${controlPlane.value.pods.length} pods.`;
-});
-
-const queryColumns = [
-  { name: "name", label: "Query", field: "name", align: "left" },
-  { name: "description", label: "Description", field: "description", align: "left" },
-  { name: "sql", label: "SQL", field: "sql", align: "left" },
+const userResourceRequestColumns = [
+  { name: "request_id", label: "요청ID", field: "request_id", align: "left" },
+  { name: "vcpu", label: "vCPU", field: "vcpu", align: "right" },
+  { name: "memory_gib", label: "Mem", field: "memory_gib", align: "right" },
+  { name: "disk_gib", label: "Disk", field: "disk_gib", align: "right" },
+  { name: "status", label: "상태", field: "status", align: "left" },
+  { name: "updated_at", label: "갱신시각", field: "updated_at", align: "left" },
+  { name: "review_note", label: "리뷰메모", field: "review_note", align: "left" },
 ];
 
-const nodeColumns = [
+const userEnvironmentRequestColumns = [
+  { name: "request_id", label: "요청ID", field: "request_id", align: "left" },
+  { name: "env_id", label: "Env", field: "env_id", align: "left" },
+  { name: "status", label: "상태", field: "status", align: "left" },
+  { name: "updated_at", label: "갱신시각", field: "updated_at", align: "left" },
+  { name: "review_note", label: "리뷰메모", field: "review_note", align: "left" },
+];
+
+const adminResourceRequestColumns = [
+  { name: "request_id", label: "요청ID", field: "request_id", align: "left" },
+  { name: "username", label: "사용자", field: "username", align: "left" },
+  { name: "vcpu", label: "vCPU", field: "vcpu", align: "right" },
+  { name: "memory_gib", label: "Mem", field: "memory_gib", align: "right" },
+  { name: "disk_gib", label: "Disk", field: "disk_gib", align: "right" },
+  { name: "status", label: "상태", field: "status", align: "left" },
+  { name: "actions", label: "액션", field: "actions", align: "left" },
+];
+
+const adminEnvironmentRequestColumns = [
+  { name: "request_id", label: "요청ID", field: "request_id", align: "left" },
+  { name: "username", label: "사용자", field: "username", align: "left" },
+  { name: "env_id", label: "Env", field: "env_id", align: "left" },
+  { name: "status", label: "상태", field: "status", align: "left" },
+  { name: "actions", label: "액션", field: "actions", align: "left" },
+];
+
+const adminEnvironmentColumns = [
+  { name: "env_id", label: "Env ID", field: "env_id", align: "left" },
+  { name: "name", label: "Name", field: "name", align: "left" },
+  { name: "image", label: "Image", field: "image", align: "left" },
+  { name: "is_active", label: "Active", field: "is_active", align: "left" },
+];
+
+const adminSandboxColumns = [
+  { name: "username", label: "사용자", field: "username", align: "left" },
+  { name: "status", label: "상태", field: "status", align: "left" },
+  { name: "pod_name", label: "Pod", field: "pod_name", align: "left" },
+  { name: "login_count", label: "로그인", field: "login_count", align: "right" },
+  { name: "launch_count", label: "실행", field: "launch_count", align: "right" },
+  { name: "total_session_seconds", label: "총사용(초)", field: "total_session_seconds", align: "right" },
+];
+
+const controlPlaneNodeColumns = [
   { name: "name", label: "Node", field: "name", align: "left" },
   { name: "ready", label: "Ready", field: "ready", align: "left" },
   { name: "roles", label: "Roles", field: "roles", align: "left" },
   { name: "version", label: "Version", field: "version", align: "left" },
-  { name: "internal_ip", label: "Internal IP", field: "internal_ip", align: "left" },
-  { name: "os_image", label: "OS", field: "os_image", align: "left" },
+  { name: "internal_ip", label: "IP", field: "internal_ip", align: "left" },
 ];
 
-const podColumns = [
-  { name: "namespace", label: "Namespace", field: "namespace", align: "left" },
-  { name: "name", label: "Pod", field: "name", align: "left" },
-  { name: "ready", label: "Ready", field: "ready", align: "left" },
-  { name: "status", label: "Status", field: "status", align: "left" },
-  { name: "restarts", label: "Restarts", field: "restarts", align: "right" },
-  { name: "node_name", label: "Node", field: "node_name", align: "left" },
-];
-
-const managedUserColumns = [
-  { name: "display_name", label: "Display Name", field: "display_name", align: "left" },
-  { name: "username", label: "Username", field: "username", align: "left" },
-  { name: "role", label: "Role", field: "role", align: "left" },
-];
-
-const analysisEnvironmentColumns = [
-  { name: "env_id", label: "Env ID", field: "env_id", align: "left" },
-  { name: "name", label: "Name", field: "name", align: "left" },
-  { name: "image", label: "Image", field: "image", align: "left" },
-  { name: "gpu_enabled", label: "Compute", field: "gpu_enabled", align: "left" },
-  { name: "is_active", label: "State", field: "is_active", align: "left" },
-  { name: "updated_at", label: "Updated", field: "updated_at", align: "left" },
-];
-
-const userResourceRequestColumns = [
-  { name: "request_id", label: "Request ID", field: "request_id", align: "left" },
-  { name: "status", label: "Status", field: "status", align: "left" },
-  { name: "vcpu", label: "vCPU", field: "vcpu", align: "right" },
-  { name: "memory_gib", label: "Memory", field: "memory_gib", align: "right" },
-  { name: "disk_gib", label: "Disk", field: "disk_gib", align: "right" },
-  { name: "pvc_name", label: "PVC", field: "pvc_name", align: "left" },
-  { name: "review_note", label: "Review Note", field: "review_note", align: "left" },
-  { name: "updated_at", label: "Updated", field: "updated_at", align: "left" },
-];
-
-const userEnvironmentRequestColumns = [
-  { name: "request_id", label: "Request ID", field: "request_id", align: "left" },
-  { name: "env_id", label: "Env ID", field: "env_id", align: "left" },
-  { name: "status", label: "Status", field: "status", align: "left" },
-  { name: "review_note", label: "Review Note", field: "review_note", align: "left" },
-  { name: "updated_at", label: "Updated", field: "updated_at", align: "left" },
-];
-
-const adminResourceRequestColumns = [
-  { name: "request_id", label: "Request ID", field: "request_id", align: "left" },
-  { name: "username", label: "User", field: "username", align: "left" },
-  { name: "status", label: "Status", field: "status", align: "left" },
-  { name: "vcpu", label: "vCPU", field: "vcpu", align: "right" },
-  { name: "memory_gib", label: "Memory", field: "memory_gib", align: "right" },
-  { name: "disk_gib", label: "Disk", field: "disk_gib", align: "right" },
-  { name: "review_note", label: "Review Note", field: "review_note", align: "left" },
-  { name: "updated_at", label: "Updated", field: "updated_at", align: "left" },
-  { name: "actions", label: "Actions", field: "actions", align: "left" },
-];
-
-const adminEnvironmentRequestColumns = [
-  { name: "request_id", label: "Request ID", field: "request_id", align: "left" },
-  { name: "username", label: "User", field: "username", align: "left" },
-  { name: "env_id", label: "Env ID", field: "env_id", align: "left" },
-  { name: "status", label: "Status", field: "status", align: "left" },
-  { name: "review_note", label: "Review Note", field: "review_note", align: "left" },
-  { name: "updated_at", label: "Updated", field: "updated_at", align: "left" },
-  { name: "actions", label: "Actions", field: "actions", align: "left" },
-];
-
-const adminUserGridDefaultColDef = {
-  sortable: true,
-  filter: true,
-  resizable: true,
-  flex: 1,
-  minWidth: 130,
-};
-
-const adminUserGridColumns = [
-  { headerName: "User", field: "display_name", minWidth: 150 },
-  { headerName: "Email", field: "username", minWidth: 190 },
-  {
-    headerName: "Sandbox",
-    field: "status",
-    minWidth: 130,
-    cellClass: (params) => statusCellClass(params.value, params.data?.ready),
-  },
-  { headerName: "Logins", field: "login_count", type: "numericColumn", minWidth: 110 },
-  { headerName: "Launches", field: "launch_count", type: "numericColumn", minWidth: 110 },
-  {
-    headerName: "Current Use",
-    field: "current_session_seconds",
-    valueFormatter: durationValueFormatter,
-    minWidth: 140,
-  },
-  {
-    headerName: "Total Use",
-    field: "total_session_seconds",
-    valueFormatter: durationValueFormatter,
-    minWidth: 130,
-  },
-  { headerName: "Pod", field: "pod_name", minWidth: 180 },
-  { headerName: "NodePort", field: "node_port", type: "numericColumn", minWidth: 120 },
-  {
-    headerName: "Last Login",
-    field: "last_login_at",
-    valueFormatter: dateTimeValueFormatter,
-    minWidth: 180,
-  },
-  {
-    headerName: "Last Launch",
-    field: "last_launch_at",
-    valueFormatter: dateTimeValueFormatter,
-    minWidth: 180,
-  },
-];
-
-function emptyAppSession(token = "", user = null) {
-  return {
-    authenticated: Boolean(token && user),
-    token,
-    user,
-  };
+function notifyPositive(message) {
+  $q.notify({ type: "positive", position: "top", message });
 }
 
-function emptyLabSession() {
-  return {
-    session_id: "",
-    username: "",
-    namespace: "",
-    pod_name: "",
-    service_name: "",
-    workspace_subpath: "",
-    image: "",
-    status: "idle",
-    phase: "Idle",
-    ready: false,
-    detail: "Log in as a sandbox user to start JupyterLab.",
-    token: "",
-    node_port: null,
-    created_at: null,
-    snapshot_status: "",
-    snapshot_job_name: "",
-    snapshot_detail: "",
-  };
-}
-
-function emptySnapshotState() {
-  return {
-    username: "",
-    session_id: "",
-    workspace_subpath: "",
-    image: "",
-    status: "idle",
-    job_name: "",
-    published_at: "",
-    restorable: false,
-    detail: "Publish a workspace snapshot after your Jupyter sandbox is running.",
-  };
-}
-
-function emptyUserUsage() {
-  return {
-    summary: {
-      username: "",
-      display_name: "",
-      role: "user",
-      current_status: "idle",
-      pod_name: "",
-      node_port: null,
-      login_count: 0,
-      launch_count: 0,
-      current_session_seconds: 0,
-      total_session_seconds: 0,
-      last_login_at: null,
-      last_launch_at: null,
-      last_stop_at: null,
-    },
-  };
-}
-
-function emptyAdminOverview() {
-  return {
-    summary: {
-      sandbox_user_count: 0,
-      running_user_count: 0,
-      ready_user_count: 0,
-      total_login_count: 0,
-      total_launch_count: 0,
-      total_session_seconds: 0,
-    },
-    users: [],
-  };
-}
-
-function emptyControlPlaneState() {
-  return {
-    loading: false,
-    namespace: "all",
-    namespaces: ["all"],
-    activeTab: "nodes",
-    summary: {
-      cluster_name: "Kubernetes control plane",
-      cluster_version: "-",
-      current_namespace: "all",
-      namespace_count: 0,
-      node_count: 0,
-      ready_node_count: 0,
-      pod_count: 0,
-      running_pod_count: 0,
-    },
-    nodes: [],
-    pods: [],
-  };
-}
-
-function emptyUserLabPolicy() {
-  return {
-    username: "",
-    governance_enabled: false,
-    ready: false,
-    vcpu: null,
-    memory_gib: null,
-    disk_gib: null,
-    pvc_name: null,
-    analysis_env_id: null,
-    analysis_image: null,
-    detail: "Load request workflow status after login.",
-  };
-}
-
-function authHeaders(extraHeaders = {}) {
-  const headers = { ...extraHeaders };
-  if (appSession.value.token) {
-    headers.Authorization = `Bearer ${appSession.value.token}`;
-    headers["X-Auth-Token"] = appSession.value.token;
-  }
-  return headers;
-}
-
-function resolveAuthToken(payload) {
-  return payload?.access_token || payload?.token || "";
-}
-
-async function parseJson(response) {
-  if (!response.ok) {
-    let message = `Request failed: ${response.status}`;
-    try {
-      const payload = await response.json();
-      if (payload.detail) {
-        message = payload.detail;
-      }
-    } catch {
-      // keep default message
-    }
-    throw new Error(message);
-  }
-  return response.json();
-}
-
-function waitForDelay(ms) {
-  return new Promise((resolve) => {
-    setTimeout(resolve, ms);
+function notifyError(error, fallback = "요청 처리 중 오류가 발생했습니다.") {
+  const detail =
+    error?.response?.data?.detail || error?.response?.data?.message || error?.message || fallback;
+  $q.notify({
+    type: "negative",
+    position: "top",
+    timeout: 3500,
+    message: String(detail),
   });
-}
-
-function scrollToSection(sectionId) {
-  if (typeof window === "undefined") {
-    return;
-  }
-  const sectionNode = document.getElementById(sectionId);
-  if (!sectionNode) {
-    return;
-  }
-  sectionNode.scrollIntoView({
-    behavior: "smooth",
-    block: "start",
-  });
-  if (window.innerWidth < 1024) {
-    leftDrawerOpen.value = false;
-  }
-}
-
-function formatDuration(totalSeconds) {
-  const seconds = Math.max(0, Number(totalSeconds || 0));
-  const hours = Math.floor(seconds / 3600);
-  const minutes = Math.floor((seconds % 3600) / 60);
-  const remainingSeconds = seconds % 60;
-  if (hours > 0) {
-    return `${hours}h ${minutes}m`;
-  }
-  if (minutes > 0) {
-    return `${minutes}m ${remainingSeconds}s`;
-  }
-  return `${remainingSeconds}s`;
-}
-
-function formatDateTime(value) {
-  if (!value) {
-    return "-";
-  }
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) {
-    return value;
-  }
-  return date.toLocaleString();
-}
-
-function durationValueFormatter(params) {
-  return formatDuration(params.value);
-}
-
-function dateTimeValueFormatter(params) {
-  return formatDateTime(params.value);
-}
-
-function statusCellClass(status, ready) {
-  if (ready || status === "ready") {
-    return "grid-status-ready";
-  }
-  if (status === "provisioning") {
-    return "grid-status-provisioning";
-  }
-  if (status === "missing" || status === "idle") {
-    return "grid-status-idle";
-  }
-  return "grid-status-error";
-}
-
-function podStatusColor(status) {
-  if (status === "Running") {
-    return "positive";
-  }
-  if (status === "Pending") {
-    return "warning";
-  }
-  if (status === "Succeeded") {
-    return "secondary";
-  }
-  return "negative";
 }
 
 function requestStatusColor(status) {
-  if (status === "approved") {
-    return "positive";
-  }
-  if (status === "pending") {
-    return "warning";
-  }
-  if (status === "rejected") {
-    return "negative";
-  }
-  return "grey-7";
+  const value = String(status || "").toLowerCase();
+  if (value === "approved") return "positive";
+  if (value === "rejected") return "negative";
+  return "warning";
 }
 
-function isReviewLoading(key) {
-  return Boolean(reviewLoading.value[key]);
+function labStatusColor(status) {
+  const value = String(status || "").toLowerCase();
+  if (value === "ready") return "positive";
+  if (value === "provisioning") return "warning";
+  if (value === "deleted") return "grey-7";
+  return "indigo";
+}
+
+function formatDateTime(value) {
+  if (!value) return "-";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return String(value);
+  return new Intl.DateTimeFormat("ko-KR", {
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+    hour12: false,
+  }).format(date);
+}
+
+function formatDuration(seconds) {
+  const sec = Math.max(0, Number(seconds || 0));
+  const h = Math.floor(sec / 3600);
+  const m = Math.floor((sec % 3600) / 60);
+  const s = sec % 60;
+  if (h > 0) return `${h}h ${m}m ${s}s`;
+  if (m > 0) return `${m}m ${s}s`;
+  return `${s}s`;
 }
 
 function applyDemoAccount(account) {
-  loginForm.value = {
-    username: account.username,
-    password: "123456",
-  };
+  loginForm.username = account.username;
+  loginForm.password = account.password;
 }
 
-function persistAppSession(token, user) {
-  if (typeof window === "undefined") {
-    return;
-  }
-  window.localStorage.setItem("appAuthToken", token);
-  window.localStorage.setItem("appAuthUser", JSON.stringify(user));
-}
-
-function clearAppSessionStorage() {
-  if (typeof window === "undefined") {
-    return;
-  }
-  window.localStorage.removeItem("appAuthToken");
-  window.localStorage.removeItem("appAuthUser");
-}
-
-function startLabPolling() {
-  if (labPollHandle !== null || !isUser.value) {
-    return;
-  }
-  labPollHandle = window.setInterval(() => {
-    void refreshLabSession({ silent: true });
-  }, 4000);
-}
-
-function stopLabPolling() {
-  if (labPollHandle !== null) {
-    window.clearInterval(labPollHandle);
-    labPollHandle = null;
-  }
-}
-
-function startAdminPolling() {
-  if (adminPollHandle !== null || !isAdmin.value) {
-    return;
-  }
-  adminPollHandle = window.setInterval(() => {
-    void loadAdminOverview({ silent: true });
-  }, 6000);
-}
-
-function stopAdminPolling() {
-  if (adminPollHandle !== null) {
-    window.clearInterval(adminPollHandle);
-    adminPollHandle = null;
-  }
-}
-
-function resetRoleScopedState() {
-  stopLabPolling();
-  stopAdminPolling();
-  labSession.value = emptyLabSession();
-  snapshotState.value = emptySnapshotState();
-  userUsage.value = emptyUserUsage();
-  userLabPolicy.value = emptyUserLabPolicy();
-  userResourceRequests.value = [];
-  userEnvironmentRequests.value = [];
-  availableAnalysisEnvs.value = [];
-  adminOverview.value = emptyAdminOverview();
-  adminManagedUsers.value = [];
-  adminResourceRequests.value = [];
-  adminEnvironmentRequests.value = [];
-  adminAnalysisEnvironments.value = [];
-  reviewLoading.value = {};
-  controlPlane.value = emptyControlPlaneState();
-  resourceRequestForm.value = {
-    vcpu: 2,
-    memory_gib: 1,
-    disk_gib: 10,
-    note: "",
-  };
-  environmentRequestForm.value = {
-    env_id: "",
-    note: "",
-  };
-}
-
-async function loadDemoUsers() {
+async function restoreSession() {
+  if (!authToken.value) return;
   try {
-    const response = await fetch(`${apiBaseUrl}/api/demo-users`);
-    const payload = await parseJson(response);
-    demoAccounts.value = payload.items;
-  } catch {
-    // fallback to built-in demo accounts
-  }
-}
-
-async function loadUserUsage(options = {}) {
-  if (!isUser.value || usageLoading.value) {
-    return;
-  }
-
-  usageLoading.value = true;
-  try {
-    const response = await fetch(`${apiBaseUrl}/api/users/me/usage`, {
-      headers: authHeaders(),
-    });
-    userUsage.value = await parseJson(response);
-  } catch (error) {
-    if (!options.silent) {
-      Notify.create({
-        type: "negative",
-        message: error.message,
-      });
-    }
-  } finally {
-    usageLoading.value = false;
-  }
-}
-
-async function loadUserGovernanceData(options = {}) {
-  if (!isUser.value || governanceLoading.value) {
-    return;
-  }
-
-  governanceLoading.value = true;
-  try {
-    const [policyResponse, resourceResponse, environmentResponse, envCatalogResponse] = await Promise.all([
-      fetch(`${apiBaseUrl}/api/users/me/lab-policy`, { headers: authHeaders() }),
-      fetch(`${apiBaseUrl}/api/resource-requests/me`, { headers: authHeaders() }),
-      fetch(`${apiBaseUrl}/api/environment-requests/me`, { headers: authHeaders() }),
-      fetch(`${apiBaseUrl}/api/analysis-environments`, { headers: authHeaders() }),
-    ]);
-    const [policyPayload, resourcePayload, environmentPayload, envCatalogPayload] = await Promise.all([
-      parseJson(policyResponse),
-      parseJson(resourceResponse),
-      parseJson(environmentResponse),
-      parseJson(envCatalogResponse),
-    ]);
-
-    userLabPolicy.value = {
-      ...emptyUserLabPolicy(),
-      ...policyPayload,
+    const { data } = await api.get("/api/auth/me");
+    appSession.user = {
+      username: data?.user?.username || "",
+      display_name: data?.user?.display_name || "",
+      role: data?.user?.role || "user",
     };
-    userResourceRequests.value = resourcePayload.items || [];
-    userEnvironmentRequests.value = environmentPayload.items || [];
-    availableAnalysisEnvs.value = envCatalogPayload.items || [];
-
-    const envIds = availableAnalysisEnvs.value.map((item) => item.env_id);
-    if (!envIds.includes(environmentRequestForm.value.env_id)) {
-      environmentRequestForm.value = {
-        ...environmentRequestForm.value,
-        env_id: envIds[0] || "",
-      };
-    }
-  } catch (error) {
-    if (!options.silent) {
-      Notify.create({
-        type: "negative",
-        message: error.message,
-      });
-    }
-  } finally {
-    governanceLoading.value = false;
-  }
-}
-
-async function loadAdminGovernanceData(options = {}) {
-  if (!isAdmin.value || governanceAdminLoading.value) {
-    return;
-  }
-
-  governanceAdminLoading.value = true;
-  try {
-    const [usersResponse, envsResponse, resourceResponse, environmentResponse] = await Promise.all([
-      fetch(`${apiBaseUrl}/api/admin/users`, { headers: authHeaders() }),
-      fetch(`${apiBaseUrl}/api/admin/analysis-environments?include_inactive=true`, {
-        headers: authHeaders(),
-      }),
-      fetch(`${apiBaseUrl}/api/admin/resource-requests`, { headers: authHeaders() }),
-      fetch(`${apiBaseUrl}/api/admin/environment-requests`, { headers: authHeaders() }),
-    ]);
-    const [usersPayload, envsPayload, resourcePayload, environmentPayload] = await Promise.all([
-      parseJson(usersResponse),
-      parseJson(envsResponse),
-      parseJson(resourceResponse),
-      parseJson(environmentResponse),
-    ]);
-    adminManagedUsers.value = usersPayload.items || [];
-    adminAnalysisEnvironments.value = envsPayload.items || [];
-    adminResourceRequests.value = resourcePayload.items || [];
-    adminEnvironmentRequests.value = environmentPayload.items || [];
-  } catch (error) {
-    if (!options.silent) {
-      Notify.create({
-        type: "negative",
-        message: error.message,
-      });
-    }
-  } finally {
-    governanceAdminLoading.value = false;
-  }
-}
-
-async function submitResourceRequest() {
-  if (!isUser.value || governanceLoading.value || !canSubmitResourceRequest.value) {
-    return;
-  }
-
-  governanceLoading.value = true;
-  try {
-    const response = await fetch(`${apiBaseUrl}/api/resource-requests`, {
-      method: "POST",
-      headers: authHeaders({
-        "Content-Type": "application/json",
-      }),
-      body: JSON.stringify({
-        vcpu: Number(resourceRequestForm.value.vcpu),
-        memory_gib: Number(resourceRequestForm.value.memory_gib),
-        disk_gib: Number(resourceRequestForm.value.disk_gib),
-        note: resourceRequestForm.value.note || "",
-      }),
-    });
-    await parseJson(response);
-    resourceRequestForm.value = {
-      ...resourceRequestForm.value,
-      note: "",
-    };
-    Notify.create({
-      type: "positive",
-      message: "Resource request submitted.",
-    });
-    governanceLoading.value = false;
-    await loadUserGovernanceData({ silent: true });
-  } catch (error) {
-    Notify.create({
-      type: "negative",
-      message: error.message,
-    });
-  } finally {
-    governanceLoading.value = false;
-  }
-}
-
-async function submitEnvironmentRequest() {
-  if (!isUser.value || governanceLoading.value || !canSubmitEnvironmentRequest.value) {
-    return;
-  }
-
-  governanceLoading.value = true;
-  try {
-    const response = await fetch(`${apiBaseUrl}/api/environment-requests`, {
-      method: "POST",
-      headers: authHeaders({
-        "Content-Type": "application/json",
-      }),
-      body: JSON.stringify({
-        env_id: String(environmentRequestForm.value.env_id || "").trim(),
-        note: environmentRequestForm.value.note || "",
-      }),
-    });
-    await parseJson(response);
-    environmentRequestForm.value = {
-      ...environmentRequestForm.value,
-      note: "",
-    };
-    Notify.create({
-      type: "positive",
-      message: "Environment request submitted.",
-    });
-    governanceLoading.value = false;
-    await loadUserGovernanceData({ silent: true });
-  } catch (error) {
-    Notify.create({
-      type: "negative",
-      message: error.message,
-    });
-  } finally {
-    governanceLoading.value = false;
-  }
-}
-
-async function createManagedUser() {
-  if (!isAdmin.value || governanceAdminLoading.value || !canCreateManagedUser.value) {
-    return;
-  }
-
-  governanceAdminLoading.value = true;
-  try {
-    const response = await fetch(`${apiBaseUrl}/api/admin/users`, {
-      method: "POST",
-      headers: authHeaders({
-        "Content-Type": "application/json",
-      }),
-      body: JSON.stringify({
-        username: String(adminUserForm.value.username || "").trim(),
-        password: String(adminUserForm.value.password || ""),
-        role: String(adminUserForm.value.role || "user"),
-        display_name: String(adminUserForm.value.display_name || "").trim(),
-      }),
-    });
-    await parseJson(response);
-    adminUserForm.value = {
-      username: "",
-      display_name: "",
-      password: "123456",
-      role: "user",
-    };
-    Notify.create({
-      type: "positive",
-      message: "Managed user created.",
-    });
-    governanceAdminLoading.value = false;
-    await Promise.all([loadAdminGovernanceData({ silent: true }), loadDemoUsers()]);
-  } catch (error) {
-    Notify.create({
-      type: "negative",
-      message: error.message,
-    });
-  } finally {
-    governanceAdminLoading.value = false;
-  }
-}
-
-async function upsertAnalysisEnvironment() {
-  if (!isAdmin.value || governanceAdminLoading.value || !canUpsertAnalysisEnvironment.value) {
-    return;
-  }
-
-  governanceAdminLoading.value = true;
-  try {
-    const response = await fetch(`${apiBaseUrl}/api/admin/analysis-environments`, {
-      method: "POST",
-      headers: authHeaders({
-        "Content-Type": "application/json",
-      }),
-      body: JSON.stringify({
-        env_id: String(analysisEnvForm.value.env_id || "").trim().toLowerCase(),
-        name: String(analysisEnvForm.value.name || "").trim(),
-        image: String(analysisEnvForm.value.image || "").trim(),
-        description: String(analysisEnvForm.value.description || "").trim(),
-        gpu_enabled: Boolean(analysisEnvForm.value.gpu_enabled),
-        is_active: Boolean(analysisEnvForm.value.is_active),
-      }),
-    });
-    const payload = await parseJson(response);
-    adminAnalysisEnvironments.value = payload.items || [];
-    Notify.create({
-      type: "positive",
-      message: "Analysis environment upserted.",
-    });
-  } catch (error) {
-    Notify.create({
-      type: "negative",
-      message: error.message,
-    });
-  } finally {
-    governanceAdminLoading.value = false;
-  }
-}
-
-async function reviewResourceRequest(item, approved) {
-  if (!isAdmin.value) {
-    return;
-  }
-  const key = `resource:${item.request_id}`;
-  if (reviewLoading.value[key]) {
-    return;
-  }
-
-  reviewLoading.value = {
-    ...reviewLoading.value,
-    [key]: true,
-  };
-  try {
-    const response = await fetch(
-      `${apiBaseUrl}/api/admin/resource-requests/${encodeURIComponent(item.request_id)}/review`,
-      {
-        method: "POST",
-        headers: authHeaders({
-          "Content-Type": "application/json",
-        }),
-        body: JSON.stringify({
-          approved: Boolean(approved),
-          note: approved ? "Approved via web UI." : "Rejected via web UI.",
-        }),
-      },
-    );
-    await parseJson(response);
-    Notify.create({
-      type: approved ? "positive" : "warning",
-      message: approved ? "Resource request approved." : "Resource request rejected.",
-    });
-    await Promise.all([loadAdminGovernanceData({ silent: true }), loadAdminOverview({ silent: true })]);
-  } catch (error) {
-    Notify.create({
-      type: "negative",
-      message: error.message,
-    });
-  } finally {
-    reviewLoading.value = {
-      ...reviewLoading.value,
-      [key]: false,
-    };
-  }
-}
-
-async function reviewEnvironmentRequest(item, approved) {
-  if (!isAdmin.value) {
-    return;
-  }
-  const key = `environment:${item.request_id}`;
-  if (reviewLoading.value[key]) {
-    return;
-  }
-
-  reviewLoading.value = {
-    ...reviewLoading.value,
-    [key]: true,
-  };
-  try {
-    const response = await fetch(
-      `${apiBaseUrl}/api/admin/environment-requests/${encodeURIComponent(item.request_id)}/review`,
-      {
-        method: "POST",
-        headers: authHeaders({
-          "Content-Type": "application/json",
-        }),
-        body: JSON.stringify({
-          approved: Boolean(approved),
-          note: approved ? "Approved via web UI." : "Rejected via web UI.",
-        }),
-      },
-    );
-    await parseJson(response);
-    Notify.create({
-      type: approved ? "positive" : "warning",
-      message: approved ? "Environment request approved." : "Environment request rejected.",
-    });
-    await loadAdminGovernanceData({ silent: true });
-  } catch (error) {
-    Notify.create({
-      type: "negative",
-      message: error.message,
-    });
-  } finally {
-    reviewLoading.value = {
-      ...reviewLoading.value,
-      [key]: false,
-    };
-  }
-}
-
-async function restoreAuthSession() {
-  if (!appSession.value.token) {
-    return;
-  }
-  try {
-    const response = await fetch(`${apiBaseUrl}/api/auth/me`, {
-      headers: authHeaders(),
-    });
-    const payload = await parseJson(response);
-    appSession.value = emptyAppSession(appSession.value.token, payload.user);
-    persistAppSession(appSession.value.token, payload.user);
-  } catch (error) {
-    clearAppSessionStorage();
-    appSession.value = emptyAppSession();
-    Notify.create({
-      type: "warning",
-      message: error.message,
-    });
+  } catch (_error) {
+    authToken.value = "";
+    localStorage.removeItem(AUTH_TOKEN_KEY);
   }
 }
 
 async function loginApp() {
-  if (authLoading.value) {
-    return;
-  }
-
+  if (!canLogin.value) return;
   authLoading.value = true;
   try {
-    const response = await fetch(`${apiBaseUrl}/api/auth/login`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify(loginForm.value),
+    const { data } = await api.post("/api/auth/login", {
+      username: loginForm.username.trim(),
+      password: loginForm.password,
     });
-    const payload = await parseJson(response);
-    const authToken = resolveAuthToken(payload);
-    if (!authToken) {
-      throw new Error("JWT login response is invalid.");
-    }
+    const token = String(data?.access_token || data?.token || "");
+    if (!token) throw new Error("토큰 발급에 실패했습니다.");
+    authToken.value = token;
+    localStorage.setItem(AUTH_TOKEN_KEY, token);
 
-    let authenticatedUser = payload.user || null;
-    if (!authenticatedUser) {
-      const meResponse = await fetch(`${apiBaseUrl}/api/auth/me`, {
-        headers: {
-          Authorization: `Bearer ${authToken}`,
-          "X-Auth-Token": authToken,
-        },
-      });
-      const mePayload = await parseJson(meResponse);
-      authenticatedUser = mePayload.user || null;
-    }
+    const me = await api.get("/api/auth/me");
+    appSession.user = {
+      username: me.data?.user?.username || "",
+      display_name: me.data?.user?.display_name || "",
+      role: me.data?.user?.role || "user",
+    };
 
-    if (!authenticatedUser) {
-      throw new Error("User session was not returned by backend.");
-    }
-
-    appSession.value = emptyAppSession(authToken, authenticatedUser);
-    persistAppSession(authToken, authenticatedUser);
-    resetRoleScopedState();
-    await loadDashboard();
-    await runFirstQuery();
-
-    if (authenticatedUser.role === "user") {
-      await refreshLabSession({ silent: true, skipSnapshotRefresh: true });
-      await refreshSnapshotStatus({ silent: true });
-      if (snapshotState.value.status === "building" || snapshotState.value.status === "pending") {
-        void waitForSnapshotCompletion({
-          notifyWaiting: false,
-          notifyFailure: false,
-          notifyTimeout: false,
-          timeoutMs: 180000,
-        });
-      }
-      await loadUserUsage({ silent: true });
-      await loadUserGovernanceData({ silent: true });
-    } else if (authenticatedUser.role === "admin") {
-      await loadAdminOverview({ silent: true });
-      await loadAdminGovernanceData({ silent: true });
-      await loadControlPlaneDashboard({ silent: true });
-      startAdminPolling();
-    }
-
-    Notify.create({
-      type: "positive",
-      message:
-        authenticatedUser.role === "admin"
-          ? "Admin mode is ready."
-          : `Logged in as ${authenticatedUser.display_name}.`,
-    });
+    await loadPageData();
+    notifyPositive("로그인 완료");
   } catch (error) {
-    Notify.create({
-      type: "negative",
-      message: error.message,
-    });
+    notifyError(error, "로그인 실패");
   } finally {
     authLoading.value = false;
   }
 }
 
 async function logoutApp() {
-  if (authLoading.value || !appSession.value.token) {
-    return;
-  }
-
   authLoading.value = true;
   try {
-    await fetch(`${apiBaseUrl}/api/auth/logout`, {
-      method: "POST",
-      headers: authHeaders(),
-    });
+    if (authToken.value) {
+      await api.post("/api/auth/logout");
+    }
+  } catch (_error) {
+    // noop
   } finally {
-    clearAppSessionStorage();
-    appSession.value = emptyAppSession();
-    resetRoleScopedState();
+    authToken.value = "";
+    localStorage.removeItem(AUTH_TOKEN_KEY);
+    appSession.user = { username: "", display_name: "", role: "user" };
     authLoading.value = false;
-    Notify.create({
-      type: "info",
-      message: "Application session cleared.",
-    });
   }
 }
 
 async function loadDashboard() {
-  loading.value = true;
+  const { data } = await api.get("/api/dashboard");
+  dashboard.value = data || dashboard.value;
+}
+
+async function loadLabSession() {
+  if (!managedUsername.value) return;
   try {
-    const response = await fetch(`${apiBaseUrl}/api/dashboard`);
-    dashboard.value = await parseJson(response);
+    const { data } = await api.get(`/api/jupyter/sessions/${encodeURIComponent(managedUsername.value)}`);
+    Object.assign(labSession, data || {});
   } catch (error) {
-    Notify.create({
-      type: "negative",
-      message: error.message,
-    });
-  } finally {
-    loading.value = false;
+    if (error?.response?.status === 400) {
+      Object.assign(labSession, {
+        status: "idle",
+        ready: false,
+        detail: error.response.data?.detail || "세션이 없습니다.",
+      });
+      return;
+    }
+    throw error;
   }
 }
 
-async function runFirstQuery() {
-  const firstQuery = dashboard.value.sample_queries[0];
-  if (!firstQuery) {
-    return;
-  }
-
-  queryLoading.value = true;
-  try {
-    const response = await fetch(`${apiBaseUrl}/api/teradata/query`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        sql: firstQuery.sql,
-        limit: 10,
-      }),
-    });
-    const payload = await parseJson(response);
-    queryResult.value = {
-      columns: payload.columns,
-      rows: payload.rows,
-    };
-    Notify.create({
-      type: "positive",
-      message: payload.note,
-    });
-  } catch (error) {
-    Notify.create({
-      type: "negative",
-      message: error.message,
-    });
-  } finally {
-    queryLoading.value = false;
-  }
-}
-
-async function refreshLabSession(options = {}) {
-  if (!isUser.value || !managedUsername.value || sessionLoading.value) {
-    return;
-  }
-
+async function startLabSession() {
+  if (!managedUsername.value) return;
   sessionLoading.value = true;
   try {
-    const response = await fetch(
-      `${apiBaseUrl}/api/jupyter/sessions/${encodeURIComponent(managedUsername.value)}`,
-      {
-        headers: authHeaders(),
-      },
-    );
-    const payload = await parseJson(response);
-    labSession.value = {
-      ...emptyLabSession(),
-      ...payload,
-    };
-
-    if (labSession.value.status === "provisioning") {
-      startLabPolling();
-    } else {
-      stopLabPolling();
-    }
-
-    if (!options.skipSnapshotRefresh) {
-      void refreshSnapshotStatus({ silent: true });
-    }
-    void loadUserUsage({ silent: true });
+    const { data } = await api.post("/api/jupyter/sessions", { username: managedUsername.value });
+    Object.assign(labSession, data || {});
+    notifyPositive(data?.ready ? "JupyterLab 준비 완료" : "JupyterLab 생성 중");
+    await Promise.all([loadUsage(), loadAdminOverviewSafe()]);
   } catch (error) {
-    stopLabPolling();
-    Notify.create({
-      type: "negative",
-      message: error.message,
-    });
+    notifyError(error, "Jupyter 실행 실패");
   } finally {
     sessionLoading.value = false;
   }
 }
 
-async function waitForSnapshotCompletion(options = {}) {
-  if (!isUser.value || !managedUsername.value) {
-    return;
-  }
-
-  const timeoutMs = Number(options.timeoutMs ?? 120000);
-  const pollIntervalMs = Number(options.pollIntervalMs ?? 2000);
-  const notifyWaiting = options.notifyWaiting !== false;
-  const notifyFailure = options.notifyFailure !== false;
-  const notifyTimeout = options.notifyTimeout !== false;
-  const deadline = Date.now() + timeoutMs;
-  let announcedWaiting = false;
-
-  while (Date.now() < deadline) {
-    try {
-      const response = await fetch(
-        `${apiBaseUrl}/api/jupyter/snapshots/${encodeURIComponent(managedUsername.value)}`,
-        {
-          headers: authHeaders(),
-        },
-      );
-      const payload = await parseJson(response);
-      snapshotState.value = {
-        ...emptySnapshotState(),
-        ...payload,
-      };
-
-      if (payload.status === "building" || payload.status === "pending") {
-        if (notifyWaiting && !announcedWaiting) {
-          Notify.create({
-            type: "info",
-            message: "Waiting for your latest Harbor snapshot publish before starting Jupyter.",
-          });
-          announcedWaiting = true;
-        }
-        await waitForDelay(pollIntervalMs);
-        continue;
-      }
-
-      if (payload.status === "failed" && notifyFailure) {
-        Notify.create({
-          type: "warning",
-          message: "Latest Harbor snapshot publish failed. Starting with the last restorable image.",
-        });
-      }
-      return;
-    } catch (error) {
-      if (notifyFailure) {
-        Notify.create({
-          type: "warning",
-          message: `Snapshot status check failed: ${error.message}`,
-        });
-      }
-      return;
-    }
-  }
-
-  if (notifyTimeout) {
-    Notify.create({
-      type: "warning",
-      message: "Snapshot publish is still running. Starting your sandbox now.",
-    });
-  }
-}
-
-async function startLabSession() {
-  if (!isUser.value || !managedUsername.value || sessionLoading.value) {
-    return;
-  }
-
+async function refreshLabSession() {
+  if (!managedUsername.value) return;
   sessionLoading.value = true;
   try {
-    await waitForSnapshotCompletion();
-    const response = await fetch(`${apiBaseUrl}/api/jupyter/sessions`, {
-      method: "POST",
-      headers: authHeaders({
-        "Content-Type": "application/json",
-      }),
-      body: JSON.stringify({
-        username: managedUsername.value,
-      }),
-    });
-    const payload = await parseJson(response);
-    labSession.value = {
-      ...emptyLabSession(),
-      ...payload,
-    };
-    if (labSession.value.status === "provisioning") {
-      startLabPolling();
-    }
-    void refreshSnapshotStatus({ silent: true });
-    void loadUserUsage({ silent: true });
-    Notify.create({
-      type: payload.status === "ready" ? "positive" : "info",
-      message:
-        payload.status === "ready"
-          ? "Your Jupyter sandbox is ready."
-          : "Creating your Jupyter sandbox pod.",
-    });
+    await loadLabSession();
+    await Promise.all([loadUsage(), loadAdminOverviewSafe()]);
   } catch (error) {
-    stopLabPolling();
-    Notify.create({
-      type: "negative",
-      message: error.message,
-    });
+    notifyError(error, "세션 상태 조회 실패");
   } finally {
     sessionLoading.value = false;
   }
 }
 
 async function stopLabSession() {
-  if (!isUser.value || !managedUsername.value || sessionLoading.value) {
-    return;
-  }
-
+  if (!managedUsername.value) return;
   sessionLoading.value = true;
   try {
-    const response = await fetch(
-      `${apiBaseUrl}/api/jupyter/sessions/${encodeURIComponent(managedUsername.value)}`,
-      {
-        method: "DELETE",
-        headers: authHeaders(),
-      },
-    );
-    const payload = await parseJson(response);
-    labSession.value = {
-      ...emptyLabSession(),
-      ...payload,
-    };
-    stopLabPolling();
-    void refreshSnapshotStatus({ silent: true });
-    if (payload.snapshot_status === "building" || payload.snapshot_status === "pending") {
-      void waitForSnapshotCompletion({
-        notifyWaiting: false,
-        notifyFailure: false,
-        notifyTimeout: false,
-        timeoutMs: 180000,
-      });
-    }
-    void loadUserUsage({ silent: true });
-    let stopMessage = "Your Jupyter sandbox resources were deleted.";
-    if (payload.snapshot_status === "building" || payload.snapshot_status === "pending") {
-      stopMessage += " Harbor snapshot publish started.";
-    } else if (payload.snapshot_status === "ready") {
-      stopMessage += " Latest Harbor snapshot is ready.";
-    } else if (payload.snapshot_status === "failed") {
-      stopMessage += " Harbor snapshot publish failed.";
-    }
-    Notify.create({
-      type: "warning",
-      message: stopMessage,
-    });
+    const { data } = await api.delete(`/api/jupyter/sessions/${encodeURIComponent(managedUsername.value)}`);
+    Object.assign(labSession, data || {});
+    notifyPositive("JupyterLab 자원 종료 완료");
+    await Promise.all([loadUsage(), loadAdminOverviewSafe()]);
   } catch (error) {
-    Notify.create({
-      type: "negative",
-      message: error.message,
-    });
+    notifyError(error, "세션 종료 실패");
   } finally {
     sessionLoading.value = false;
   }
 }
 
-async function refreshSnapshotStatus(options = {}) {
-  if (!isUser.value || !managedUsername.value || snapshotLoading.value) {
-    return;
-  }
-
-  snapshotLoading.value = true;
-  try {
-    const response = await fetch(
-      `${apiBaseUrl}/api/jupyter/snapshots/${encodeURIComponent(managedUsername.value)}`,
-      {
-        headers: authHeaders(),
-      },
-    );
-    const payload = await parseJson(response);
-    snapshotState.value = {
-      ...emptySnapshotState(),
-      ...payload,
-    };
-    if (!options.silent && payload.status === "missing") {
-      Notify.create({
-        type: "info",
-        message: "No Harbor snapshot exists for this user yet.",
-      });
-    }
-  } catch (error) {
-    Notify.create({
-      type: "negative",
-      message: error.message,
-    });
-  } finally {
-    snapshotLoading.value = false;
-  }
-}
-
-async function publishSnapshot() {
-  if (!isUser.value || !managedUsername.value || snapshotLoading.value) {
-    return;
-  }
-
-  snapshotLoading.value = true;
-  try {
-    const response = await fetch(`${apiBaseUrl}/api/jupyter/snapshots`, {
-      method: "POST",
-      headers: authHeaders({
-        "Content-Type": "application/json",
-      }),
-      body: JSON.stringify({
-        username: managedUsername.value,
-      }),
-    });
-    const payload = await parseJson(response);
-    snapshotState.value = {
-      ...emptySnapshotState(),
-      ...payload,
-    };
-    Notify.create({
-      type: payload.status === "building" ? "info" : "positive",
-      message:
-        payload.status === "building"
-          ? "Publishing your Harbor snapshot."
-          : "Latest Harbor snapshot is ready.",
-    });
-  } catch (error) {
-    Notify.create({
-      type: "negative",
-      message: error.message,
-    });
-  } finally {
-    snapshotLoading.value = false;
-  }
-}
-
-async function loadAdminOverview(options = {}) {
-  if (!isAdmin.value || adminLoading.value) {
-    return;
-  }
-
-  adminLoading.value = true;
-  try {
-    const response = await fetch(`${apiBaseUrl}/api/admin/sandboxes`, {
-      headers: authHeaders(),
-    });
-    adminOverview.value = await parseJson(response);
-  } catch (error) {
-    if (!options.silent) {
-      Notify.create({
-        type: "negative",
-        message: error.message,
-      });
-    }
-  } finally {
-    adminLoading.value = false;
-  }
-}
-
-async function loadControlPlaneDashboard(options = {}) {
-  if (!isAdmin.value || controlPlane.value.loading) {
-    return;
-  }
-
-  controlPlane.value = {
-    ...controlPlane.value,
-    loading: true,
-  };
-  try {
-    const response = await fetch(
-      `${apiBaseUrl}/api/control-plane/dashboard?namespace=${encodeURIComponent(controlPlane.value.namespace)}`,
-      {
-        headers: authHeaders(),
-      },
-    );
-    const payload = await parseJson(response);
-    controlPlane.value = {
-      ...controlPlane.value,
-      namespace: payload.summary.current_namespace,
-      namespaces: payload.namespaces,
-      nodes: payload.nodes,
-      pods: payload.pods,
-      summary: payload.summary,
-    };
-  } catch (error) {
-    if (!options.silent) {
-      Notify.create({
-        type: "negative",
-        message: error.message,
-      });
-    }
-  } finally {
-    controlPlane.value = {
-      ...controlPlane.value,
-      loading: false,
-    };
-  }
-}
-
 async function openLab() {
-  if (!isUser.value || !managedUsername.value) {
-    Notify.create({
-      type: "warning",
-      message: "User login is required.",
-    });
-    return;
+  if (!managedUsername.value) return;
+  try {
+    const { data } = await api.get(`/api/jupyter/connect/${encodeURIComponent(managedUsername.value)}`);
+    if (!data?.redirect_url) throw new Error("연결 URL이 없습니다.");
+    labLaunchUrl.value = data.redirect_url;
+    window.open(data.redirect_url, "_blank", "noopener");
+    notifyPositive("새 탭에서 JupyterLab을 엽니다.");
+  } catch (error) {
+    notifyError(error, "Jupyter 연결 실패");
   }
-  if (!labSession.value.ready) {
-    Notify.create({
-      type: "warning",
-      message: "JupyterLab is not ready yet.",
+}
+
+async function loadUsage() {
+  if (!managedUsername.value) return;
+  const { data } = await api.get("/api/users/me/usage");
+  Object.assign(usageSummary, data?.summary || {});
+  await nextTick();
+  renderUsageChart();
+}
+
+async function loadLabPolicy() {
+  const { data } = await api.get("/api/users/me/lab-policy");
+  Object.assign(userLabPolicy, data || {});
+}
+
+async function loadUserGovernanceData() {
+  const [resourceResp, environmentResp, envResp] = await Promise.all([
+    api.get("/api/resource-requests/me"),
+    api.get("/api/environment-requests/me"),
+    api.get("/api/analysis-environments"),
+  ]);
+
+  userResourceRequests.value = resourceResp.data?.items || [];
+  userEnvironmentRequests.value = environmentResp.data?.items || [];
+  analysisEnvironments.value = envResp.data?.items || [];
+
+  if (!environmentRequestForm.env_id) {
+    environmentRequestForm.env_id = analysisEnvironments.value[0]?.env_id || "";
+  }
+}
+
+async function submitResourceRequest() {
+  if (!canSubmitResource.value) return;
+  governanceLoading.value = true;
+  try {
+    await api.post("/api/resource-requests", {
+      vcpu: Number(resourceRequestForm.vcpu),
+      memory_gib: Number(resourceRequestForm.memory_gib),
+      disk_gib: Number(resourceRequestForm.disk_gib),
+      note: resourceRequestForm.note || "",
     });
-    return;
+    resourceRequestForm.note = "";
+    await Promise.all([loadUserGovernanceData(), loadLabPolicy()]);
+    notifyPositive("리소스 신청 완료");
+  } catch (error) {
+    notifyError(error, "리소스 신청 실패");
+  } finally {
+    governanceLoading.value = false;
+  }
+}
+
+async function submitEnvironmentRequest() {
+  if (!canSubmitEnvironment.value) return;
+  governanceLoading.value = true;
+  try {
+    await api.post("/api/environment-requests", {
+      env_id: environmentRequestForm.env_id,
+      note: environmentRequestForm.note || "",
+    });
+    environmentRequestForm.note = "";
+    await Promise.all([loadUserGovernanceData(), loadLabPolicy()]);
+    notifyPositive("분석환경 신청 완료");
+  } catch (error) {
+    notifyError(error, "분석환경 신청 실패");
+  } finally {
+    governanceLoading.value = false;
+  }
+}
+
+async function loadAdminGovernanceData() {
+  const [usersResp, envResp, resourceResp, environmentResp] = await Promise.all([
+    api.get("/api/admin/users"),
+    api.get("/api/admin/analysis-environments?include_inactive=true"),
+    api.get("/api/admin/resource-requests"),
+    api.get("/api/admin/environment-requests"),
+  ]);
+
+  adminManagedUsers.value = usersResp.data?.items || [];
+  adminAnalysisEnvironments.value = envResp.data?.items || [];
+  adminResourceRequests.value = resourceResp.data?.items || [];
+  adminEnvironmentRequests.value = environmentResp.data?.items || [];
+}
+
+async function loadAdminOverview() {
+  const { data } = await api.get("/api/admin/sandboxes");
+  adminOverview.value = data || adminOverview.value;
+  await nextTick();
+  renderAdminChart();
+}
+
+async function loadAdminOverviewSafe() {
+  if (!isAdmin.value) return;
+  try {
+    await loadAdminOverview();
+  } catch (_error) {
+    // no-op
+  }
+}
+
+async function reviewResourceRequest(item, approved) {
+  const note = window.prompt(
+    approved ? "승인 메모(선택)" : "반려 사유",
+    approved ? "" : "정책 확인 필요",
+  );
+  if (note === null) return;
+
+  governanceAdminLoading.value = true;
+  try {
+    await api.post(`/api/admin/resource-requests/${encodeURIComponent(item.request_id)}/review`, {
+      approved,
+      note,
+    });
+    await Promise.all([loadAdminGovernanceData(), loadAdminOverview(), loadLabPolicy()]);
+    notifyPositive(approved ? "리소스 승인 완료" : "리소스 반려 완료");
+  } catch (error) {
+    notifyError(error, "리소스 리뷰 실패");
+  } finally {
+    governanceAdminLoading.value = false;
+  }
+}
+
+async function reviewEnvironmentRequest(item, approved) {
+  const note = window.prompt(
+    approved ? "승인 메모(선택)" : "반려 사유",
+    approved ? "" : "검토 필요",
+  );
+  if (note === null) return;
+
+  governanceAdminLoading.value = true;
+  try {
+    await api.post(`/api/admin/environment-requests/${encodeURIComponent(item.request_id)}/review`, {
+      approved,
+      note,
+    });
+    await Promise.all([loadAdminGovernanceData(), loadLabPolicy()]);
+    notifyPositive(approved ? "환경 승인 완료" : "환경 반려 완료");
+  } catch (error) {
+    notifyError(error, "환경 리뷰 실패");
+  } finally {
+    governanceAdminLoading.value = false;
+  }
+}
+
+async function createManagedUser() {
+  if (!canCreateUser.value) return;
+  governanceAdminLoading.value = true;
+  try {
+    await api.post("/api/admin/users", {
+      username: adminUserForm.username.trim(),
+      password: adminUserForm.password,
+      role: adminUserForm.role,
+      display_name: adminUserForm.display_name.trim(),
+    });
+    adminUserForm.username = "";
+    adminUserForm.password = "";
+    adminUserForm.display_name = "";
+    adminUserForm.role = "user";
+    await loadAdminGovernanceData();
+    notifyPositive("사용자 생성 완료");
+  } catch (error) {
+    notifyError(error, "사용자 생성 실패");
+  } finally {
+    governanceAdminLoading.value = false;
+  }
+}
+
+async function upsertAnalysisEnvironment() {
+  if (!canUpsertEnvironment.value) return;
+  governanceAdminLoading.value = true;
+  try {
+    await api.post("/api/admin/analysis-environments", {
+      env_id: adminEnvironmentForm.env_id.trim(),
+      name: adminEnvironmentForm.name.trim(),
+      image: adminEnvironmentForm.image.trim(),
+      description: adminEnvironmentForm.description.trim(),
+      gpu_enabled: adminEnvironmentForm.gpu_enabled,
+      is_active: adminEnvironmentForm.is_active,
+    });
+    await Promise.all([loadAdminGovernanceData(), loadUserGovernanceData(), loadLabPolicy()]);
+    notifyPositive("분석환경 등록/수정 완료");
+  } catch (error) {
+    notifyError(error, "분석환경 등록 실패");
+  } finally {
+    governanceAdminLoading.value = false;
+  }
+}
+
+async function loadControlPlane() {
+  if (!isAdmin.value) return;
+  controlPlaneLoading.value = true;
+  try {
+    const namespace = (controlPlaneNamespace.value || "all").trim() || "all";
+    const { data } = await api.get(`/api/control-plane/dashboard?namespace=${encodeURIComponent(namespace)}`);
+    controlPlane.value = data || controlPlane.value;
+  } catch (error) {
+    notifyError(error, "Control Plane 조회 실패");
+  } finally {
+    controlPlaneLoading.value = false;
+  }
+}
+
+async function loadPageData() {
+  if (!isAuthenticated.value) return;
+  pageLoading.value = true;
+  try {
+    const tasks = [
+      loadDashboard(),
+      loadLabSession(),
+      loadUsage(),
+      loadLabPolicy(),
+      loadUserGovernanceData(),
+    ];
+
+    if (isAdmin.value) {
+      tasks.push(loadAdminGovernanceData(), loadAdminOverview(), loadControlPlane());
+    }
+
+    await Promise.all(tasks);
+  } catch (error) {
+    notifyError(error, "페이지 데이터 로드 실패");
+  } finally {
+    pageLoading.value = false;
+  }
+}
+
+function renderUsageChart() {
+  if (!usageChartCanvas.value) return;
+  if (usageChart) {
+    usageChart.destroy();
+    usageChart = null;
   }
 
-  try {
-    const response = await fetch(
-      `${apiBaseUrl}/api/jupyter/connect/${encodeURIComponent(managedUsername.value)}`,
-      {
-        headers: authHeaders(),
-      },
-    );
-    const payload = await parseJson(response);
-    window.open(payload.redirect_url, "_blank", "noopener");
-  } catch (error) {
-    if (labLaunchUrl.value) {
-      window.open(labLaunchUrl.value, "_blank", "noopener");
-      Notify.create({
-        type: "warning",
-        message: `Connect API fallback used: ${error.message}`,
-      });
-      return;
-    }
-    Notify.create({
-      type: "negative",
-      message: error.message,
-    });
+  usageChart = new Chart(usageChartCanvas.value, {
+    type: "bar",
+    data: {
+      labels: ["Logins", "Launches", "Current(sec)", "Total(sec)"],
+      datasets: [
+        {
+          data: [
+            usageSummary.login_count || 0,
+            usageSummary.launch_count || 0,
+            usageSummary.current_session_seconds || 0,
+            usageSummary.total_session_seconds || 0,
+          ],
+          backgroundColor: ["#1f7a8c", "#2a9d8f", "#cf8a2e", "#516870"],
+          borderRadius: 8,
+          maxBarThickness: 52,
+        },
+      ],
+    },
+    options: {
+      maintainAspectRatio: false,
+      plugins: { legend: { display: false } },
+      scales: { y: { beginAtZero: true } },
+    },
+  });
+}
+
+function renderAdminChart() {
+  if (!adminChartCanvas.value || !isAdmin.value) return;
+  if (adminChart) {
+    adminChart.destroy();
+    adminChart = null;
   }
+
+  const summary = adminOverview.value.summary || {};
+  adminChart = new Chart(adminChartCanvas.value, {
+    type: "doughnut",
+    data: {
+      labels: ["Ready", "Running", "Other"],
+      datasets: [
+        {
+          data: [
+            Number(summary.ready_user_count || 0),
+            Number(summary.running_user_count || 0),
+            Math.max(
+              0,
+              Number(summary.sandbox_user_count || 0) -
+                Number(summary.ready_user_count || 0) -
+                Number(summary.running_user_count || 0),
+            ),
+          ],
+          backgroundColor: ["#2a9d8f", "#1f7a8c", "#a3b0b8"],
+          borderWidth: 0,
+        },
+      ],
+    },
+    options: {
+      maintainAspectRatio: false,
+      plugins: { legend: { position: "bottom" } },
+    },
+  });
 }
 
 onMounted(async () => {
-  await loadDemoUsers();
-  await restoreAuthSession();
-  authResolved.value = true;
-
-  if (!isAuthenticated.value) {
-    loading.value = false;
-    return;
-  }
-
-  await loadDashboard();
-  await runFirstQuery();
-
-  if (isUser.value) {
-    await refreshLabSession({ silent: true, skipSnapshotRefresh: true });
-    await refreshSnapshotStatus({ silent: true });
-    if (snapshotState.value.status === "building" || snapshotState.value.status === "pending") {
-      void waitForSnapshotCompletion({
-        notifyWaiting: false,
-        notifyFailure: false,
-        notifyTimeout: false,
-        timeoutMs: 180000,
-      });
-    }
-    await loadUserUsage({ silent: true });
-    await loadUserGovernanceData({ silent: true });
-  }
-
-  if (isAdmin.value) {
-    await loadAdminOverview({ silent: true });
-    await loadAdminGovernanceData({ silent: true });
-    await loadControlPlaneDashboard({ silent: true });
-    startAdminPolling();
+  await restoreSession();
+  if (isAuthenticated.value) {
+    await loadPageData();
   }
 });
 
-onUnmounted(() => {
-  stopLabPolling();
-  stopAdminPolling();
+onBeforeUnmount(() => {
+  if (usageChart) {
+    usageChart.destroy();
+    usageChart = null;
+  }
+  if (adminChart) {
+    adminChart.destroy();
+    adminChart = null;
+  }
 });
 </script>

@@ -7,47 +7,45 @@ def runtime_profile(settings: Settings) -> dict[str, str]:
         "backend_version": BACKEND_APP_VERSION,
         "environment": settings.env,
         "host_os": "Ubuntu 24",
-        "cluster": "Kubernetes single-node control plane",
+        "cluster": "Kubernetes-based ELT runtime",
         "containers": "OCI images on Kubernetes",
-        "backend": "Python 3.12 / FastAPI",
+        "backend": "Python 3.12 / FastAPI / SQLAlchemy",
         "frontend": "Node 22.22 / Quasar Vue 3",
-        "orchestration": "Apache Airflow (optional health-check scheduler)",
-        "workbench": "JupyterLab pod",
-        "data": "MongoDB, Redis, Teradata ANSI SQL",
-        "artifact_repositories": "Nexus (PyPI/npm offline cache), Harbor (Jupyter snapshot only)",
-        "cicd": "Docker Hub(edumgt), GitHub Actions, GitLab Runner(k8s executor), Harbor snapshot",
+        "orchestration": "Apache Airflow for periodic ELT batch jobs",
+        "data": "Teradata + metadata in MongoDB/Redis",
+        "artifact_repositories": "Nexus (PyPI/npm offline cache), Harbor",
+        "cicd": "GitLab Runner and container registry workflow",
     }
 
 
 def sample_queries() -> list[dict[str, str]]:
     return [
         {
-            "name": "active_workloads",
-            "description": "Airflow and Jupyter workloads currently tracked by the lab.",
+            "name": "elt_recent_runs",
+            "description": "Recent ELT run status for monitoring dashboard.",
             "sql": (
-                "SELECT workload_name, owner_name, workload_status "
-                "FROM lab_workloads "
-                "WHERE workload_status <> 'STOPPED' "
+                "SELECT job_name, run_status, started_at, finished_at "
+                "FROM elt_run_history "
                 "ORDER BY updated_at DESC;"
             ),
         },
         {
-            "name": "dag_runtime_summary",
-            "description": "Recent DAG durations using ANSI SQL window functions.",
+            "name": "source_target_latency",
+            "description": "Latest source-to-target latency by batch job.",
             "sql": (
-                "SELECT dag_name, run_date, duration_seconds "
-                "FROM dag_runtime_summary "
+                "SELECT job_name, source_table, target_table, latency_seconds "
+                "FROM elt_job_latency_summary "
                 "QUALIFY ROW_NUMBER() OVER "
-                "(PARTITION BY dag_name ORDER BY run_date DESC) <= 5;"
+                "(PARTITION BY job_name ORDER BY measured_at DESC) <= 5;"
             ),
         },
         {
-            "name": "jupyter_notebook_usage",
-            "description": "Notebook usage counts for shared data science workspaces.",
+            "name": "daily_loaded_rows",
+            "description": "Daily loaded row count in Teradata DataLake.",
             "sql": (
-                "SELECT notebook_name, owner_name, execution_count "
-                "FROM notebook_usage "
-                "ORDER BY execution_count DESC;"
+                "SELECT business_date, target_table, loaded_rows "
+                "FROM elt_daily_load_volume "
+                "ORDER BY business_date DESC;"
             ),
         },
     ]
@@ -58,27 +56,12 @@ def quick_links(settings: Settings) -> list[dict[str, str]]:
         {
             "name": "Backend API",
             "url": settings.backend_url,
-            "description": "FastAPI OpenAPI and health endpoints.",
+            "description": "FastAPI OpenAPI plus ELT batch workflow endpoints.",
         },
         {
             "name": "Frontend",
             "url": settings.frontend_url,
-            "description": "Quasar dashboard for the platform lab.",
-        },
-        {
-            "name": "Control Plane",
-            "url": settings.control_plane_url,
-            "description": "Frontend module for cluster admin login, node list, and pod inventory.",
-        },
-        {
-            "name": "Sandbox Admin",
-            "url": settings.admin_url,
-            "description": "Admin monitoring for demo user Jupyter sandbox usage, launch counts, and active sessions.",
-        },
-        {
-            "name": "Jupyter",
-            "url": settings.jupyter_url,
-            "description": "Shared JupyterLab entrypoint. Personal labs launch from the frontend session module.",
+            "description": "Dataxflow ELT batch management web application.",
         },
         {
             "name": "GitLab",
@@ -88,18 +71,17 @@ def quick_links(settings: Settings) -> list[dict[str, str]]:
         {
             "name": "Harbor",
             "url": settings.harbor_url,
-            "description": "Per-user Jupyter snapshot registry target.",
+            "description": "Container registry for ELT and supporting runtime images.",
         },
     ]
 
     if settings.airflow_url:
-        links.insert(
-            4,
+        links.append(
             {
                 "name": "Airflow",
                 "url": settings.airflow_url,
-                "description": "Optional workflow orchestration UI.",
-            },
+                "description": "DAG registration and schedule validation target.",
+            }
         )
 
     if settings.nexus_url:

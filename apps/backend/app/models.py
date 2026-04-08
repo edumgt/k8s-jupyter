@@ -334,3 +334,132 @@ class ControlPlaneLoginResponse(BaseModel):
     token: str
     username: str
     dashboard: ControlPlaneDashboardResponse
+
+
+class DataxflowCatalogSystem(BaseModel):
+    system_id: str
+    name: str
+    description: str
+
+
+class DataxflowCatalogTable(BaseModel):
+    system_id: str
+    table_name: str
+    description: str
+
+
+class DataxflowBatchFrequency(BaseModel):
+    code: str
+    label: str
+    cron_example: str
+
+
+class DataxflowCatalogResponse(BaseModel):
+    source_systems: list[DataxflowCatalogSystem]
+    source_tables: list[DataxflowCatalogTable]
+    target_systems: list[DataxflowCatalogSystem]
+    target_tables: list[DataxflowCatalogTable]
+    batch_frequencies: list[DataxflowBatchFrequency]
+
+
+class DataxflowJobCreateRequest(BaseModel):
+    name: str = Field(min_length=2, max_length=128)
+    description: str | None = Field(default=None, max_length=1000)
+    source_system_id: str = Field(min_length=3, max_length=64)
+    source_table: str = Field(min_length=3, max_length=128)
+    target_system_id: str = Field(min_length=3, max_length=64)
+    target_table: str = Field(min_length=3, max_length=128)
+    batch_frequency: str = Field(min_length=3, max_length=16)
+    load_condition: str = Field(min_length=1, max_length=2000)
+
+
+class DataxflowJobUpdateRequest(BaseModel):
+    name: str | None = Field(default=None, min_length=2, max_length=128)
+    description: str | None = Field(default=None, max_length=1000)
+    source_system_id: str | None = Field(default=None, min_length=3, max_length=64)
+    source_table: str | None = Field(default=None, min_length=3, max_length=128)
+    target_system_id: str | None = Field(default=None, min_length=3, max_length=64)
+    target_table: str | None = Field(default=None, min_length=3, max_length=128)
+    batch_frequency: str | None = Field(default=None, min_length=3, max_length=16)
+    load_condition: str | None = Field(default=None, min_length=1, max_length=2000)
+
+
+class DataxflowJobItem(BaseModel):
+    job_id: str
+    name: str
+    description: str
+    source_system_id: str
+    source_table: str
+    target_system_id: str
+    target_table: str
+    batch_frequency: str
+    load_condition: str
+    status: str
+    owner_username: str
+    owner_display_name: str
+    is_procedure_compiled: bool
+    compiled_procedure_name: str | None = None
+    airflow_dag_id: str | None = None
+    airflow_cron: str | None = None
+    last_run_status: str
+    last_run_at: str | None = None
+    last_run_duration_seconds: int | None = None
+    run_count: int
+    success_count: int
+    failure_count: int
+    last_compiled_by: str | None = None
+    last_compiled_at: str | None = None
+    last_registered_by: str | None = None
+    last_registered_at: str | None = None
+    created_at: str
+    updated_at: str
+
+
+class DataxflowJobListResponse(BaseModel):
+    items: list[DataxflowJobItem]
+
+
+class DataxflowRunItem(BaseModel):
+    run_id: str
+    job_id: str
+    job_name: str
+    status: str
+    duration_seconds: int
+    message: str
+    executed_by: str
+    executed_at: str
+
+
+class DataxflowJobRunResponse(BaseModel):
+    job: DataxflowJobItem
+    run: DataxflowRunItem
+
+
+class DataxflowAirflowRegisterRequest(BaseModel):
+    cron: str = Field(min_length=5, max_length=120)
+    dag_id: str | None = Field(default=None, min_length=3, max_length=80)
+
+
+class DataxflowOverviewSummary(BaseModel):
+    total_jobs: int
+    draft_jobs: int
+    tested_jobs: int
+    compiled_jobs: int
+    scheduled_jobs: int
+    failed_jobs: int
+    total_runs: int
+    successful_runs: int
+    failed_runs: int
+
+
+class DataxflowScheduleBreakdownItem(BaseModel):
+    frequency: str
+    label: str
+    count: int
+
+
+class DataxflowOverviewResponse(BaseModel):
+    summary: DataxflowOverviewSummary
+    schedule_breakdown: list[DataxflowScheduleBreakdownItem]
+    recent_runs: list[DataxflowRunItem]
+    jobs: list[DataxflowJobItem]

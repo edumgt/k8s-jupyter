@@ -8,14 +8,14 @@ ENV_FILE = os.getenv("PLATFORM_ENV_FILE", ".env")
 
 
 class Settings(BaseSettings):
-    app_name: str = "k8s-data-platform-api"
+    app_name: str = "dataxflow-api"
     env: str = "base"
     mongo_url: str = "mongodb://mongodb:27017/platform"
     redis_url: str = "redis://redis:6379/0"
-    backend_url: str = "http://localhost:30081/docs"
-    frontend_url: str = "http://localhost:30080"
-    control_plane_url: str = "http://localhost:30080/#control-plane"
-    admin_url: str = "http://localhost:30080/#sandbox-admin"
+    backend_url: str = "http://api.dataxflow.local/docs"
+    frontend_url: str = "http://dataxflow.local"
+    control_plane_url: str = "http://dataxflow.local/#control-plane"
+    admin_url: str = "http://dataxflow.local/#admin"
     airflow_url: str = "http://localhost:30090"
     jupyter_url: str = "http://localhost:30088/lab"
     gitlab_url: str = "http://localhost:30089"
@@ -58,13 +58,16 @@ class Settings(BaseSettings):
     teradata_fake_mode: bool = True
     teradata_encryptdata: bool = True
     cors_allow_origins: str = (
+        "http://dataxflow.local,"
+        "http://dev.dataxflow.local,"
+        "http://www.dataxflow.local,"
         "http://platform.local,"
         "http://dev.platform.local,"
         "http://www.platform.local,"
         "http://localhost:30080,"
         "http://localhost:5173"
     )
-    cors_allow_origin_regex: str = r"^https?://([a-z0-9-]+\.)?platform\.local(:\d+)?$"
+    cors_allow_origin_regex: str = r"^https?://([a-z0-9-]+\.)?(dataxflow|platform)\.local(:\d+)?$"
     cors_allow_credentials: bool = True
 
     model_config = SettingsConfigDict(
