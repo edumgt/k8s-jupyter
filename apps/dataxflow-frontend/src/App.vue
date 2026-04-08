@@ -343,6 +343,13 @@
                 <div><strong>Last Stop</strong> {{ formatDateTime(usageSummary.last_stop_at) }}</div>
                 <div v-if="usageSummary.pod_name"><strong>Pod</strong> {{ usageSummary.pod_name }}</div>
               </q-banner>
+
+              <div class="usage-chart-panel">
+                <div class="section-title">Usage Chart (Chart.js)</div>
+                <div class="usage-chart-shell">
+                  <canvas ref="usageChartCanvas" class="usage-chart-canvas" />
+                </div>
+              </div>
             </q-card-section>
           </q-card>
 
@@ -1283,8 +1290,10 @@
 </template>
 
 <script setup>
+import axios from "axios";
+import { Chart } from "chart.js/auto";
 import { Notify } from "quasar";
-import { computed, onMounted, onUnmounted, ref } from "vue";
+import { computed, nextTick, onMounted, onUnmounted, ref, watch } from "vue";
 import { AgGridVue } from "ag-grid-vue3";
 import frontendPackage from "../package.json";
 
@@ -1338,6 +1347,7 @@ const adminAnalysisEnvironments = ref([]);
 const governanceLoading = ref(false);
 const governanceAdminLoading = ref(false);
 const reviewLoading = ref({});
+const usageChartCanvas = ref(null);
 
 const resourceRequestForm = ref({
   vcpu: 2,
@@ -1386,6 +1396,7 @@ const queryResult = ref({
 
 let labPollHandle = null;
 let adminPollHandle = null;
+let usageChart = null;
 
 const isAuthenticated = computed(() => appSession.value.authenticated);
 const showDashboard = computed(() => authResolved.value && isAuthenticated.value);
@@ -1925,6 +1936,49 @@ async function parseJson(response) {
   return response.json();
 }
 
+function normalizeRequestBody(body, headers) {
+  if (typeof body !== "string") {
+    return body;
+  }
+  const contentType = Object.entries(headers || {}).find(
+    ([key]) => key.toLowerCase() === "content-type",
+  )?.[1];
+  if (typeof contentType === "string" && contentType.includes("application/json")) {
+    try {
+      return JSON.parse(body);
+    } catch {
+      return body;
+    }
+  }
+  return body;
+}
+
+async function apiFetch(url, options = {}) {
+  const method = String(options.method || "GET").toLowerCase();
+  const headers = { ...(options.headers || {}) };
+  const data = normalizeRequestBody(options.body, headers);
+  try {
+    const response = await axios.request({
+      url,
+      method,
+      headers,
+      data,
+      validateStatus: () => true,
+    });
+    return {
+      ok: response.status >= 200 && response.status < 300,
+      status: response.status,
+      json: async () => response.data,
+    };
+  } catch (error) {
+    if (axios.isAxiosError(error)) {
+      const message = error.response?.data?.detail || error.message || "Network request failed.";
+      throw new Error(message);
+    }
+    throw new Error("Network request failed.");
+  }
+}
+
 function waitForDelay(ms) {
   return new Promise((resolve) => {
     setTimeout(resolve, ms);
@@ -2079,9 +2133,75 @@ function stopAdminPolling() {
   }
 }
 
+function destroyUsageChart() {
+  if (usageChart) {
+    usageChart.destroy();
+    usageChart = null;
+  }
+}
+
+async function renderUsageChart() {
+  if (!isUser.value) {
+    destroyUsageChart();
+    return;
+  }
+  await nextTick();
+  if (!usageChartCanvas.value) {
+    return;
+  }
+
+  const usageTotals = [
+    Number(usageSummary.value.login_count || 0),
+    Number(usageSummary.value.launch_count || 0),
+    Math.round(Number(usageSummary.value.total_session_seconds || 0) / 60),
+    Math.round(Number(usageSummary.value.current_session_seconds || 0) / 60),
+  ];
+  const labels = ["Logins", "Launches", "Total Use (min)", "Current Use (min)"];
+
+  if (!usageChart) {
+    usageChart = new Chart(usageChartCanvas.value, {
+      type: "bar",
+      data: {
+        labels,
+        datasets: [
+          {
+            label: "Usage Summary",
+            data: usageTotals,
+            borderWidth: 1,
+            borderRadius: 10,
+            backgroundColor: ["#17485b", "#f1b24a", "#567b8c", "#8aa6b3"],
+          },
+        ],
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: {
+            display: false,
+          },
+        },
+        scales: {
+          y: {
+            beginAtZero: true,
+            ticks: {
+              precision: 0,
+            },
+          },
+        },
+      },
+    });
+    return;
+  }
+
+  usageChart.data.datasets[0].data = usageTotals;
+  usageChart.update();
+}
+
 function resetRoleScopedState() {
   stopLabPolling();
   stopAdminPolling();
+  destroyUsageChart();
   labSession.value = emptyLabSession();
   snapshotState.value = emptySnapshotState();
   userUsage.value = emptyUserUsage();
@@ -2110,7 +2230,7 @@ function resetRoleScopedState() {
 
 async function loadDemoUsers() {
   try {
-    const response = await fetch(`${apiBaseUrl}/api/demo-users`);
+    const response = await apiFetch(`${apiBaseUrl}/api/demo-users`);
     const payload = await parseJson(response);
     demoAccounts.value = payload.items;
   } catch {
@@ -2125,7 +2245,7 @@ async function loadUserUsage(options = {}) {
 
   usageLoading.value = true;
   try {
-    const response = await fetch(`${apiBaseUrl}/api/users/me/usage`, {
+    const response = await apiFetch(`${apiBaseUrl}/api/users/me/usage`, {
       headers: authHeaders(),
     });
     userUsage.value = await parseJson(response);
@@ -2149,10 +2269,10 @@ async function loadUserGovernanceData(options = {}) {
   governanceLoading.value = true;
   try {
     const [policyResponse, resourceResponse, environmentResponse, envCatalogResponse] = await Promise.all([
-      fetch(`${apiBaseUrl}/api/users/me/lab-policy`, { headers: authHeaders() }),
-      fetch(`${apiBaseUrl}/api/resource-requests/me`, { headers: authHeaders() }),
-      fetch(`${apiBaseUrl}/api/environment-requests/me`, { headers: authHeaders() }),
-      fetch(`${apiBaseUrl}/api/analysis-environments`, { headers: authHeaders() }),
+      apiFetch(`${apiBaseUrl}/api/users/me/lab-policy`, { headers: authHeaders() }),
+      apiFetch(`${apiBaseUrl}/api/resource-requests/me`, { headers: authHeaders() }),
+      apiFetch(`${apiBaseUrl}/api/environment-requests/me`, { headers: authHeaders() }),
+      apiFetch(`${apiBaseUrl}/api/analysis-environments`, { headers: authHeaders() }),
     ]);
     const [policyPayload, resourcePayload, environmentPayload, envCatalogPayload] = await Promise.all([
       parseJson(policyResponse),
@@ -2196,12 +2316,12 @@ async function loadAdminGovernanceData(options = {}) {
   governanceAdminLoading.value = true;
   try {
     const [usersResponse, envsResponse, resourceResponse, environmentResponse] = await Promise.all([
-      fetch(`${apiBaseUrl}/api/admin/users`, { headers: authHeaders() }),
-      fetch(`${apiBaseUrl}/api/admin/analysis-environments?include_inactive=true`, {
+      apiFetch(`${apiBaseUrl}/api/admin/users`, { headers: authHeaders() }),
+      apiFetch(`${apiBaseUrl}/api/admin/analysis-environments?include_inactive=true`, {
         headers: authHeaders(),
       }),
-      fetch(`${apiBaseUrl}/api/admin/resource-requests`, { headers: authHeaders() }),
-      fetch(`${apiBaseUrl}/api/admin/environment-requests`, { headers: authHeaders() }),
+      apiFetch(`${apiBaseUrl}/api/admin/resource-requests`, { headers: authHeaders() }),
+      apiFetch(`${apiBaseUrl}/api/admin/environment-requests`, { headers: authHeaders() }),
     ]);
     const [usersPayload, envsPayload, resourcePayload, environmentPayload] = await Promise.all([
       parseJson(usersResponse),
@@ -2232,7 +2352,7 @@ async function submitResourceRequest() {
 
   governanceLoading.value = true;
   try {
-    const response = await fetch(`${apiBaseUrl}/api/resource-requests`, {
+    const response = await apiFetch(`${apiBaseUrl}/api/resource-requests`, {
       method: "POST",
       headers: authHeaders({
         "Content-Type": "application/json",
@@ -2272,7 +2392,7 @@ async function submitEnvironmentRequest() {
 
   governanceLoading.value = true;
   try {
-    const response = await fetch(`${apiBaseUrl}/api/environment-requests`, {
+    const response = await apiFetch(`${apiBaseUrl}/api/environment-requests`, {
       method: "POST",
       headers: authHeaders({
         "Content-Type": "application/json",
@@ -2310,7 +2430,7 @@ async function createManagedUser() {
 
   governanceAdminLoading.value = true;
   try {
-    const response = await fetch(`${apiBaseUrl}/api/admin/users`, {
+    const response = await apiFetch(`${apiBaseUrl}/api/admin/users`, {
       method: "POST",
       headers: authHeaders({
         "Content-Type": "application/json",
@@ -2352,7 +2472,7 @@ async function upsertAnalysisEnvironment() {
 
   governanceAdminLoading.value = true;
   try {
-    const response = await fetch(`${apiBaseUrl}/api/admin/analysis-environments`, {
+    const response = await apiFetch(`${apiBaseUrl}/api/admin/analysis-environments`, {
       method: "POST",
       headers: authHeaders({
         "Content-Type": "application/json",
@@ -2396,7 +2516,7 @@ async function reviewResourceRequest(item, approved) {
     [key]: true,
   };
   try {
-    const response = await fetch(
+    const response = await apiFetch(
       `${apiBaseUrl}/api/admin/resource-requests/${encodeURIComponent(item.request_id)}/review`,
       {
         method: "POST",
@@ -2442,7 +2562,7 @@ async function reviewEnvironmentRequest(item, approved) {
     [key]: true,
   };
   try {
-    const response = await fetch(
+    const response = await apiFetch(
       `${apiBaseUrl}/api/admin/environment-requests/${encodeURIComponent(item.request_id)}/review`,
       {
         method: "POST",
@@ -2479,7 +2599,7 @@ async function restoreAuthSession() {
     return;
   }
   try {
-    const response = await fetch(`${apiBaseUrl}/api/auth/me`, {
+    const response = await apiFetch(`${apiBaseUrl}/api/auth/me`, {
       headers: authHeaders(),
     });
     const payload = await parseJson(response);
@@ -2502,7 +2622,7 @@ async function loginApp() {
 
   authLoading.value = true;
   try {
-    const response = await fetch(`${apiBaseUrl}/api/auth/login`, {
+    const response = await apiFetch(`${apiBaseUrl}/api/auth/login`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -2517,7 +2637,7 @@ async function loginApp() {
 
     let authenticatedUser = payload.user || null;
     if (!authenticatedUser) {
-      const meResponse = await fetch(`${apiBaseUrl}/api/auth/me`, {
+      const meResponse = await apiFetch(`${apiBaseUrl}/api/auth/me`, {
         headers: {
           Authorization: `Bearer ${authToken}`,
           "X-Auth-Token": authToken,
@@ -2581,7 +2701,7 @@ async function logoutApp() {
 
   authLoading.value = true;
   try {
-    await fetch(`${apiBaseUrl}/api/auth/logout`, {
+    await apiFetch(`${apiBaseUrl}/api/auth/logout`, {
       method: "POST",
       headers: authHeaders(),
     });
@@ -2600,7 +2720,7 @@ async function logoutApp() {
 async function loadDashboard() {
   loading.value = true;
   try {
-    const response = await fetch(`${apiBaseUrl}/api/dashboard`);
+    const response = await apiFetch(`${apiBaseUrl}/api/dashboard`);
     dashboard.value = await parseJson(response);
   } catch (error) {
     Notify.create({
@@ -2620,7 +2740,7 @@ async function runFirstQuery() {
 
   queryLoading.value = true;
   try {
-    const response = await fetch(`${apiBaseUrl}/api/teradata/query`, {
+    const response = await apiFetch(`${apiBaseUrl}/api/teradata/query`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -2656,7 +2776,7 @@ async function refreshLabSession(options = {}) {
 
   sessionLoading.value = true;
   try {
-    const response = await fetch(
+    const response = await apiFetch(
       `${apiBaseUrl}/api/jupyter/sessions/${encodeURIComponent(managedUsername.value)}`,
       {
         headers: authHeaders(),
@@ -2704,7 +2824,7 @@ async function waitForSnapshotCompletion(options = {}) {
 
   while (Date.now() < deadline) {
     try {
-      const response = await fetch(
+      const response = await apiFetch(
         `${apiBaseUrl}/api/jupyter/snapshots/${encodeURIComponent(managedUsername.value)}`,
         {
           headers: authHeaders(),
@@ -2762,7 +2882,7 @@ async function startLabSession() {
   sessionLoading.value = true;
   try {
     await waitForSnapshotCompletion();
-    const response = await fetch(`${apiBaseUrl}/api/jupyter/sessions`, {
+    const response = await apiFetch(`${apiBaseUrl}/api/jupyter/sessions`, {
       method: "POST",
       headers: authHeaders({
         "Content-Type": "application/json",
@@ -2806,7 +2926,7 @@ async function stopLabSession() {
 
   sessionLoading.value = true;
   try {
-    const response = await fetch(
+    const response = await apiFetch(
       `${apiBaseUrl}/api/jupyter/sessions/${encodeURIComponent(managedUsername.value)}`,
       {
         method: "DELETE",
@@ -2858,7 +2978,7 @@ async function refreshSnapshotStatus(options = {}) {
 
   snapshotLoading.value = true;
   try {
-    const response = await fetch(
+    const response = await apiFetch(
       `${apiBaseUrl}/api/jupyter/snapshots/${encodeURIComponent(managedUsername.value)}`,
       {
         headers: authHeaders(),
@@ -2892,7 +3012,7 @@ async function publishSnapshot() {
 
   snapshotLoading.value = true;
   try {
-    const response = await fetch(`${apiBaseUrl}/api/jupyter/snapshots`, {
+    const response = await apiFetch(`${apiBaseUrl}/api/jupyter/snapshots`, {
       method: "POST",
       headers: authHeaders({
         "Content-Type": "application/json",
@@ -2930,7 +3050,7 @@ async function loadAdminOverview(options = {}) {
 
   adminLoading.value = true;
   try {
-    const response = await fetch(`${apiBaseUrl}/api/admin/sandboxes`, {
+    const response = await apiFetch(`${apiBaseUrl}/api/admin/sandboxes`, {
       headers: authHeaders(),
     });
     adminOverview.value = await parseJson(response);
@@ -2956,7 +3076,7 @@ async function loadControlPlaneDashboard(options = {}) {
     loading: true,
   };
   try {
-    const response = await fetch(
+    const response = await apiFetch(
       `${apiBaseUrl}/api/control-plane/dashboard?namespace=${encodeURIComponent(controlPlane.value.namespace)}`,
       {
         headers: authHeaders(),
@@ -3003,7 +3123,7 @@ async function openLab() {
   }
 
   try {
-    const response = await fetch(
+    const response = await apiFetch(
       `${apiBaseUrl}/api/jupyter/connect/${encodeURIComponent(managedUsername.value)}`,
       {
         headers: authHeaders(),
@@ -3063,8 +3183,27 @@ onMounted(async () => {
   }
 });
 
+watch(
+  () => [
+    isUser.value,
+    usageSummary.value.login_count,
+    usageSummary.value.launch_count,
+    usageSummary.value.total_session_seconds,
+    usageSummary.value.current_session_seconds,
+  ],
+  async ([isUserMode]) => {
+    if (!isUserMode) {
+      destroyUsageChart();
+      return;
+    }
+    await renderUsageChart();
+  },
+  { immediate: true },
+);
+
 onUnmounted(() => {
   stopLabPolling();
   stopAdminPolling();
+  destroyUsageChart();
 });
 </script>

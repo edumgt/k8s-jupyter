@@ -55,6 +55,50 @@ class _FakeConnection:
         self.closed = True
 
 
+class _FakeSqlAlchemyResult:
+    def __init__(self) -> None:
+        self._rows = [
+            {"workload_name": "daily-sync", "workload_status": "RUNNING"},
+            {"workload_name": "inventory-refresh", "workload_status": "IDLE"},
+        ]
+
+    def keys(self) -> list[str]:
+        return ["workload_name", "workload_status"]
+
+    def mappings(self):
+        return self
+
+    def fetchmany(self, limit: int):
+        return self._rows[:limit]
+
+
+class _FakeSqlAlchemyConnection:
+    def __init__(self) -> None:
+        self.executed: list[str] = []
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc, tb):
+        return None
+
+    def execute(self, statement):
+        self.executed.append(str(statement))
+        return _FakeSqlAlchemyResult()
+
+
+class _FakeSqlAlchemyEngine:
+    def __init__(self) -> None:
+        self.connection = _FakeSqlAlchemyConnection()
+        self.disposed = False
+
+    def connect(self):
+        return self.connection
+
+    def dispose(self) -> None:
+        self.disposed = True
+
+
 class TeradataPostgresMockModeTests(unittest.TestCase):
     def setUp(self) -> None:
         self.settings = types.SimpleNamespace(
@@ -80,16 +124,16 @@ class TeradataPostgresMockModeTests(unittest.TestCase):
         self.assertIn("teradata-mock-postgres:5432/teradata_mock", summary["note"])
 
     def test_run_ansi_query_uses_postgres_driver(self) -> None:
-        conn = _FakeConnection()
-        fake_psycopg = self._psycopg_module(conn)
-        with patch.dict(sys.modules, {"psycopg": fake_psycopg}):
+        fake_engine = _FakeSqlAlchemyEngine()
+        with patch("sqlalchemy.create_engine", return_value=fake_engine):
             result = run_ansi_query(self.settings, "SELECT workload_name, workload_status FROM t", 2)
 
         self.assertEqual(result["source"], "postgres")
         self.assertEqual(result["columns"], ["workload_name", "workload_status"])
         self.assertEqual(len(result["rows"]), 2)
-        self.assertTrue(conn.closed)
-        self.assertTrue(conn.cursor_instance.executed)
+        self.assertTrue(fake_engine.disposed)
+        self.assertTrue(fake_engine.connection.executed)
+        self.assertIn("SQLAlchemy", result["note"])
 
     def test_bootstrap_executes_mock_sql_on_postgres_driver(self) -> None:
         conn = _FakeConnection()

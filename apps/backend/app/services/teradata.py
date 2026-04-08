@@ -36,6 +36,20 @@ def teradata_summary(settings: Settings) -> dict[str, str]:
     }
 
 
+def _postgres_connect_url(settings: Settings):
+    from sqlalchemy.engine import URL
+
+    return URL.create(
+        "postgresql+psycopg",
+        username=settings.teradata_user,
+        password=settings.teradata_password,
+        host=settings.teradata_host,
+        port=settings.teradata_port,
+        database=settings.teradata_database,
+        query={"sslmode": "require" if settings.teradata_encryptdata else "disable"},
+    )
+
+
 def run_ansi_query(settings: Settings, sql: str, limit: int) -> dict[str, Any]:
     if not READ_ONLY_SELECT.match(sql):
         raise HTTPException(status_code=400, detail="Only read-only ANSI SELECT statements are allowed.")
@@ -69,38 +83,33 @@ def run_ansi_query(settings: Settings, sql: str, limit: int) -> dict[str, Any]:
     dbms = _normalized_dbms(settings)
     if dbms == "postgres":
         try:
-            import psycopg
+            from sqlalchemy import create_engine, text
+            from sqlalchemy.pool import NullPool
         except ImportError as exc:
-            raise HTTPException(status_code=500, detail=f"psycopg import failed: {exc}") from exc
+            raise HTTPException(status_code=500, detail=f"SQLAlchemy import failed: {exc}") from exc
 
-        connection = None
+        engine = None
         try:
-            connect_kwargs = {
-                "host": settings.teradata_host,
-                "user": settings.teradata_user,
-                "password": settings.teradata_password,
-                "dbname": settings.teradata_database,
-                "sslmode": "require" if settings.teradata_encryptdata else "disable",
-            }
-            if settings.teradata_port:
-                connect_kwargs["port"] = settings.teradata_port
-
-            connection = psycopg.connect(**connect_kwargs)
-            with connection.cursor() as cursor:
-                cursor.execute(normalized_sql)
-                columns = [description[0] for description in cursor.description or []]
-                rows = [dict(zip(columns, row)) for row in cursor.fetchmany(limit)]
+            engine = create_engine(
+                _postgres_connect_url(settings),
+                pool_pre_ping=True,
+                poolclass=NullPool,
+            )
+            with engine.connect() as connection:
+                result = connection.execute(text(normalized_sql))
+                columns = list(result.keys())
+                rows = [dict(item) for item in result.mappings().fetchmany(limit)]
             return {
                 "columns": columns,
                 "rows": rows,
                 "source": "postgres",
-                "note": f"Fetched up to {limit} rows from PostgreSQL mock DB.",
+                "note": f"Fetched up to {limit} rows from PostgreSQL mock DB via SQLAlchemy.",
             }
         except Exception as exc:  # noqa: BLE001
             raise HTTPException(status_code=502, detail=f"PostgreSQL mock query failed: {exc}") from exc
         finally:
-            if connection is not None:
-                connection.close()
+            if engine is not None:
+                engine.dispose()
 
     if dbms != "teradata":
         raise HTTPException(status_code=400, detail=f"Unsupported PLATFORM_TERADATA_DBMS: {dbms}")
