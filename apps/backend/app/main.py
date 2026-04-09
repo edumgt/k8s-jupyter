@@ -196,6 +196,94 @@ def _lab_public_origin(settings) -> tuple[str, str]:
     return scheme, host
 
 
+def _normalize_request_host(value: str | None) -> str:
+    raw = str(value or "").strip()
+    if not raw:
+        return ""
+    candidate = raw.split(",", 1)[0].strip()
+    if "://" in candidate:
+        return (urlparse(candidate).hostname or "").strip().lower()
+    return candidate.split(":", 1)[0].strip().lower()
+
+
+def _request_hosts(
+    request_host: str | None = None,
+    origin: str | None = None,
+    referer: str | None = None,
+    x_forwarded_host: str | None = None,
+) -> tuple[str, ...]:
+    return tuple(
+        host
+        for host in (
+            _normalize_request_host(request_host),
+            _normalize_request_host(origin),
+            _normalize_request_host(referer),
+            _normalize_request_host(x_forwarded_host),
+        )
+        if host
+    )
+
+
+def _is_datax_module_request(
+    request_host: str | None = None,
+    origin: str | None = None,
+    referer: str | None = None,
+    x_forwarded_host: str | None = None,
+) -> bool:
+    hosts = _request_hosts(
+        request_host=request_host,
+        origin=origin,
+        referer=referer,
+        x_forwarded_host=x_forwarded_host,
+    )
+    return any(host == "dataxflow.local" or host.endswith(".dataxflow.local") for host in hosts if host)
+
+
+def _is_platform_module_request(
+    request_host: str | None = None,
+    origin: str | None = None,
+    referer: str | None = None,
+    x_forwarded_host: str | None = None,
+) -> bool:
+    hosts = _request_hosts(
+        request_host=request_host,
+        origin=origin,
+        referer=referer,
+        x_forwarded_host=x_forwarded_host,
+    )
+    return any(host == "platform.local" or host.endswith(".platform.local") for host in hosts if host)
+
+
+def _ensure_platform_jupyter_available(
+    request_host: str | None = None,
+    origin: str | None = None,
+    referer: str | None = None,
+    x_forwarded_host: str | None = None,
+) -> None:
+    if _is_datax_module_request(
+        request_host=request_host,
+        origin=origin,
+        referer=referer,
+        x_forwarded_host=x_forwarded_host,
+    ):
+        raise HTTPException(status_code=404, detail="Jupyter features are not available in the datax module.")
+
+
+def _ensure_datax_sql_available(
+    request_host: str | None = None,
+    origin: str | None = None,
+    referer: str | None = None,
+    x_forwarded_host: str | None = None,
+) -> None:
+    if _is_platform_module_request(
+        request_host=request_host,
+        origin=origin,
+        referer=referer,
+        x_forwarded_host=x_forwarded_host,
+    ):
+        raise HTTPException(status_code=404, detail="SQL query features are not available in the platform module.")
+
+
 @app.get("/healthz")
 def healthz() -> dict[str, object]:
     settings = get_settings()
@@ -302,8 +390,20 @@ def logout_demo_user(
 
 
 @app.get("/api/users/me/usage", response_model=UserUsageResponse)
-def read_my_usage(current_user=Depends(require_authenticated_user)) -> UserUsageResponse:
+def read_my_usage(
+    current_user=Depends(require_authenticated_user),
+    request_host: str | None = Header(default=None, alias="host"),
+    origin: str | None = Header(default=None),
+    referer: str | None = Header(default=None),
+    x_forwarded_host: str | None = Header(default=None),
+) -> UserUsageResponse:
     settings = get_settings()
+    _ensure_platform_jupyter_available(
+        request_host=request_host,
+        origin=origin,
+        referer=referer,
+        x_forwarded_host=x_forwarded_host,
+    )
     username = str(current_user["username"])
     try:
         return UserUsageResponse(**build_user_usage(settings, username))
@@ -446,10 +546,27 @@ def read_dataxflow_overview(
 
 
 @app.get("/api/dashboard", response_model=DashboardResponse)
-def dashboard() -> DashboardResponse:
+def dashboard(
+    request_host: str | None = Header(default=None, alias="host"),
+    origin: str | None = Header(default=None),
+    referer: str | None = Header(default=None),
+    x_forwarded_host: str | None = Header(default=None),
+) -> DashboardResponse:
     settings = get_settings()
     mongo_ok, mongo_detail = get_mongo_status(settings.mongo_url)
     redis_ok, redis_detail = get_redis_status(settings.redis_url)
+    datax_module_request = _is_datax_module_request(
+        request_host=request_host,
+        origin=origin,
+        referer=referer,
+        x_forwarded_host=x_forwarded_host,
+    )
+    platform_module_request = _is_platform_module_request(
+        request_host=request_host,
+        origin=origin,
+        referer=referer,
+        x_forwarded_host=x_forwarded_host,
+    )
 
     services = [
         {
@@ -479,13 +596,6 @@ def dashboard() -> DashboardResponse:
             "endpoint": settings.control_plane_url,
             "ok": True,
             "detail": "Frontend control-plane dashboard with node and pod inventory after admin login",
-        },
-        {
-            "name": "jupyter",
-            "kind": "workbench",
-            "endpoint": settings.jupyter_url,
-            "ok": True,
-            "detail": "Shared JupyterLab plus per-user Jupyter sessions with PVC workspace restore and Harbor snapshots",
         },
         {
             "name": "gitlab",
@@ -519,19 +629,43 @@ def dashboard() -> DashboardResponse:
             }
         )
 
+    if not datax_module_request:
+        services.insert(
+            4,
+            {
+                "name": "jupyter",
+                "kind": "workbench",
+                "endpoint": settings.jupyter_url,
+                "ok": True,
+                "detail": "Shared JupyterLab plus per-user Jupyter sessions with PVC workspace restore and Harbor snapshots",
+            },
+        )
+
     return DashboardResponse(
         runtime=runtime_profile(settings),
         services=services,
         quick_links=quick_links(settings),
-        sample_queries=sample_queries(),
-        notebooks=list_notebooks(settings.notebooks_path),
-        teradata=teradata_summary(settings),
+        sample_queries=[] if platform_module_request else sample_queries(),
+        notebooks=[] if datax_module_request else list_notebooks(settings.notebooks_path),
+        teradata={} if platform_module_request else teradata_summary(settings),
     )
 
 
 @app.post("/api/teradata/query", response_model=TeradataQueryResponse)
-def teradata_query(request: TeradataQueryRequest) -> TeradataQueryResponse:
+def teradata_query(
+    request: TeradataQueryRequest,
+    request_host: str | None = Header(default=None, alias="host"),
+    origin: str | None = Header(default=None),
+    referer: str | None = Header(default=None),
+    x_forwarded_host: str | None = Header(default=None),
+) -> TeradataQueryResponse:
     settings = get_settings()
+    _ensure_datax_sql_available(
+        request_host=request_host,
+        origin=origin,
+        referer=referer,
+        x_forwarded_host=x_forwarded_host,
+    )
     result = run_ansi_query(settings, request.sql, request.limit)
     return TeradataQueryResponse(**result)
 
@@ -540,8 +674,18 @@ def teradata_query(request: TeradataQueryRequest) -> TeradataQueryResponse:
 def bootstrap_teradata(
     request: TeradataBootstrapRequest,
     _current_user=Depends(require_admin_user),
+    request_host: str | None = Header(default=None, alias="host"),
+    origin: str | None = Header(default=None),
+    referer: str | None = Header(default=None),
+    x_forwarded_host: str | None = Header(default=None),
 ) -> TeradataBootstrapResponse:
     settings = get_settings()
+    _ensure_datax_sql_available(
+        request_host=request_host,
+        origin=origin,
+        referer=referer,
+        x_forwarded_host=x_forwarded_host,
+    )
     try:
         result = run_teradata_bootstrap(settings, dry_run=request.dry_run)
         return TeradataBootstrapResponse(**result)
@@ -715,8 +859,20 @@ def admin_review_environment_request(
 
 
 @app.get("/api/users/me/lab-policy", response_model=UserLabPolicyResponse)
-def read_my_lab_policy(current_user=Depends(require_authenticated_user)) -> UserLabPolicyResponse:
+def read_my_lab_policy(
+    current_user=Depends(require_authenticated_user),
+    request_host: str | None = Header(default=None, alias="host"),
+    origin: str | None = Header(default=None),
+    referer: str | None = Header(default=None),
+    x_forwarded_host: str | None = Header(default=None),
+) -> UserLabPolicyResponse:
     settings = get_settings()
+    _ensure_platform_jupyter_available(
+        request_host=request_host,
+        origin=origin,
+        referer=referer,
+        x_forwarded_host=x_forwarded_host,
+    )
     username = str(current_user["username"])
     try:
         return UserLabPolicyResponse(**get_user_lab_policy(settings, username))
@@ -728,8 +884,18 @@ def read_my_lab_policy(current_user=Depends(require_authenticated_user)) -> User
 def create_jupyter_session(
     request: LabSessionRequest,
     current_user=Depends(require_authenticated_user),
+    request_host: str | None = Header(default=None, alias="host"),
+    origin: str | None = Header(default=None),
+    referer: str | None = Header(default=None),
+    x_forwarded_host: str | None = Header(default=None),
 ) -> LabSessionResponse:
     settings = get_settings()
+    _ensure_platform_jupyter_available(
+        request_host=request_host,
+        origin=origin,
+        referer=referer,
+        x_forwarded_host=x_forwarded_host,
+    )
     try:
         username = authorize_username_access(current_user, request.username)
         if settings.lab_governance_enabled:
@@ -746,8 +912,18 @@ def create_jupyter_session(
 def read_jupyter_session(
     username: str,
     current_user=Depends(require_authenticated_user),
+    request_host: str | None = Header(default=None, alias="host"),
+    origin: str | None = Header(default=None),
+    referer: str | None = Header(default=None),
+    x_forwarded_host: str | None = Header(default=None),
 ) -> LabSessionResponse:
     settings = get_settings()
+    _ensure_platform_jupyter_available(
+        request_host=request_host,
+        origin=origin,
+        referer=referer,
+        x_forwarded_host=x_forwarded_host,
+    )
     try:
         allowed_username = authorize_username_access(current_user, username)
         return LabSessionResponse(**get_lab_session(settings, allowed_username))
@@ -761,8 +937,18 @@ def read_jupyter_session(
 def remove_jupyter_session(
     username: str,
     current_user=Depends(require_authenticated_user),
+    request_host: str | None = Header(default=None, alias="host"),
+    origin: str | None = Header(default=None),
+    referer: str | None = Header(default=None),
+    x_forwarded_host: str | None = Header(default=None),
 ) -> LabSessionResponse:
     settings = get_settings()
+    _ensure_platform_jupyter_available(
+        request_host=request_host,
+        origin=origin,
+        referer=referer,
+        x_forwarded_host=x_forwarded_host,
+    )
     try:
         allowed_username = authorize_username_access(current_user, username)
         return LabSessionResponse(**delete_lab_session(settings, allowed_username))
@@ -776,8 +962,18 @@ def remove_jupyter_session(
 def connect_jupyter_session(
     username: str,
     current_user=Depends(require_authenticated_user),
+    request_host: str | None = Header(default=None, alias="host"),
+    origin: str | None = Header(default=None),
+    referer: str | None = Header(default=None),
+    x_forwarded_host: str | None = Header(default=None),
 ) -> LabConnectResponse:
     settings = get_settings()
+    _ensure_platform_jupyter_available(
+        request_host=request_host,
+        origin=origin,
+        referer=referer,
+        x_forwarded_host=x_forwarded_host,
+    )
     try:
         allowed_username = authorize_username_access(current_user, username)
         session = get_lab_session(settings, allowed_username)
@@ -819,8 +1015,18 @@ def connect_jupyter_session(
 def read_jupyter_snapshot(
     username: str,
     current_user=Depends(require_authenticated_user),
+    request_host: str | None = Header(default=None, alias="host"),
+    origin: str | None = Header(default=None),
+    referer: str | None = Header(default=None),
+    x_forwarded_host: str | None = Header(default=None),
 ) -> SnapshotStatusResponse:
     settings = get_settings()
+    _ensure_platform_jupyter_available(
+        request_host=request_host,
+        origin=origin,
+        referer=referer,
+        x_forwarded_host=x_forwarded_host,
+    )
     try:
         allowed_username = authorize_username_access(current_user, username)
         return SnapshotStatusResponse(**get_snapshot_status(settings, allowed_username))
@@ -834,8 +1040,18 @@ def read_jupyter_snapshot(
 def publish_jupyter_snapshot(
     request: LabSessionRequest,
     current_user=Depends(require_authenticated_user),
+    request_host: str | None = Header(default=None, alias="host"),
+    origin: str | None = Header(default=None),
+    referer: str | None = Header(default=None),
+    x_forwarded_host: str | None = Header(default=None),
 ) -> SnapshotStatusResponse:
     settings = get_settings()
+    _ensure_platform_jupyter_available(
+        request_host=request_host,
+        origin=origin,
+        referer=referer,
+        x_forwarded_host=x_forwarded_host,
+    )
     try:
         username = authorize_username_access(current_user, request.username)
         return SnapshotStatusResponse(**create_snapshot_publish_job(settings, username))
@@ -846,8 +1062,20 @@ def publish_jupyter_snapshot(
 
 
 @app.get("/api/admin/sandboxes", response_model=AdminSandboxOverviewResponse)
-def read_admin_sandbox_overview(_current_user=Depends(require_admin_user)) -> AdminSandboxOverviewResponse:
+def read_admin_sandbox_overview(
+    _current_user=Depends(require_admin_user),
+    request_host: str | None = Header(default=None, alias="host"),
+    origin: str | None = Header(default=None),
+    referer: str | None = Header(default=None),
+    x_forwarded_host: str | None = Header(default=None),
+) -> AdminSandboxOverviewResponse:
     settings = get_settings()
+    _ensure_platform_jupyter_available(
+        request_host=request_host,
+        origin=origin,
+        referer=referer,
+        x_forwarded_host=x_forwarded_host,
+    )
     try:
         return AdminSandboxOverviewResponse(**build_admin_overview(settings))
     except ValueError as exc:

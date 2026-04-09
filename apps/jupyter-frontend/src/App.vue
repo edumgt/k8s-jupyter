@@ -1,5 +1,51 @@
 <template>
   <q-layout view="lHh Lpr lFf">
+    <q-header v-if="showDashboard" bordered class="gnb-shell">
+      <q-toolbar class="gnb-toolbar">
+        <q-btn
+          flat
+          round
+          dense
+          color="dark"
+          icon="menu"
+          aria-label="Toggle navigation menu"
+          class="gnb-toggle"
+          @click="leftDrawerOpen = !leftDrawerOpen"
+        />
+
+        <div class="gnb-brand">
+          <div class="gnb-eyebrow">K8s Data Platform OVA</div>
+          <div class="gnb-title">Platform Sandbox Portal</div>
+        </div>
+
+        <q-space />
+
+        <div class="gnb-actions">
+          <q-btn
+            outline
+            color="dark"
+            no-caps
+            icon="refresh"
+            label="Reload Dashboard"
+            :loading="loading"
+            @click="loadDashboard"
+          />
+          <q-chip square color="white" text-color="dark" icon="person" class="gnb-user-chip">
+            {{ appSession.user.display_name }} ({{ appSession.user.role }})
+          </q-chip>
+          <q-btn
+            flat
+            color="negative"
+            no-caps
+            icon="logout"
+            label="Logout"
+            :loading="authLoading"
+            @click="logoutApp"
+          />
+        </div>
+      </q-toolbar>
+    </q-header>
+
     <q-page-container>
       <q-page :class="['page-shell', { 'page-shell-with-offcanvas': showDashboard && leftDrawerOpen }]">
         <aside v-if="showDashboard" class="offcanvas-panel" :class="{ 'is-open': leftDrawerOpen }">
@@ -115,110 +161,6 @@
         </section>
 
         <template v-else>
-          <q-btn
-            class="offcanvas-toggle"
-            :class="{ 'offcanvas-toggle-shifted': leftDrawerOpen }"
-            round
-            dense
-            unelevated
-            color="dark"
-            icon="menu"
-            aria-label="Toggle navigation menu"
-            @click="leftDrawerOpen = !leftDrawerOpen"
-          />
-
-          <section id="overview-panel" class="hero-panel nav-anchor">
-            <div class="eyebrow">K8s Data Platform OVA</div>
-            <h1>데모 사용자 로그인부터 Jupyter sandbox, 관리자 모니터링까지 한 화면에서</h1>
-            <p>
-              `test1@test.com`, `test2@test.com` 사용자는 로그인 후 본인 전용 Jupyter pod를 실행할 수
-              있고, `admin@test.com` 관리자는 사용자별 실행 여부, 사용시간, 사용회수와 cluster
-              inventory를 같은 웹앱에서 확인할 수 있습니다.
-            </p>
-            <div class="hero-actions">
-              <q-btn
-                color="dark"
-                unelevated
-                no-caps
-                icon="refresh"
-                label="Reload Dashboard"
-                @click="loadDashboard"
-              />
-              <q-btn
-                outline
-                color="dark"
-                no-caps
-                icon="play_circle"
-                label="Run ANSI SQL"
-                @click="runFirstQuery"
-              />
-            </div>
-            <div class="chip-grid">
-              <q-chip color="white" text-color="dark" square>
-                <strong>frontend</strong>&nbsp;v{{ frontendAppVersion }}
-              </q-chip>
-              <q-chip color="white" text-color="dark" square>
-                <strong>backend</strong>&nbsp;v{{ backendAppVersion }}
-              </q-chip>
-            </div>
-          </section>
-
-          <section id="session-panel" class="content-grid nav-anchor">
-            <q-card flat class="surface-card auth-card">
-              <q-card-section>
-                <div class="row items-center justify-between q-col-gutter-md">
-                  <div>
-                    <div class="section-title">Sandbox Login</div>
-                    <div class="card-title">데모 사용자 / 관리자 인증</div>
-                  </div>
-                  <q-badge color="positive" rounded>
-                    {{ appSession.user.role }}
-                  </q-badge>
-                </div>
-
-                <p class="muted">
-                  사용자는 본인 계정으로만 Jupyter sandbox를 시작할 수 있고, 관리자는 별도 관리자
-                  모드에서 사용자 sandbox 사용 현황과 control plane을 모니터링합니다.
-                </p>
-
-                <div class="auth-session-bar">
-                  <div class="chip-grid">
-                    <q-chip color="white" text-color="dark" square>
-                      <strong>User</strong>&nbsp;{{ appSession.user.display_name }}
-                    </q-chip>
-                    <q-chip color="white" text-color="dark" square>
-                      <strong>Email</strong>&nbsp;{{ appSession.user.username }}
-                    </q-chip>
-                    <q-chip color="white" text-color="dark" square>
-                      <strong>Role</strong>&nbsp;{{ appSession.user.role }}
-                    </q-chip>
-                  </div>
-                  <div class="hero-actions">
-                    <q-btn
-                      v-if="isAdmin"
-                      outline
-                      color="dark"
-                      no-caps
-                      icon="monitor"
-                      label="Refresh Admin Overview"
-                      :loading="adminLoading"
-                      @click="loadAdminOverview"
-                    />
-                    <q-btn
-                      flat
-                      color="negative"
-                      no-caps
-                      icon="logout"
-                      label="Logout"
-                      :loading="authLoading"
-                      @click="logoutApp"
-                    />
-                  </div>
-                </div>
-              </q-card-section>
-            </q-card>
-          </section>
-
         <section v-if="isUser" id="user-lab-panel" class="content-grid nav-anchor">
           <q-card flat class="surface-card lab-card">
             <q-card-section>
@@ -272,7 +214,7 @@
                   no-caps
                   icon="open_in_new"
                   label="Open Lab"
-                  :disable="!labSession.ready"
+                  :disable="!labConnectReady"
                   @click="openLab"
                 />
                 <q-btn
@@ -1198,7 +1140,7 @@
           </q-card>
         </section>
 
-        <section id="sample-panel" class="content-grid nav-anchor">
+        <section v-if="showSqlModule" id="sample-panel" class="content-grid nav-anchor">
           <q-card flat class="surface-card">
             <q-card-section>
               <div class="section-title">Sample ANSI SQL</div>
@@ -1241,7 +1183,7 @@
           </q-card>
         </section>
 
-        <section id="query-panel" class="content-grid nav-anchor">
+        <section v-if="showSqlModule" id="query-panel" class="content-grid nav-anchor">
           <q-card flat class="surface-card">
             <q-card-section>
               <div class="section-title">Teradata Mode</div>
@@ -1286,12 +1228,10 @@
 import { Notify } from "quasar";
 import { computed, onMounted, onUnmounted, ref } from "vue";
 import { AgGridVue } from "ag-grid-vue3";
-import frontendPackage from "../package.json";
 
 const browserProtocol = typeof window !== "undefined" ? window.location.protocol : "http:";
 const browserHost = typeof window !== "undefined" ? window.location.hostname : "localhost";
 const apiBaseUrl = import.meta.env.VITE_API_BASE_URL || `${browserProtocol}//${browserHost}`;
-const frontendAppVersion = frontendPackage.version;
 
 const savedAuthToken =
   typeof window !== "undefined" ? window.localStorage.getItem("appAuthToken") || "" : "";
@@ -1392,7 +1332,6 @@ const showDashboard = computed(() => authResolved.value && isAuthenticated.value
 const isAdmin = computed(() => appSession.value.user?.role === "admin");
 const isUser = computed(() => appSession.value.user?.role === "user");
 const managedUsername = computed(() => (isUser.value ? appSession.value.user.username : ""));
-const backendAppVersion = computed(() => dashboard.value.runtime.backend_version || "-");
 const usageSummary = computed(() => userUsage.value.summary);
 const analysisEnvironmentOptions = computed(() =>
   availableAnalysisEnvs.value.map((item) => ({
@@ -1453,18 +1392,6 @@ const menuNavLinks = computed(() => {
 
   const links = [
     {
-      id: "overview-panel",
-      label: "대시보드 개요",
-      icon: "space_dashboard",
-      description: "서비스와 버전 상태 요약",
-    },
-    {
-      id: "session-panel",
-      label: "세션 정보",
-      icon: "manage_accounts",
-      description: "로그인 사용자와 역할",
-    },
-    {
       id: "services-panel",
       label: "서비스 상태",
       icon: "dns",
@@ -1509,20 +1436,24 @@ const featureNavLinks = computed(() => {
     return [];
   }
 
-  const links = [
-    {
-      id: "sample-panel",
-      label: "Sample ANSI SQL",
-      icon: "dataset",
-      description: "샘플 쿼리 목록",
-    },
-    {
-      id: "query-panel",
-      label: "Query Result",
-      icon: "table_view",
-      description: "Teradata 응답 미리보기",
-    },
-  ];
+  const links = [];
+
+  if (showSqlModule.value) {
+    links.push(
+      {
+        id: "sample-panel",
+        label: "Sample ANSI SQL",
+        icon: "dataset",
+        description: "샘플 쿼리 목록",
+      },
+      {
+        id: "query-panel",
+        label: "Query Result",
+        icon: "table_view",
+        description: "Teradata 응답 미리보기",
+      },
+    );
+  }
 
   if (isUser.value) {
     links.unshift(
@@ -1654,6 +1585,12 @@ const controlPlaneMessage = computed(() => {
   }
   return `Loaded ${controlPlane.value.nodes.length} nodes and ${controlPlane.value.pods.length} pods.`;
 });
+
+const showSqlModule = computed(
+  () => Array.isArray(dashboard.value.sample_queries) && dashboard.value.sample_queries.length > 0,
+);
+
+const labConnectReady = computed(() => labSession.value.ready || labSession.value.status === "ready");
 
 const queryColumns = [
   { name: "name", label: "Query", field: "name", align: "left" },
@@ -2602,6 +2539,12 @@ async function loadDashboard() {
   try {
     const response = await fetch(`${apiBaseUrl}/api/dashboard`);
     dashboard.value = await parseJson(response);
+    if (!Array.isArray(dashboard.value.sample_queries) || dashboard.value.sample_queries.length === 0) {
+      queryResult.value = {
+        columns: [],
+        rows: [],
+      };
+    }
   } catch (error) {
     Notify.create({
       type: "negative",
@@ -2994,12 +2937,24 @@ async function openLab() {
     });
     return;
   }
-  if (!labSession.value.ready) {
+  if (!labConnectReady.value) {
     Notify.create({
       type: "warning",
       message: "JupyterLab is not ready yet.",
     });
     return;
+  }
+
+  const pendingWindowName = `jupyter-lab-${managedUsername.value.replace(/[^a-z0-9_-]/gi, "-")}`;
+  let pendingWindow = null;
+  try {
+    pendingWindow = window.open("about:blank", pendingWindowName);
+    if (pendingWindow && pendingWindow.document) {
+      pendingWindow.document.title = "Opening JupyterLab";
+      pendingWindow.document.body.innerHTML = "<p>Opening JupyterLab...</p>";
+    }
+  } catch {
+    pendingWindow = null;
   }
 
   try {
@@ -3010,10 +2965,28 @@ async function openLab() {
       },
     );
     const payload = await parseJson(response);
-    window.open(payload.redirect_url, "_blank", "noopener");
+    const redirectUrl = payload.redirect_url || labLaunchUrl.value;
+    if (!redirectUrl) {
+      throw new Error("JupyterLab redirect URL is unavailable.");
+    }
+
+    if (pendingWindow && !pendingWindow.closed) {
+      try {
+        pendingWindow.opener = null;
+      } catch {}
+      pendingWindow.location.replace(redirectUrl);
+      if (typeof pendingWindow.focus === "function") {
+        pendingWindow.focus();
+      }
+    } else {
+      window.open(redirectUrl, pendingWindowName, "noopener");
+    }
   } catch (error) {
+    if (pendingWindow && !pendingWindow.closed) {
+      pendingWindow.close();
+    }
     if (labLaunchUrl.value) {
-      window.open(labLaunchUrl.value, "_blank", "noopener");
+      window.open(labLaunchUrl.value, pendingWindowName, "noopener");
       Notify.create({
         type: "warning",
         message: `Connect API fallback used: ${error.message}`,
