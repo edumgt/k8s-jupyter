@@ -25,7 +25,7 @@ spec:
     spec:
       containers:
         - name: frontend
-          image: harbor.local/data-platform/k8s-data-platform-frontend:latest
+          image: harbor.local/data-platform/k8s-dataxflow-frontend:latest
           imagePullPolicy: IfNotPresent
           ports:
             - containerPort: 80

@@ -3,7 +3,7 @@
 `dataxflow.local`용 Vue3 + Quasar SPA 프론트엔드입니다.
 
 ## 배포 대상
-- Harbor image: `harbor.local/${HARBOR_PROJECT:-data-platform}/k8s-data-platform-frontend`
+- Harbor image: `harbor.local/${HARBOR_PROJECT:-data-platform}/k8s-dataxflow-frontend`
 - Kubernetes deployment: `frontend` (`infra/k8s/dataxflow/overlays/dev/frontend.yaml`)
 
 ## 로컬 실행

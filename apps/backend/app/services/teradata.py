@@ -50,6 +50,11 @@ def _postgres_connect_url(settings: Settings):
     )
 
 
+def _is_missing_relation_error(exc: Exception) -> bool:
+    message = str(exc).lower()
+    return "relation" in message and "does not exist" in message
+
+
 def run_ansi_query(settings: Settings, sql: str, limit: int) -> dict[str, Any]:
     if not READ_ONLY_SELECT.match(sql):
         raise HTTPException(status_code=400, detail="Only read-only ANSI SELECT statements are allowed.")
@@ -106,6 +111,15 @@ def run_ansi_query(settings: Settings, sql: str, limit: int) -> dict[str, Any]:
                 "note": f"Fetched up to {limit} rows from PostgreSQL mock DB via SQLAlchemy.",
             }
         except Exception as exc:  # noqa: BLE001
+            if _is_missing_relation_error(exc):
+                raise HTTPException(
+                    status_code=502,
+                    detail=(
+                        "PostgreSQL mock schema is not initialized. "
+                        "Run '/api/admin/teradata/bootstrap' with dry_run=false first. "
+                        f"Original error: {exc}"
+                    ),
+                ) from exc
             raise HTTPException(status_code=502, detail=f"PostgreSQL mock query failed: {exc}") from exc
         finally:
             if engine is not None:

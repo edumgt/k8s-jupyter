@@ -187,7 +187,8 @@ SUPPORT_IMAGES=(
 
 PLATFORM_IMAGES=(
   "backend|apps/backend|$(platform_app_image backend)|"
-  "frontend|apps/dataxflow-frontend|$(platform_app_image frontend)|"
+  "frontend|apps/frontend|$(platform_app_image frontend)|"
+  "dataxflow-frontend|apps/dataxflow-frontend|$(image_registry_prefix)/k8s-dataxflow-frontend:${IMAGE_TAG}|"
   "airflow|apps/airflow|$(platform_app_image airflow)|"
   "jupyter|apps/jupyter|$(platform_app_image jupyter)|"
 )

@@ -20,3 +20,4 @@ infra/k8s/runner/secret.local.yaml
 packer/packer_cache/
 *.ova
 tmp/pwcap/node_modules/
+*.docx

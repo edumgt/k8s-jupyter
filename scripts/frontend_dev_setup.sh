@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-APP_DIR="${APP_DIR:-/opt/k8s-data-platform/apps/dataxflow-frontend}"
+APP_DIR="${APP_DIR:-/opt/k8s-data-platform/apps/frontend}"
 CACHE_DIR="${CACHE_DIR:-/opt/k8s-data-platform/offline-bundle/npm-cache}"
 NPM_REGISTRY="${NPM_REGISTRY:-http://127.0.0.1:30091/repository/npm-group/}"
 NPM_USERNAME="${NPM_USERNAME:-}"

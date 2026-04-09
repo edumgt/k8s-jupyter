@@ -26,7 +26,74 @@
     </q-header>
 
     <q-page-container>
-      <q-page class="page-shell">
+      <q-page :class="['page-shell', { 'page-shell-with-offcanvas': isAuthenticated && leftDrawerOpen }]">
+        <aside v-if="isAuthenticated" class="offcanvas-panel" :class="{ 'is-open': leftDrawerOpen }">
+          <div class="offcanvas-head">
+            <div class="section-eyebrow">ELT Navigation</div>
+            <div class="section-title">업무 메뉴</div>
+          </div>
+          <div class="offcanvas-section">
+            <div class="offcanvas-group-title">Workflow</div>
+            <q-list class="offcanvas-list" separator>
+              <q-item
+                v-for="item in workflowMenu"
+                :key="item.id"
+                clickable
+                v-ripple
+                class="offcanvas-link-item"
+                @click="moveToPanel(item.id)"
+              >
+                <q-item-section avatar>
+                  <q-icon :name="item.icon" color="dark" />
+                </q-item-section>
+                <q-item-section>
+                  <q-item-label>{{ item.label }}</q-item-label>
+                  <q-item-label caption>{{ item.caption }}</q-item-label>
+                </q-item-section>
+              </q-item>
+            </q-list>
+          </div>
+          <div class="offcanvas-section">
+            <div class="offcanvas-group-title">Quick Action</div>
+            <div class="hero-actions">
+              <q-btn
+                outline
+                color="dark"
+                no-caps
+                icon="refresh"
+                label="업무 현황"
+                :loading="overviewLoading"
+                @click="loadOverview"
+              />
+              <q-btn
+                outline
+                color="dark"
+                no-caps
+                icon="table_view"
+                label="카탈로그"
+                :loading="catalogLoading"
+                @click="loadCatalog"
+              />
+            </div>
+          </div>
+        </aside>
+        <div
+          v-if="isAuthenticated && leftDrawerOpen"
+          class="offcanvas-backdrop"
+          @click="leftDrawerOpen = false"
+        />
+        <q-btn
+          v-if="isAuthenticated"
+          class="offcanvas-toggle"
+          :class="{ 'offcanvas-toggle-shifted': leftDrawerOpen }"
+          round
+          dense
+          unelevated
+          color="dark"
+          icon="menu"
+          aria-label="ELT 메뉴 열기"
+          @click="leftDrawerOpen = !leftDrawerOpen"
+        />
         <section v-if="!isAuthenticated" class="login-shell">
           <q-card flat class="surface-card login-card">
             <q-card-section>
@@ -85,7 +152,7 @@
         </section>
 
         <template v-else>
-          <section class="hero-panel surface-card">
+          <section id="overview-panel" class="hero-panel surface-card panel-anchor">
             <div class="hero-header">
               <div>
                 <div class="section-eyebrow">RFP Workflow</div>
@@ -125,7 +192,7 @@
             </div>
           </section>
 
-          <section class="kpi-grid">
+          <section id="kpi-panel" class="kpi-grid panel-anchor">
             <q-card v-for="card in kpiCards" :key="card.key" flat class="surface-card kpi-card">
               <q-card-section>
                 <div class="kpi-label">{{ card.label }}</div>
@@ -135,7 +202,7 @@
             </q-card>
           </section>
 
-          <section class="main-grid">
+          <section id="batch-job-panel" class="main-grid panel-anchor">
             <q-card flat class="surface-card">
               <q-card-section>
                 <div class="row items-center justify-between">
@@ -279,8 +346,8 @@
             </q-card>
           </section>
 
-          <section class="table-grid">
-            <q-card flat class="surface-card">
+          <section id="jobs-panel" class="table-grid panel-anchor">
+            <q-card id="job-inventory-panel" flat class="surface-card panel-anchor">
               <q-card-section>
                 <div class="row items-center justify-between q-mb-sm">
                   <div>
@@ -358,7 +425,7 @@
               </q-card-section>
             </q-card>
 
-            <q-card flat class="surface-card">
+            <q-card id="run-history-panel" flat class="surface-card panel-anchor">
               <q-card-section>
                 <div class="section-eyebrow">Run History</div>
                 <div class="section-title">최근 실행 이력</div>
@@ -381,6 +448,58 @@
                     <q-td :props="props">{{ formatDateTime(props.value) }}</q-td>
                   </template>
                 </q-table>
+              </q-card-section>
+            </q-card>
+          </section>
+
+          <section v-if="isAdmin" id="bootstrap-panel" class="table-grid panel-anchor">
+            <q-card flat class="surface-card">
+              <q-card-section>
+                <div class="section-eyebrow">Admin Setup</div>
+                <div class="section-title">Teradata Stored Procedure 초기 세팅</div>
+                <p class="hero-description q-mt-sm">
+                  RFP 기준으로 관리자 계정에서 초기 Stored Procedure/메타데이터 구성을 실행합니다.
+                  먼저 Dry Run으로 SQL statement를 검증한 뒤 Execute를 진행하세요.
+                </p>
+
+                <div class="row q-gutter-sm q-mt-md">
+                  <q-btn
+                    color="dark"
+                    unelevated
+                    no-caps
+                    icon="fact_check"
+                    label="Dry Run"
+                    :loading="bootstrapLoading"
+                    @click="runTeradataBootstrap(true)"
+                  />
+                  <q-btn
+                    color="deep-orange"
+                    unelevated
+                    no-caps
+                    icon="play_circle"
+                    label="Execute"
+                    :loading="bootstrapLoading"
+                    @click="runTeradataBootstrap(false)"
+                  />
+                </div>
+
+                <q-banner v-if="bootstrapResult" rounded class="q-mt-md banner-note">
+                  <div><strong>Mode:</strong> {{ bootstrapResult.mode }}</div>
+                  <div><strong>Source:</strong> {{ bootstrapResult.source_file }}</div>
+                  <div>
+                    <strong>Statements:</strong> {{ bootstrapResult.statement_count }} (executed:
+                    {{ bootstrapResult.executed_count }})
+                  </div>
+                  <div><strong>Note:</strong> {{ bootstrapResult.note }}</div>
+                  <div v-if="bootstrapResult.statement_previews?.length" class="q-mt-sm">
+                    <strong>Preview</strong>
+                    <ul class="bootstrap-preview-list">
+                      <li v-for="(preview, idx) in bootstrapResult.statement_previews" :key="idx">
+                        {{ preview }}
+                      </li>
+                    </ul>
+                  </div>
+                </q-banner>
               </q-card-section>
             </q-card>
           </section>
@@ -572,8 +691,12 @@ const scheduleChartCanvas = ref(null);
 const runChartCanvas = ref(null);
 let scheduleChart = null;
 let runChart = null;
+const leftDrawerOpen = ref(typeof window !== "undefined" ? window.innerWidth >= 1180 : true);
+const bootstrapLoading = ref(false);
+const bootstrapResult = ref(null);
 
 const isAuthenticated = computed(() => Boolean(session.value?.user?.username));
+const isAdmin = computed(() => session.value?.user?.role === "admin");
 const canLogin = computed(() => Boolean(loginForm.username.trim() && loginForm.password.trim()));
 
 const jobs = computed(() => overview.value.jobs || []);
@@ -628,6 +751,51 @@ const kpiCards = computed(() => [
     note: "최근 실행 실패 기준",
   },
 ]);
+
+const workflowMenu = computed(() => {
+  const base = [
+    {
+      id: "overview-panel",
+      label: "업무 개요",
+      caption: "ELT 실행 흐름",
+      icon: "dashboard",
+    },
+    {
+      id: "kpi-panel",
+      label: "KPI",
+      caption: "배치 상태 지표",
+      icon: "monitoring",
+    },
+    {
+      id: "batch-job-panel",
+      label: "배치잡 등록",
+      caption: "소스/타겟/주기 설정",
+      icon: "post_add",
+    },
+    {
+      id: "job-inventory-panel",
+      label: "배치잡 목록",
+      caption: "실행/컴파일/Airflow 등록",
+      icon: "table_view",
+    },
+    {
+      id: "run-history-panel",
+      label: "실행 이력",
+      caption: "최근 실행 결과",
+      icon: "history",
+    },
+  ];
+
+  if (isAdmin.value) {
+    base.push({
+      id: "bootstrap-panel",
+      label: "관리자 초기세팅",
+      caption: "Stored Procedure bootstrap",
+      icon: "admin_panel_settings",
+    });
+  }
+  return base;
+});
 
 const jobColumns = [
   {
@@ -810,6 +978,22 @@ function useDemoAccount(username, password) {
   loginForm.password = password;
 }
 
+function moveToPanel(panelId) {
+  if (typeof window === "undefined") {
+    return;
+  }
+  const element = document.getElementById(panelId);
+  if (element) {
+    element.scrollIntoView({
+      behavior: "smooth",
+      block: "start",
+    });
+  }
+  if (window.innerWidth < 1024) {
+    leftDrawerOpen.value = false;
+  }
+}
+
 function resetJobForm() {
   jobForm.name = "";
   jobForm.description = "";
@@ -918,6 +1102,7 @@ async function logout() {
     session.value = null;
     overview.value = emptyOverview();
     catalog.value = emptyCatalog();
+    bootstrapResult.value = null;
     cancelEdit();
     authLoading.value = false;
   }
@@ -1049,6 +1234,24 @@ async function registerAirflow() {
   } finally {
     airflowDialog.loading = false;
     setActionLoading(airflowDialog.jobId, "airflow", false);
+  }
+}
+
+async function runTeradataBootstrap(dryRun) {
+  if (!isAdmin.value || bootstrapLoading.value) {
+    return;
+  }
+  bootstrapLoading.value = true;
+  try {
+    const { data } = await api.post("/api/admin/teradata/bootstrap", {
+      dry_run: Boolean(dryRun),
+    });
+    bootstrapResult.value = data;
+    notifyPositive(dryRun ? "Teradata bootstrap dry-run 완료" : "Teradata bootstrap 실행 완료");
+  } catch (error) {
+    notifyError(error, dryRun ? "Teradata bootstrap dry-run 실패" : "Teradata bootstrap 실행 실패");
+  } finally {
+    bootstrapLoading.value = false;
   }
 }
 

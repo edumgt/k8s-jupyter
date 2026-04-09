@@ -27,6 +27,74 @@ body {
   min-height: 100vh;
 }
 
+.offcanvas-panel {
+  position: fixed;
+  top: 0;
+  left: 0;
+  z-index: 1200;
+  width: 286px;
+  height: 100vh;
+  overflow-y: auto;
+  transform: translateX(-100%);
+  transition: transform 0.24s ease;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.94), rgba(243, 248, 252, 0.94)),
+    linear-gradient(160deg, rgba(219, 158, 66, 0.2), rgba(31, 122, 140, 0.1));
+  border-right: 1px solid rgba(16, 37, 47, 0.14);
+  box-shadow: 0 20px 52px rgba(16, 37, 47, 0.18);
+}
+
+.offcanvas-panel.is-open {
+  transform: translateX(0);
+}
+
+.offcanvas-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 1100;
+  background: rgba(16, 37, 47, 0.24);
+  display: none;
+}
+
+.offcanvas-head {
+  padding: 22px 16px 8px;
+}
+
+.offcanvas-section {
+  padding: 10px 12px 14px;
+}
+
+.offcanvas-group-title {
+  padding: 0 10px 8px;
+  font-size: 0.72rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--dxf-muted);
+}
+
+.offcanvas-list {
+  border-radius: 14px;
+  overflow: hidden;
+  background: rgba(255, 255, 255, 0.74);
+  border: 1px solid rgba(16, 37, 47, 0.08);
+}
+
+.offcanvas-link-item {
+  min-height: 58px;
+}
+
+.offcanvas-toggle {
+  position: fixed;
+  top: 16px;
+  left: 14px;
+  z-index: 1300;
+  box-shadow: 0 12px 28px rgba(16, 37, 47, 0.2);
+}
+
+.offcanvas-toggle-shifted {
+  left: 244px;
+}
+
 .app-layout {
   background: transparent;
 }
@@ -71,6 +139,12 @@ body {
   max-width: 1320px;
   margin: 0 auto;
   padding: 28px 18px 56px;
+}
+
+.page-shell-with-offcanvas {
+  margin-left: 306px;
+  margin-right: 16px;
+  max-width: none;
 }
 
 .surface-card {
@@ -208,6 +282,10 @@ body {
   font-weight: 700;
 }
 
+.panel-anchor {
+  scroll-margin-top: 84px;
+}
+
 .form-grid {
   display: grid;
   gap: 10px;
@@ -241,6 +319,15 @@ body {
   border-radius: 18px;
 }
 
+.bootstrap-preview-list {
+  margin: 8px 0 0;
+  padding-left: 18px;
+  display: grid;
+  gap: 4px;
+  font-family: "IBM Plex Mono", "Fira Code", monospace;
+  font-size: 0.8rem;
+}
+
 @media (max-width: 1024px) {
   .login-grid {
     grid-template-columns: 1fr;
@@ -252,6 +339,20 @@ body {
 
   .toolbar-shell {
     min-height: 64px;
+  }
+
+  .page-shell-with-offcanvas {
+    margin-left: auto;
+    margin-right: auto;
+    max-width: 1320px;
+  }
+
+  .offcanvas-backdrop {
+    display: block;
+  }
+
+  .offcanvas-toggle-shifted {
+    left: 14px;
   }
 }
 

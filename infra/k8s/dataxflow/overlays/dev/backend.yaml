@@ -3,6 +3,44 @@ kind: ServiceAccount
 metadata:
   name: backend
 ---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: backend-jupyter-session-manager
+rules:
+  - apiGroups:
+      - ""
+    resources:
+      - pods
+      - services
+    verbs:
+      - get
+      - list
+      - create
+      - delete
+      - watch
+  - apiGroups:
+      - batch
+    resources:
+      - jobs
+    verbs:
+      - get
+      - list
+      - create
+      - watch
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: backend-jupyter-session-manager
+subjects:
+  - kind: ServiceAccount
+    name: backend
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: backend-jupyter-session-manager
+---
 apiVersion: v1
 kind: Service
 metadata:

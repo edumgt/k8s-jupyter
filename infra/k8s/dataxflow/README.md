@@ -51,7 +51,7 @@ Harbor가 `http`(insecure)인 환경에서 일부 노드가 `https`로만 시도
 
 ```bash
 bash scripts/sync_docker_image_to_vms.sh \
-  --image-ref harbor.local/data-platform/k8s-data-platform-frontend:latest \
+  --image-ref harbor.local/data-platform/k8s-dataxflow-frontend:latest \
   --ssh-user ubuntu --ssh-password ubuntu \
   --control-plane-ip 192.168.56.10 --worker1-ip 192.168.56.11 \
   --worker2-ip 192.168.56.12 --worker3-ip 192.168.56.13

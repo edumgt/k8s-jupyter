@@ -6,8 +6,16 @@ ORDER BY updated_at DESC;
 
 -- Recent DAG durations.
 SELECT dag_name, run_date, duration_seconds
-FROM dag_runtime_summary
-QUALIFY ROW_NUMBER() OVER (PARTITION BY dag_name ORDER BY run_date DESC) <= 5;
+FROM (
+  SELECT
+    dag_name,
+    run_date,
+    duration_seconds,
+    ROW_NUMBER() OVER (PARTITION BY dag_name ORDER BY run_date DESC) AS row_num
+  FROM dag_runtime_summary
+) ranked
+WHERE row_num <= 5
+ORDER BY dag_name, run_date DESC;
 
 -- Notebook usage summary.
 SELECT notebook_name, owner_name, execution_count

@@ -81,6 +81,9 @@ images:
   - name: harbor.local/data-platform/k8s-data-platform-frontend
     newName: $(image_registry_prefix)/k8s-data-platform-frontend
     newTag: ${IMAGE_TAG}
+  - name: harbor.local/data-platform/k8s-dataxflow-frontend
+    newName: $(image_registry_prefix)/k8s-dataxflow-frontend
+    newTag: ${IMAGE_TAG}
   - name: harbor.local/data-platform/k8s-data-platform-airflow
     newName: $(image_registry_prefix)/k8s-data-platform-airflow
     newTag: ${IMAGE_TAG}

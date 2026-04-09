@@ -51,6 +51,31 @@ CREATE TABLE IF NOT EXISTS platform_batch_run_log (
 );
 
 --@@
+CREATE TABLE IF NOT EXISTS lab_workloads (
+  workload_name VARCHAR(128) PRIMARY KEY,
+  owner_name VARCHAR(128) NOT NULL,
+  workload_status VARCHAR(32) NOT NULL,
+  updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+--@@
+CREATE TABLE IF NOT EXISTS dag_runtime_summary (
+  dag_name VARCHAR(128) NOT NULL,
+  run_date TIMESTAMP NOT NULL,
+  duration_seconds INTEGER NOT NULL,
+  PRIMARY KEY (dag_name, run_date)
+);
+
+--@@
+CREATE TABLE IF NOT EXISTS notebook_usage (
+  notebook_name VARCHAR(256) NOT NULL,
+  owner_name VARCHAR(128) NOT NULL,
+  execution_count INTEGER NOT NULL DEFAULT 0,
+  updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (notebook_name, owner_name)
+);
+
+--@@
 CREATE OR REPLACE PROCEDURE sp_platform_log_batch_run (
   IN p_job_id VARCHAR(128),
   IN p_run_status VARCHAR(32),
@@ -121,3 +146,37 @@ SET role_code = EXCLUDED.role_code,
     display_name = EXCLUDED.display_name,
     is_active = EXCLUDED.is_active,
     updated_at = CURRENT_TIMESTAMP;
+
+--@@
+INSERT INTO lab_workloads (workload_name, owner_name, workload_status, updated_at)
+VALUES
+  ('airflow-daily-sync', 'platform-team', 'RUNNING', CURRENT_TIMESTAMP - INTERVAL '5 minutes'),
+  ('jupyter-eda-session', 'data-science', 'IDLE', CURRENT_TIMESTAMP - INTERVAL '12 minutes'),
+  ('mongodb-cache-refresh', 'backend', 'QUEUED', CURRENT_TIMESTAMP - INTERVAL '20 minutes'),
+  ('legacy-batch-stop', 'legacy-team', 'STOPPED', CURRENT_TIMESTAMP - INTERVAL '1 day')
+ON CONFLICT (workload_name) DO UPDATE
+SET owner_name = EXCLUDED.owner_name,
+    workload_status = EXCLUDED.workload_status,
+    updated_at = EXCLUDED.updated_at;
+
+--@@
+INSERT INTO dag_runtime_summary (dag_name, run_date, duration_seconds)
+VALUES
+  ('dag_airflow_daily_sync', CURRENT_TIMESTAMP - INTERVAL '1 day', 420),
+  ('dag_airflow_daily_sync', CURRENT_TIMESTAMP - INTERVAL '2 day', 405),
+  ('dag_airflow_daily_sync', CURRENT_TIMESTAMP - INTERVAL '3 day', 398),
+  ('dag_jupyter_eda_session', CURRENT_TIMESTAMP - INTERVAL '1 day', 180),
+  ('dag_jupyter_eda_session', CURRENT_TIMESTAMP - INTERVAL '2 day', 172),
+  ('dag_jupyter_eda_session', CURRENT_TIMESTAMP - INTERVAL '3 day', 190)
+ON CONFLICT (dag_name, run_date) DO UPDATE
+SET duration_seconds = EXCLUDED.duration_seconds;
+
+--@@
+INSERT INTO notebook_usage (notebook_name, owner_name, execution_count, updated_at)
+VALUES
+  ('eda_customer_churn.ipynb', 'data-science', 42, CURRENT_TIMESTAMP - INTERVAL '1 hour'),
+  ('elt_monitoring.ipynb', 'platform-team', 27, CURRENT_TIMESTAMP - INTERVAL '2 hour'),
+  ('model_feature_store.ipynb', 'ml-team', 18, CURRENT_TIMESTAMP - INTERVAL '6 hour')
+ON CONFLICT (notebook_name, owner_name) DO UPDATE
+SET execution_count = EXCLUDED.execution_count,
+    updated_at = EXCLUDED.updated_at;
