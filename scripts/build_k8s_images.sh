@@ -18,8 +18,8 @@ usage() {
 Usage: bash scripts/build_k8s_images.sh [options]
 
 Options:
-  --registry <host>       Registry host. Defaults to harbor.local.
-  --namespace <name>      Registry namespace/project. Defaults to data-platform.
+  --registry <host>       Registry host. Defaults to 10.111.111.72.
+  --namespace <name>      Legacy single namespace override for app/dis/library.
   --tag <tag>             Tag to apply to platform app images. Defaults to latest.
   --push                  Push mirrored support images and built app images with the current docker login.
   --skip-runtime-import   Skip importing the saved archives into the local Kubernetes container runtime cache.
@@ -189,9 +189,9 @@ SUPPORT_IMAGES=(
 PLATFORM_IMAGES=(
   "backend|apps/backend|$(platform_app_image backend)|"
   "frontend|apps/frontend|$(platform_app_image frontend)|"
-  "dataxflow-frontend|apps/dataxflow-frontend|$(image_registry_prefix)/k8s-dataxflow-frontend:${IMAGE_TAG}|"
+  "dataxflow-frontend|apps/dataxflow-frontend|$(platform_dataxflow_frontend_image)|"
   "airflow|apps/airflow|$(platform_app_image airflow)|"
-  "jupyter|apps/jupyter|$(platform_app_image jupyter)|"
+  "jupyter|apps/jupyter|$(platform_jupyter_image)|"
 )
 
 if [[ "${INCLUDE_SUPPORT_IMAGES}" == "1" ]]; then

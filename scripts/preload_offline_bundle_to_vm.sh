@@ -215,7 +215,7 @@ initialize_required_images() {
     "$(platform_app_image backend)"
     "$(platform_app_image frontend)"
     "$(platform_app_image airflow)"
-    "$(platform_app_image jupyter)"
+    "$(platform_jupyter_image)"
   )
 }
 

@@ -223,7 +223,7 @@ REQUIRED_IMAGES=(
   "$(platform_app_image backend)"
   "$(platform_app_image frontend)"
   "$(platform_app_image airflow)"
-  "$(platform_app_image jupyter)"
+  "$(platform_jupyter_image)"
 )
 
 for ref in "${REQUIRED_IMAGES[@]}"; do

@@ -114,7 +114,7 @@ main() {
     check_image_ref "$(platform_support_image platform-nexus3 3.90.1-alpine)"
     check_image_ref "$(platform_app_image backend)"
     check_image_ref "$(platform_app_image frontend)"
-    check_image_ref "$(platform_app_image jupyter)"
+    check_image_ref "$(platform_jupyter_image)"
     check_image_ref "$(platform_app_image airflow)"
   else
     warn "ctr command not found; cannot verify containerd image cache"
