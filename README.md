@@ -1036,7 +1036,6 @@ hosts 파일 예시(Windows):
 
 - Frontend 로그인 계정
   - user: `test1@test.com / 123456`
-  - user: `test2@test.com / 123456`
   - admin: `admin@test.com / 123456`
 - 로그인은 JWT 기반 modal UI로 먼저 수행
 - 일반 사용자는 로그인 후 본인 전용 Jupyter sandbox 만 시작/중지/복원

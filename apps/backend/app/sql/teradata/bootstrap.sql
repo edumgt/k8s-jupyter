@@ -123,7 +123,3 @@ VALUES ('admin@test.com', 'ADMIN', 'Platform Admin', 'Y');
 --@@
 INSERT INTO platform_meta_account (username, role_code, display_name, is_active)
 VALUES ('test1@test.com', 'USER', 'Test User 1', 'Y');
-
---@@
-INSERT INTO platform_meta_account (username, role_code, display_name, is_active)
-VALUES ('test2@test.com', 'USER', 'Test User 2', 'Y');

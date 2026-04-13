@@ -63,7 +63,6 @@ class DemoAuthFlowTests(unittest.TestCase):
 
         self.session_state = {
             "test1@test.com": fake_session_summary("test1@test.com", minutes_ago=3),
-            "test2@test.com": fake_session_summary("test2@test.com", minutes_ago=7),
         }
 
         def fake_ensure_lab_session(settings, username: str):
@@ -110,29 +109,24 @@ class DemoAuthFlowTests(unittest.TestCase):
         self.assertIn("lab-test1-test-com", session.pod_name)
 
         with self.assertRaises(HTTPException) as exc:
-            read_jupyter_session("test2@test.com", current_user=current_user)
+            read_jupyter_session("admin@test.com", current_user=current_user)
         self.assertEqual(exc.exception.status_code, 403)
 
-    def test_admin_can_monitor_multiple_sandbox_users(self) -> None:
+    def test_admin_can_monitor_sandbox_users(self) -> None:
         _response1, user1 = self.login("test1@test.com")
-        _response2, user2 = self.login("test2@test.com")
 
         create_jupyter_session(LabSessionRequest(username="test1@test.com"), current_user=user1)
-        create_jupyter_session(LabSessionRequest(username="test2@test.com"), current_user=user2)
 
         _admin_response, admin_user = self.login("admin@test.com")
         overview = read_admin_sandbox_overview(_current_user=admin_user)
 
-        self.assertEqual(overview.summary.sandbox_user_count, 2)
-        self.assertEqual(overview.summary.running_user_count, 2)
+        self.assertEqual(overview.summary.sandbox_user_count, 1)
+        self.assertEqual(overview.summary.running_user_count, 1)
 
         users = {item.username: item for item in overview.users}
         self.assertEqual(users["test1@test.com"].launch_count, 1)
-        self.assertEqual(users["test2@test.com"].launch_count, 1)
         self.assertGreaterEqual(users["test1@test.com"].current_session_seconds, 1)
-        self.assertGreaterEqual(users["test2@test.com"].current_session_seconds, 1)
         self.assertTrue(users["test1@test.com"].ready)
-        self.assertTrue(users["test2@test.com"].ready)
 
     def test_datax_module_blocks_jupyter_routes_and_hides_dashboard_service(self) -> None:
         _login_response, current_user = self.login("test1@test.com")

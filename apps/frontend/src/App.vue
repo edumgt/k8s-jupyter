@@ -679,7 +679,6 @@ const loginForm = reactive({
 const demoAccounts = [
   { username: "admin@test.com", password: "123456", display_name: "Platform Admin" },
   { username: "test1@test.com", password: "123456", display_name: "Test User 1" },
-  { username: "test2@test.com", password: "123456", display_name: "Test User 2" },
 ];
 
 const appSession = reactive({

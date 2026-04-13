@@ -139,15 +139,6 @@ SET role_code = EXCLUDED.role_code,
     updated_at = CURRENT_TIMESTAMP;
 
 --@@
-INSERT INTO platform_meta_account (username, role_code, display_name, is_active)
-VALUES ('test2@test.com', 'USER', 'Test User 2', 'Y')
-ON CONFLICT (username) DO UPDATE
-SET role_code = EXCLUDED.role_code,
-    display_name = EXCLUDED.display_name,
-    is_active = EXCLUDED.is_active,
-    updated_at = CURRENT_TIMESTAMP;
-
---@@
 INSERT INTO lab_workloads (workload_name, owner_name, workload_status, updated_at)
 VALUES
   ('airflow-daily-sync', 'platform-team', 'RUNNING', CURRENT_TIMESTAMP - INTERVAL '5 minutes'),

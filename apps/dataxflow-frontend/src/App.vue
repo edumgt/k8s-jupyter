@@ -626,11 +626,6 @@ const demoAccounts = [
     password: "123456",
     display_name: "적재 개발자 1",
   },
-  {
-    username: "test2@test.com",
-    password: "123456",
-    display_name: "적재 개발자 2",
-  },
 ];
 
 function emptyCatalog() {

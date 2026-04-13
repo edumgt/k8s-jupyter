@@ -37,12 +37,6 @@ DEMO_USERS = (
         display_name="Test User 1",
     ),
     DemoUser(
-        username="test2@test.com",
-        password="123456",
-        role="user",
-        display_name="Test User 2",
-    ),
-    DemoUser(
         username="admin@test.com",
         password="123456",
         role="admin",

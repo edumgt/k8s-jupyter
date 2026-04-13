@@ -229,7 +229,6 @@ Windows `C:\\Windows\\System32\\drivers\\etc\\hosts` 예시:
 
 로그인 계정:
 - user: `test1@test.com / 123456`
-- user: `test2@test.com / 123456`
 - admin: `admin@test.com / 123456`
 
 ## 6-1) 폐쇄망 개발용 Nexus 캐시 사전 워밍
@@ -372,6 +371,18 @@ sudo dhclient -v ens32
 
 ```bash
 sudo KUBECONFIG=/etc/kubernetes/admin.conf kubectl get nodes
+```
+
+### WSL에서 기본 kubectl 연결을 고정하고 싶은 경우
+
+control-plane의 `admin.conf`를 WSL 기본 kubeconfig(`~/.kube/config`)로 동기화:
+
+```bash
+bash scripts/setup_wsl_kubectl.sh \
+  --control-plane-ip 192.168.56.10 \
+  --ssh-user disadm \
+  --ssh-port 10022 \
+  --ssh-password '<password>'
 ```
 
 ### 화면은 열리는데 API 호출이 실패하는 경우

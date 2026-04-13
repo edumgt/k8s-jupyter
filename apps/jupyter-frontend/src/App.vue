@@ -916,7 +916,7 @@
               </div>
 
               <p class="muted">
-                관리자는 `test1@test.com`, `test2@test.com` 사용자 sandbox의 실행 여부, 현재 사용시간,
+                관리자는 `test1@test.com` 사용자 sandbox의 실행 여부, 현재 사용시간,
                 누적 사용시간, 로그인 회수, Jupyter 실행 회수를 확인할 수 있습니다.
               </p>
 
@@ -1138,6 +1138,18 @@
               </div>
             </q-card-section>
           </q-card>
+
+          <q-card flat class="surface-card">
+            <q-card-section>
+              <div class="section-title">Runtime Overview (Chart.js)</div>
+              <q-banner rounded class="banner-note">
+                서비스 준비 상태를 Chart.js bar chart 로 시각화한 예시입니다.
+              </q-banner>
+              <div style="position: relative; min-height: 220px; margin-top: 12px;">
+                <canvas ref="runtimeChartCanvas" />
+              </div>
+            </q-card-section>
+          </q-card>
         </section>
 
         <section v-if="showSqlModule" id="sample-panel" class="content-grid nav-anchor">
@@ -1225,6 +1237,8 @@
 </template>
 
 <script setup>
+import axios from "axios";
+import { BarController, BarElement, CategoryScale, Chart, Legend, LinearScale, Tooltip } from "chart.js";
 import { Notify } from "quasar";
 import { computed, onMounted, onUnmounted, ref } from "vue";
 import { AgGridVue } from "ag-grid-vue3";
@@ -1232,6 +1246,12 @@ import { AgGridVue } from "ag-grid-vue3";
 const browserProtocol = typeof window !== "undefined" ? window.location.protocol : "http:";
 const browserHost = typeof window !== "undefined" ? window.location.hostname : "localhost";
 const apiBaseUrl = import.meta.env.VITE_API_BASE_URL || `${browserProtocol}//${browserHost}`;
+
+Chart.register(BarController, BarElement, CategoryScale, LinearScale, Tooltip, Legend);
+const api = axios.create({
+  baseURL: apiBaseUrl,
+  timeout: 10000,
+});
 
 const savedAuthToken =
   typeof window !== "undefined" ? window.localStorage.getItem("appAuthToken") || "" : "";
@@ -1252,7 +1272,6 @@ const authResolved = ref(false);
 
 const demoAccounts = ref([
   { username: "test1@test.com", role: "user", display_name: "Test User 1" },
-  { username: "test2@test.com", role: "user", display_name: "Test User 2" },
   { username: "admin@test.com", role: "admin", display_name: "Platform Admin" },
 ]);
 
@@ -1323,9 +1342,11 @@ const queryResult = ref({
   columns: [],
   rows: [],
 });
+const runtimeChartCanvas = ref(null);
 
 let labPollHandle = null;
 let adminPollHandle = null;
+let runtimeChart = null;
 
 const isAuthenticated = computed(() => appSession.value.authenticated);
 const showDashboard = computed(() => authResolved.value && isAuthenticated.value);
@@ -1862,6 +1883,16 @@ async function parseJson(response) {
   return response.json();
 }
 
+function toRequestError(error, fallback = "Request failed") {
+  if (error?.response?.data?.detail) {
+    return new Error(String(error.response.data.detail));
+  }
+  if (error?.message) {
+    return new Error(String(error.message));
+  }
+  return new Error(fallback);
+}
+
 function waitForDelay(ms) {
   return new Promise((resolve) => {
     setTimeout(resolve, ms);
@@ -1955,6 +1986,51 @@ function requestStatusColor(status) {
     return "negative";
   }
   return "grey-7";
+}
+
+function renderRuntimeChart() {
+  if (runtimeChart) {
+    runtimeChart.destroy();
+    runtimeChart = null;
+  }
+  if (!runtimeChartCanvas.value) {
+    return;
+  }
+
+  const services = Array.isArray(dashboard.value.services) ? dashboard.value.services : [];
+  const labels = services.map((item) => item.name || "unknown");
+  const values = services.map((item) => (item.ok ? 1 : 0));
+  const colors = services.map((item) => (item.ok ? "#2e7d32" : "#b71c1c"));
+
+  runtimeChart = new Chart(runtimeChartCanvas.value, {
+    type: "bar",
+    data: {
+      labels,
+      datasets: [
+        {
+          label: "Service Ready (1=yes, 0=no)",
+          data: values,
+          backgroundColor: colors,
+          borderRadius: 6,
+        },
+      ],
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      scales: {
+        y: {
+          beginAtZero: true,
+          min: 0,
+          max: 1,
+          ticks: { stepSize: 1 },
+        },
+      },
+      plugins: {
+        legend: { display: true },
+      },
+    },
+  });
 }
 
 function isReviewLoading(key) {
@@ -2537,8 +2613,9 @@ async function logoutApp() {
 async function loadDashboard() {
   loading.value = true;
   try {
-    const response = await fetch(`${apiBaseUrl}/api/dashboard`);
-    dashboard.value = await parseJson(response);
+    const response = await api.get("/api/dashboard");
+    dashboard.value = response.data;
+    renderRuntimeChart();
     if (!Array.isArray(dashboard.value.sample_queries) || dashboard.value.sample_queries.length === 0) {
       queryResult.value = {
         columns: [],
@@ -2548,7 +2625,7 @@ async function loadDashboard() {
   } catch (error) {
     Notify.create({
       type: "negative",
-      message: error.message,
+      message: toRequestError(error).message,
     });
   } finally {
     loading.value = false;
@@ -2563,17 +2640,11 @@ async function runFirstQuery() {
 
   queryLoading.value = true;
   try {
-    const response = await fetch(`${apiBaseUrl}/api/teradata/query`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
+    const response = await api.post("/api/teradata/query", {
         sql: firstQuery.sql,
         limit: 10,
-      }),
-    });
-    const payload = await parseJson(response);
+      });
+    const payload = response.data;
     queryResult.value = {
       columns: payload.columns,
       rows: payload.rows,
@@ -2585,7 +2656,7 @@ async function runFirstQuery() {
   } catch (error) {
     Notify.create({
       type: "negative",
-      message: error.message,
+      message: toRequestError(error).message,
     });
   } finally {
     queryLoading.value = false;
@@ -2899,13 +2970,11 @@ async function loadControlPlaneDashboard(options = {}) {
     loading: true,
   };
   try {
-    const response = await fetch(
-      `${apiBaseUrl}/api/control-plane/dashboard?namespace=${encodeURIComponent(controlPlane.value.namespace)}`,
-      {
-        headers: authHeaders(),
-      },
-    );
-    const payload = await parseJson(response);
+    const response = await api.get("/api/control-plane/dashboard", {
+      params: { namespace: controlPlane.value.namespace },
+      headers: authHeaders(),
+    });
+    const payload = response.data;
     controlPlane.value = {
       ...controlPlane.value,
       namespace: payload.summary.current_namespace,
@@ -2918,7 +2987,7 @@ async function loadControlPlaneDashboard(options = {}) {
     if (!options.silent) {
       Notify.create({
         type: "negative",
-        message: error.message,
+        message: toRequestError(error).message,
       });
     }
   } finally {
@@ -3039,5 +3108,9 @@ onMounted(async () => {
 onUnmounted(() => {
   stopLabPolling();
   stopAdminPolling();
+  if (runtimeChart) {
+    runtimeChart.destroy();
+    runtimeChart = null;
+  }
 });
 </script>
