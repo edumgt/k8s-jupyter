@@ -19,7 +19,7 @@ usage() {
 Usage: bash scripts/check_harbor_stack_images.sh [options]
 
 Checks whether required stack images exist in node containerd under
-harbor.local/data-platform/* tags.
+${IMAGE_REGISTRY}/${IMAGE_NAMESPACE}/* tags.
 
 Options:
   --nodes <csv>          Node IPs to check. Example: 192.168.56.10,192.168.56.11,192.168.56.12
@@ -199,6 +199,7 @@ cat "${TMP_DIR}"/images-*.txt | sort -u > "${TMP_DIR}/union.txt"
 
 overall_missing=0
 total_required="${#REQUIRED_IMAGES[@]}"
+registry_prefix="$(image_registry_prefix)"
 
 for pair in "${NODE_FILES[@]}"; do
   ip="${pair%%:*}"
@@ -219,7 +220,7 @@ for pair in "${NODE_FILES[@]}"; do
     fi
   done
 
-  harbor_tagged_total="$(grep -c '^harbor.local/data-platform/' "${file}" || true)"
+  harbor_tagged_total="$(grep -c "^${registry_prefix}/" "${file}" || true)"
   printf 'SUMMARY required=%s present=%s missing=%s harbor_tagged_total=%s\n\n' \
     "${total_required}" "${present}" "${missing}" "${harbor_tagged_total}"
 done
@@ -233,7 +234,8 @@ for ref in "${REQUIRED_IMAGES[@]}"; do
   fi
 done
 union_present=$((total_required - union_missing))
-union_harbor_total="$(grep -c '^harbor.local/data-platform/' "${TMP_DIR}/union.txt" || true)"
+registry_prefix="$(image_registry_prefix)"
+union_harbor_total="$(grep -c "^${registry_prefix}/" "${TMP_DIR}/union.txt" || true)"
 printf 'UNION_SUMMARY required=%s present=%s missing=%s harbor_tagged_union=%s\n' \
   "${total_required}" "${union_present}" "${union_missing}" "${union_harbor_total}"
 

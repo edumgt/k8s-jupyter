@@ -1,12 +1,14 @@
 #!/usr/bin/env bash
 
-: "${IMAGE_REGISTRY:=harbor.local}"
-: "${IMAGE_NAMESPACE:=data-platform}"
+: "${IMAGE_REGISTRY:=10.111.111.72}"
+: "${IMAGE_NAMESPACE:=fss-k8s}"
 : "${IMAGE_TAG:=latest}"
 
-DEFAULT_IMAGE_REGISTRY="harbor.local"
-DEFAULT_IMAGE_NAMESPACE="data-platform"
+DEFAULT_IMAGE_REGISTRY="10.111.111.72"
+DEFAULT_IMAGE_NAMESPACE="fss-k8s"
 DEFAULT_IMAGE_TAG="latest"
+BASE_MANIFEST_IMAGE_REGISTRY="harbor.local"
+BASE_MANIFEST_IMAGE_NAMESPACE="data-platform"
 
 trim_trailing_slashes() {
   local value="${1:-}"
@@ -37,15 +39,15 @@ platform_support_image() {
 }
 
 registry_override_enabled() {
-  [[ "$(trim_trailing_slashes "${IMAGE_REGISTRY}")" != "${DEFAULT_IMAGE_REGISTRY}" ]] \
-    || [[ "${IMAGE_NAMESPACE}" != "${DEFAULT_IMAGE_NAMESPACE}" ]] \
+  [[ "$(trim_trailing_slashes "${IMAGE_REGISTRY}")" != "${BASE_MANIFEST_IMAGE_REGISTRY}" ]] \
+    || [[ "${IMAGE_NAMESPACE}" != "${BASE_MANIFEST_IMAGE_NAMESPACE}" ]] \
     || [[ "${IMAGE_TAG}" != "${DEFAULT_IMAGE_TAG}" ]]
 }
 
 rewrite_registry_prefix_in_file() {
   local source_file="$1"
   local target_file="$2"
-  local default_prefix="${DEFAULT_IMAGE_REGISTRY}/${DEFAULT_IMAGE_NAMESPACE}/"
+  local default_prefix="${BASE_MANIFEST_IMAGE_REGISTRY}/${BASE_MANIFEST_IMAGE_NAMESPACE}/"
   local legacy_prefix="docker.io/edumgt/"
   local to_prefix
 
