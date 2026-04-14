@@ -577,12 +577,12 @@ function resolveApiBaseUrl() {
     return envValue.replace(/\/+$/, "");
   }
   if (typeof window !== "undefined") {
-    if (window.location.hostname.includes("dataxflow.fss.or.kr")) {
-      return `${window.location.protocol}//api.dataxflow.fss.or.kr`;
+    if (window.location.hostname.includes("dataxflow.platform.local")) {
+      return `${window.location.protocol}//api.dataxflow.platform.local`;
     }
     return window.location.origin;
   }
-  return "http://api.dataxflow.fss.or.kr";
+  return "http://api.dataxflow.platform.local";
 }
 
 const api = axios.create({

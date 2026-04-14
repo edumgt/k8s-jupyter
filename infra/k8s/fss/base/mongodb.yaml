@@ -6,7 +6,7 @@ metadata:
 type: Opaque
 stringData:
   username: root
-  password: root-password
+  password: CHANGE_ME
 ---
 apiVersion: v1
 kind: Service

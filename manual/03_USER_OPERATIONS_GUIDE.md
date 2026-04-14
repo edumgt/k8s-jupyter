@@ -41,10 +41,10 @@ bash scripts/verify.sh --http-mode ingress --lb-ip 192.168.56.240
 
 ## 3.2 기본 관리자 계정
 
-1. Platform: `admin@test.com / 123456`
-2. GitLab: `root / v7Q#2mL!9xC@4pR%8tZ`
-3. Airflow: `admin / admin12345!`
-4. Nexus: `admin / nexus123!`
+1. Platform: `admin@test.com / CHANGE_ME`
+2. GitLab: `root / CHANGE_ME`
+3. Airflow: `admin / CHANGE_ME`
+4. Nexus: `admin / CHANGE_ME`
 
 운영 전 필수:
 

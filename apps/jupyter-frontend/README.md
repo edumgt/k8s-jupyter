@@ -1,6 +1,6 @@
 # jupyter-frontend
 
-`adw.local`/`adw.fss.or.kr`용 Vue3 + Quasar SPA 프론트엔드입니다.
+`adw.local`/`adw.platform.local`용 Vue3 + Quasar SPA 프론트엔드입니다.
 
 ## 배포 대상
 - Harbor image: `harbor.local/app/fss-adw-frontend`
@@ -15,4 +15,4 @@ npm run dev
 
 ## 환경 파일
 - `.env.dev` 기본 API: `http://adw.local`
-- `.env.prod` 기본 API: `https://adw.fss.or.kr`
+- `.env.prod` 기본 API: `https://adw.platform.local`

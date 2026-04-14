@@ -24,7 +24,7 @@ cd /home/disadm/fss-support/k8s-dev
 참고:
 
 - VMware 화면에 K8s 노드 4대만 보일 수 있습니다. (`master-1`, `worker-1`, `worker-2`, `worker-ml-1`)
-- 사무실 기준 bastion `10.111.111.76`은 별도 VM이며, 반입 대상이 아니므로 기본 4노드 목록에 없을 수 있습니다.
+- 사무실 기준 bastion `192.168.56.76`은 별도 VM이며, 반입 대상이 아니므로 기본 4노드 목록에 없을 수 있습니다.
 
 ## 2) K8s 버전 맞추기 (선택)
 
@@ -82,9 +82,9 @@ sudo KUBECONFIG=/etc/kubernetes/admin.conf kubectl taint node worker-ml-1 dis/ml
 ```bash
 bash scripts/setup_fss_platform.sh \
   --env dev \
-  --metallb-range 10.111.111.77-10.111.111.77 \
-  --ingress-lb-ip 10.111.111.77 \
-  --harbor-server 10.111.111.72:80 \
+  --metallb-range 192.168.56.77-192.168.56.77 \
+  --ingress-lb-ip 192.168.56.77 \
+  --harbor-server 192.168.56.72:80 \
   --harbor-username 'robot$dis' \
   --harbor-password '<password>'
 

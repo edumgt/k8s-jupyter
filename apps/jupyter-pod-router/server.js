@@ -6,7 +6,7 @@ const httpProxy = require("http-proxy");
 
 const PORT = Number(process.env.PORT || 8080);
 const ROUTER_HOST_SUFFIX = String(
-  process.env.ROUTER_HOST_SUFFIX || "service.jupyter.fss.or.kr",
+  process.env.ROUTER_HOST_SUFFIX || "service.jupyter.platform.local",
 ).toLowerCase();
 const ROUTER_HEADLESS_SERVICE = String(
   process.env.ROUTER_HEADLESS_SERVICE || "jupyter-named-pod",

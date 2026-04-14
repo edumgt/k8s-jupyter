@@ -7,7 +7,7 @@ type: Opaque
 stringData:
   redis.conf: |
     user default off
-    user root on >root-password ~* &* +@all
+    user root on >CHANGE_ME ~* &* +@all
 ---
 apiVersion: v1
 kind: Service

@@ -1,4 +1,4 @@
-FROM 10.111.111.72/library/platform-airflow-base:2.10.5-python3.12
+FROM 192.168.56.72/library/platform-airflow-base:2.10.5-python3.12
 
 USER airflow
 

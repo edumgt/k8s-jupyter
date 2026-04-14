@@ -113,10 +113,10 @@ curl -I http://nexus.platform.local
 
 ## 6. 기본 관리자 계정(초기값)
 
-1. Platform Admin: `admin@test.com / 123456`
-2. GitLab: `root / v7Q#2mL!9xC@4pR%8tZ`
-3. Airflow: `admin / admin12345!`
-4. Nexus: `admin / nexus123!`
+1. Platform Admin: `admin@test.com / CHANGE_ME`
+2. GitLab: `root / CHANGE_ME`
+3. Airflow: `admin / CHANGE_ME`
+4. Nexus: `admin / CHANGE_ME`
 
 주의: 납품 후 운영 전 반드시 비밀번호를 변경하십시오.
 

@@ -14,7 +14,7 @@ const adminPassword = page.getByLabel("Admin Password").first();
 const loginButton = page.getByRole("button", { name: /login dashboard/i }).first();
 
 await adminUsername.fill("platform-admin");
-await adminPassword.fill("controlplane123!");
+await adminPassword.fill("CHANGE_ME");
 await loginButton.click();
 
 await Promise.race([

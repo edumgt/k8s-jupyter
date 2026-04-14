@@ -8,7 +8,7 @@ ENVIRONMENT="${ENVIRONMENT:-dev}"
 SETUP_MODERN_STACK=1
 METALLB_RANGE="${METALLB_RANGE:-}"
 INGRESS_LB_IP="${INGRESS_LB_IP:-}"
-HEADLAMP_HOST="${HEADLAMP_HOST:-headlamp.fss.or.kr}"
+HEADLAMP_HOST="${HEADLAMP_HOST:-headlamp.platform.local}"
 WAIT_TIMEOUT_SEC="${WAIT_TIMEOUT_SEC:-420}"
 
 HARBOR_SERVER="${HARBOR_SERVER:-}"
@@ -34,10 +34,10 @@ Options:
   --env dev|prod             Overlay environment (default: dev)
   --metallb-range RANGE      MetalLB pool range (required unless --skip-modern-stack)
   --ingress-lb-ip IP         Optional fixed ingress LB IP
-  --headlamp-host HOST       Headlamp ingress host (default: headlamp.fss.or.kr)
+  --headlamp-host HOST       Headlamp ingress host (default: headlamp.platform.local)
   --wait-timeout-sec N       Wait timeout for addon install
 
-  --harbor-server HOSTPORT   Harbor registry endpoint (e.g. 10.111.111.72:80)
+  --harbor-server HOSTPORT   Harbor registry endpoint (e.g. 192.168.56.72:80)
   --harbor-username USER     Harbor robot username (quote if includes $)
   --harbor-password PASS     Harbor robot password
   --harbor-secret-name NAME  K8s docker-registry secret name (default: harbor-pull)
@@ -50,9 +50,9 @@ Options:
 Examples:
   bash scripts/setup_fss_platform.sh \
     --env dev \
-    --metallb-range 10.111.111.77-10.111.111.77 \
-    --ingress-lb-ip 10.111.111.77 \
-    --harbor-server 10.111.111.72:80 \
+    --metallb-range 192.168.56.77-192.168.56.77 \
+    --ingress-lb-ip 192.168.56.77 \
+    --harbor-server 192.168.56.72:80 \
     --harbor-username 'robot$dis' \
     --harbor-password '<password>'
 EOF

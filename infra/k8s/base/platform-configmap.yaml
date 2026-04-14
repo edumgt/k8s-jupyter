@@ -29,7 +29,7 @@ data:
   PLATFORM_LAB_GOVERNANCE_ENABLED: "false"
   PLATFORM_JUPYTER_SNAPSHOT_BUILDER_IMAGE: harbor.local/data-platform/platform-kaniko-executor:v1.23.2-debug
   PLATFORM_JUPYTER_ACCESS_MODE: dynamic-route
-  PLATFORM_JUPYTER_DYNAMIC_HOST_SUFFIX: service.jupyter.fss.or.kr
+  PLATFORM_JUPYTER_DYNAMIC_HOST_SUFFIX: service.jupyter.platform.local
   PLATFORM_JUPYTER_DYNAMIC_SCHEME: https
   PLATFORM_JUPYTER_DYNAMIC_SUBDOMAIN: jupyter-named-pod
   PLATFORM_TERADATA_DBMS: teradata

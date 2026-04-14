@@ -164,11 +164,11 @@
       - --nexus-url
       - http://127.0.0.1:30091
       - --target-password
-      - nexus123!
+      - CHANGE_ME
       - --username
       - admin
       - --password
-      - nexus123!
+      - CHANGE_ME
       - --python-seed-file
       - /opt/k8s-data-platform/scripts/offline/python-dev-seed.txt
       - --npm-seed-file

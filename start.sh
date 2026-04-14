@@ -70,12 +70,12 @@ RUN_PROVISION=1
 
 NEXUS_URL="${NEXUS_URL:-http://127.0.0.1:30091}"
 NEXUS_USERNAME="${NEXUS_USERNAME:-admin}"
-NEXUS_PASSWORD="${NEXUS_PASSWORD:-nexus123!}"
+NEXUS_PASSWORD="${NEXUS_PASSWORD:-CHANGE_ME}"
 NEXUS_CURRENT_PASSWORD="${NEXUS_CURRENT_PASSWORD:-}"
-NEXUS_TARGET_PASSWORD="${NEXUS_TARGET_PASSWORD:-nexus123!}"
+NEXUS_TARGET_PASSWORD="${NEXUS_TARGET_PASSWORD:-CHANGE_ME}"
 PYTHON_SEED_FILE_REMOTE="${PYTHON_SEED_FILE_REMOTE:-}"
 NPM_SEED_FILE_REMOTE="${NPM_SEED_FILE_REMOTE:-}"
-GITLAB_DEMO_PASSWORD="${GITLAB_DEMO_PASSWORD:-123456}"
+GITLAB_DEMO_PASSWORD="${GITLAB_DEMO_PASSWORD:-CHANGE_ME}"
 
 log() {
   printf '[start.sh] %s\n' "$*"
@@ -151,13 +151,13 @@ Options:
   --skip-nexus-prime           Skip setup_nexus_offline.sh
   --nexus-url URL              Default: http://127.0.0.1:30091 (run on control-plane)
   --nexus-username USER        Default: admin
-  --nexus-password PASS        Default: nexus123!
+  --nexus-password PASS        Default: CHANGE_ME
   --nexus-current-password PW  For re-bootstrap with changed admin password
-  --nexus-target-password PW   Default: nexus123!
+  --nexus-target-password PW   Default: CHANGE_ME
   --python-seed-file-remote P  Default: /opt/k8s-data-platform/scripts/offline/python-dev-seed.txt
   --npm-seed-file-remote P     Default: /opt/k8s-data-platform/scripts/offline/npm-dev-seed.txt
   --seed-gitlab-be-fe          Run scripts/demo_gitlab_repo_flow.sh on control-plane
-  --gitlab-demo-password PASS  Demo user password for GitLab seed (default: 123456)
+  --gitlab-demo-password PASS  Demo user password for GitLab seed (default: CHANGE_ME)
   --strict-harbor-check        Fail when Harbor(NodePort 30092) health check fails
   --post-reboot-check          Power-cycle VMs and re-run cluster/http checks
 

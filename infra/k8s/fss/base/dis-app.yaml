@@ -10,9 +10,9 @@ data:
   K8S_APP_NAMESPACE: app
   K8S_USER_NAMESPACE: dis
   LAB_GOVERNANCE_ENABLED: "true"
-  JUPYTER_IMAGE: 10.111.111.72/dis/jupter-teradata-fss:latest
+  JUPYTER_IMAGE: 192.168.56.72/dis/jupter-teradata-fss:latest
   JUPYTER_ACCESS_MODE: dynamic-route
-  JUPYTER_DYNAMIC_HOST_SUFFIX: service.jupyter.fss.or.kr
+  JUPYTER_DYNAMIC_HOST_SUFFIX: service.jupyter.platform.local
   JUPYTER_DYNAMIC_SCHEME: https
   JUPYTER_DYNAMIC_SUBDOMAIN: jupyter-named-pod
   JUPYTER_WORKSPACE_ROOT: /workspace/user-home
@@ -20,7 +20,7 @@ data:
   AUTH_TOKEN_TTL_SECONDS: "28800"
   AUTH_SESSION_PREFIX: "fss:auth:session:"
   CORS_ORIGINS: ""
-  FRONTEND_URL: "https://dis.fss.or.kr"
+  FRONTEND_URL: "https://dis.platform.local"
 ---
 apiVersion: v1
 kind: Secret
@@ -29,11 +29,11 @@ metadata:
   namespace: app
 type: Opaque
 stringData:
-  MONGO_URI: mongodb://root:root-password@mongo.infra.svc.cluster.local:27017/fss_dis?authSource=admin
-  REDIS_URL: redis://root:root-password@redis.infra.svc.cluster.local:6379/0
-  JUPYTER_TOKEN: platform123
+  MONGO_URI: mongodb://root:CHANGE_ME@mongo.infra.svc.cluster.local:27017/fss_dis?authSource=admin
+  REDIS_URL: redis://root:CHANGE_ME@redis.infra.svc.cluster.local:6379/0
+  JUPYTER_TOKEN: CHANGE_ME
   CONTROL_PLANE_USERNAME: admin@test.com
-  CONTROL_PLANE_PASSWORD: "123456"
+  CONTROL_PLANE_PASSWORD: "CHANGE_ME"
 ---
 apiVersion: v1
 kind: ServiceAccount
@@ -86,7 +86,7 @@ spec:
       serviceAccountName: fss-dis-server
       containers:
         - name: server
-          image: 10.111.111.72/app/fss-dis-server-node:latest
+          image: 192.168.56.72/app/fss-dis-server-node:latest
           imagePullPolicy: IfNotPresent
           ports:
             - containerPort: 3000
@@ -161,7 +161,7 @@ spec:
     spec:
       containers:
         - name: frontend
-          image: 10.111.111.72/app/fss-dis-frontend:latest
+          image: 192.168.56.72/app/fss-dis-frontend:latest
           imagePullPolicy: IfNotPresent
           ports:
             - containerPort: 80
@@ -236,7 +236,7 @@ spec:
                 name: fss-dis-frontend
                 port:
                   number: 80
-    - host: dis.fss.or.kr
+    - host: dis.platform.local
       http:
         paths:
           - path: /api

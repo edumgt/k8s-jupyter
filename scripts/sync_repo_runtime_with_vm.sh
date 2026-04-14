@@ -5,7 +5,7 @@ ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 
 CONTROL_PLANE_IP="${CONTROL_PLANE_IP:-}"
 SSH_USER="${SSH_USER:-ubuntu}"
-SSH_PASSWORD="${SSH_PASSWORD:-ubuntu}"
+SSH_PASSWORD="${SSH_PASSWORD:-CHANGE_ME}"
 REMOTE_REPO_ROOT="${REMOTE_REPO_ROOT:-/opt/k8s-data-platform}"
 MODE="${MODE:-status}"
 TMP_DIR="$(mktemp -d)"

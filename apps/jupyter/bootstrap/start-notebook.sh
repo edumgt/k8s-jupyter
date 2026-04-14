@@ -13,6 +13,6 @@ exec jupyter lab \
   --port=8888 \
   --no-browser \
   --allow-root \
-  --ServerApp.token="${JUPYTER_TOKEN:-platform123}" \
+  --ServerApp.token="${JUPYTER_TOKEN:-CHANGE_ME}" \
   --ServerApp.allow_origin="*" \
   --ServerApp.root_dir="${ROOT_DIR}"

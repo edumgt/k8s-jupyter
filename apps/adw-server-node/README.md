@@ -6,7 +6,7 @@ Node 22 + Express 5 기반의 Jupyter 거버넌스 API 서버입니다.
 - Python 기반 Jupyter 관리 API를 Node.js 기반으로 전환
 - 사용자별 리소스 신청/승인 워크플로우 제공
 - 승인된 사용자에 대해 PVC 생성 + named Pod 생성
-- wildcard URL(`*.service.jupyter.fss.or.kr`)로 개인 JupyterLab 연결
+- wildcard URL(`*.service.jupyter.platform.local`)로 개인 JupyterLab 연결
 
 ## 기술 스택
 - Backend: Node 22, Express 5, Socket.io, Mongoose, Redis session

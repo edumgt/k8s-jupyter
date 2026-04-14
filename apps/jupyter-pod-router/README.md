@@ -1,12 +1,12 @@
 # jupyter-pod-router
 
-`*.jupyter.local` 또는 `*.service.jupyter.fss.or.kr` 같은 와일드카드 host를 받아서, host prefix를 Pod name으로 해석해
+`*.jupyter.local` 또는 `*.service.jupyter.platform.local` 같은 와일드카드 host를 받아서, host prefix를 Pod name으로 해석해
 `<pod>.<headless-service>.<namespace>.svc.cluster.local:8888` 으로 프록시하는 라우터입니다.
 
 ## Environment Variables
 
 - `PORT` (default: `8080`)
-- `ROUTER_HOST_SUFFIX` (default: `service.jupyter.fss.or.kr`)
+- `ROUTER_HOST_SUFFIX` (default: `service.jupyter.platform.local`)
 - `ROUTER_HEADLESS_SERVICE` (default: `jupyter-named-pod`)
 - `ROUTER_TARGET_NAMESPACE` (default: `dis`)
 - `ROUTER_TARGET_PORT` (default: `8888`)

@@ -49,10 +49,10 @@ bash scripts/vmware_create_bastion_bh.sh \
 
 ```bash
 # 내 PC/WSL -> bh
-ssh disadm@10.110.2.100
+ssh disadm@192.168.56.100
 
 # bh -> k8s nodes (예시)
-pdsh -R ssh -w 10.110.2.215,10.110.2.216,10.110.2.217,10.110.2.218 "hostname -I"
+pdsh -R ssh -w 192.168.56.10,192.168.56.11,192.168.56.12,192.168.56.13 "hostname -I"
 ```
 
 ## 4) 운영 팁

@@ -11,8 +11,8 @@
   - wildcard ingress
   - named pod 라우팅용 router deployment
 - 인프라 서비스:
-  - MongoDB (root / root-password)
-  - Redis (ACL root / root-password)
+  - MongoDB (root / CHANGE_ME)
+  - Redis (ACL root / CHANGE_ME)
 
 ## Apply
 
@@ -29,9 +29,9 @@ kubectl apply -k infra/k8s/fss/overlays/prod
 ```bash
 bash scripts/setup_fss_platform.sh \
   --env dev \
-  --metallb-range 10.111.111.77-10.111.111.77 \
-  --ingress-lb-ip 10.111.111.77 \
-  --harbor-server 10.111.111.72:80 \
+  --metallb-range 192.168.56.77-192.168.56.77 \
+  --ingress-lb-ip 192.168.56.77 \
+  --harbor-server 192.168.56.72:80 \
   --harbor-username 'robot$dis' \
   --harbor-password '<password>'
 ```
@@ -48,8 +48,8 @@ bash scripts/verify_fss_vmware_setup.sh
 
 고정 ingress/service 하나로 다음 형식을 처리합니다.
 
-- `https://test-user-1234.service.jupyter.fss.or.kr`
-- `https://test-user-5678.service.jupyter.fss.or.kr`
+- `https://test-user-1234.service.jupyter.platform.local`
+- `https://test-user-5678.service.jupyter.platform.local`
 
 동작 방식:
 

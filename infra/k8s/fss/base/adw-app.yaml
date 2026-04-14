@@ -12,14 +12,14 @@ data:
   LAB_GOVERNANCE_ENABLED: "true"
   JUPYTER_IMAGE: harbor.local/dis/jupyter-teradata-extension:latest
   JUPYTER_ACCESS_MODE: dynamic-route
-  JUPYTER_DYNAMIC_HOST_SUFFIX: service.jupyter.fss.or.kr
+  JUPYTER_DYNAMIC_HOST_SUFFIX: service.jupyter.platform.local
   JUPYTER_DYNAMIC_SCHEME: https
   JUPYTER_DYNAMIC_SUBDOMAIN: jupyter-named-pod
   JUPYTER_WORKSPACE_ROOT: /workspace/user-home
   JUPYTER_BOOTSTRAP_DIR: /opt/platform/bootstrap-workspace
   AUTH_TOKEN_TTL_SECONDS: "28800"
   AUTH_SESSION_PREFIX: "fss:auth:session:"
-  CORS_ORIGINS: "https://adw.fss.or.kr,http://adw.local"
+  CORS_ORIGINS: "https://adw.platform.local,http://adw.local"
   FRONTEND_URL: "http://adw.local"
 ---
 apiVersion: v1
@@ -29,11 +29,11 @@ metadata:
   namespace: app
 type: Opaque
 stringData:
-  MONGO_URI: mongodb://root:root-password@mongo.infra.svc.cluster.local:27017/fss_adw?authSource=admin
-  REDIS_URL: redis://root:root-password@redis.infra.svc.cluster.local:6379/0
-  JUPYTER_TOKEN: platform123
+  MONGO_URI: mongodb://root:CHANGE_ME@mongo.infra.svc.cluster.local:27017/fss_adw?authSource=admin
+  REDIS_URL: redis://root:CHANGE_ME@redis.infra.svc.cluster.local:6379/0
+  JUPYTER_TOKEN: CHANGE_ME
   CONTROL_PLANE_USERNAME: admin
-  CONTROL_PLANE_PASSWORD: "123456"
+  CONTROL_PLANE_PASSWORD: "CHANGE_ME"
 ---
 apiVersion: v1
 kind: ServiceAccount

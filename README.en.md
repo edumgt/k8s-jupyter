@@ -212,9 +212,9 @@ VMware-specific procedure: [docs/vmware/README.md](docs/vmware/README.md)
 ## Frontend / API
 
 - Login accounts
-  - user: `test1@test.com / 123456`
-  - user: `test2@test.com / 123456`
-  - admin: `admin@test.com / 123456`
+  - user: `test1@test.com / CHANGE_ME`
+  - user: `test2@test.com / CHANGE_ME`
+  - admin: `admin@test.com / CHANGE_ME`
 - Regular users start/stop/restore only their own Jupyter sandbox
 - Admins view per-user sandbox status, session time, cumulative usage, login count, and launch count in admin mode
 - Backend API endpoints:

@@ -21,7 +21,7 @@ SSH_KEY_PATH="${SSH_KEY_PATH:-}"
 SSH_PORT="${SSH_PORT:-22}"
 
 SETUP_DISADM=1
-DISADM_PASSWORD="${DISADM_PASSWORD:-P@ssword1!}"
+DISADM_PASSWORD="${DISADM_PASSWORD:-CHANGE_ME}"
 INSTALL_PDSH=1
 PDSH_RCMD_TYPE="${PDSH_RCMD_TYPE:-ssh}"
 PDSH_GROUP_NAME="${PDSH_GROUP_NAME:-k8s-dev}"
@@ -71,7 +71,7 @@ Options:
   --ssh-port PORT            SSH port (default: 22)
 
   --skip-setup-disadm        Do not create/update disadm user
-  --disadm-password PASS     Password for disadm (default: P@ssword1!)
+  --disadm-password PASS     Password for disadm (default: CHANGE_ME)
   --skip-install-pdsh        Skip apt install pdsh/sshpass/openssh-client
   --pdsh-rcmd-type TYPE      pdsh remote cmd type (default: ssh)
   --pdsh-group-name NAME     pdsh group file name under /home/disadm/.dsh/group (default: k8s-dev)
@@ -92,9 +92,9 @@ Examples:
     --ssh-user ubuntu --ssh-password ubuntu
 
   bash scripts/vmware_create_bastion_bh.sh \
-    --static-network --static-ip 10.110.2.100 --gateway 10.110.2.1 \
-    --dns-servers 10.110.2.1,1.1.1.1 \
-    --pdsh-group-hosts 10.110.2.215,10.110.2.216,10.110.2.217,10.110.2.218
+    --static-network --static-ip 192.168.56.100 --gateway 192.168.56.1 \
+    --dns-servers 192.168.56.1,1.1.1.1 \
+    --pdsh-group-hosts 192.168.56.10,192.168.56.11,192.168.56.12,192.168.56.13
 EOF
 }
 

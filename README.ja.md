@@ -200,9 +200,9 @@ VMware 専用手順：[docs/vmware/README.md](docs/vmware/README.md)
 ## Frontend / API
 
 - ログインアカウント
-  - ユーザー：`test1@test.com / 123456`
-  - ユーザー：`test2@test.com / 123456`
-  - 管理者：`admin@test.com / 123456`
+  - ユーザー：`test1@test.com / CHANGE_ME`
+  - ユーザー：`test2@test.com / CHANGE_ME`
+  - 管理者：`admin@test.com / CHANGE_ME`
 - 一般ユーザーは自分の Jupyter sandbox の起動/停止/復元のみ操作可能
 - 管理者は管理者モードでユーザーごとの sandbox 状態、セッション時間、累積使用時間、ログイン回数、起動回数を監視
 - Backend API エンドポイント：

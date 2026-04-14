@@ -228,9 +228,9 @@ Windows `C:\\Windows\\System32\\drivers\\etc\\hosts` 예시:
 - `bash scripts/verify.sh --http-mode ingress --lb-ip <INGRESS_LB_IP>`
 
 로그인 계정:
-- user: `test1@test.com / 123456`
-- user: `test2@test.com / 123456`
-- admin: `admin@test.com / 123456`
+- user: `test1@test.com / CHANGE_ME`
+- user: `test2@test.com / CHANGE_ME`
+- admin: `admin@test.com / CHANGE_ME`
 
 ## 6-1) 폐쇄망 개발용 Nexus 캐시 사전 워밍
 

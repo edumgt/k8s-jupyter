@@ -200,9 +200,9 @@ VMware 专用流程：[docs/vmware/README.md](docs/vmware/README.md)
 ## Frontend / API
 
 - 登录账号
-  - 普通用户：`test1@test.com / 123456`
-  - 普通用户：`test2@test.com / 123456`
-  - 管理员：`admin@test.com / 123456`
+  - 普通用户：`test1@test.com / CHANGE_ME`
+  - 普通用户：`test2@test.com / CHANGE_ME`
+  - 管理员：`admin@test.com / CHANGE_ME`
 - 普通用户只能启动/停止/恢复自己的 Jupyter sandbox
 - 管理员在管理模式下查看每个用户的 sandbox 状态、会话时长、累计使用时长、登录次数和启动次数
 - Backend API 端点：

@@ -236,7 +236,7 @@ def _is_datax_module_request(
         referer=referer,
         x_forwarded_host=x_forwarded_host,
     )
-    return any(host == "dataxflow.fss.or.kr" or host.endswith(".dataxflow.fss.or.kr") for host in hosts if host)
+    return any(host == "dataxflow.platform.local" or host.endswith(".dataxflow.platform.local") for host in hosts if host)
 
 
 def _is_platform_module_request(
@@ -251,7 +251,7 @@ def _is_platform_module_request(
         referer=referer,
         x_forwarded_host=x_forwarded_host,
     )
-    return any(host == "platform.fss.or.kr" or host.endswith(".platform.fss.or.kr") for host in hosts if host)
+    return any(host == "platform.platform.local" or host.endswith(".platform.platform.local") for host in hosts if host)
 
 
 def _ensure_platform_jupyter_available(

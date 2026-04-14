@@ -7,7 +7,7 @@ ROOT_DIR="$(cd "${SCRIPT_DIR}/.." && pwd)"
 source "${SCRIPT_DIR}/lib/image_registry.sh"
 
 SSH_USER="${SSH_USER:-ubuntu}"
-SSH_PASSWORD="${SSH_PASSWORD:-ubuntu}"
+SSH_PASSWORD="${SSH_PASSWORD:-CHANGE_ME}"
 SSH_KEY_PATH="${SSH_KEY_PATH:-}"
 SSH_PORT="${SSH_PORT:-22}"
 NODES_CSV="${NODES_CSV:-}"

@@ -12,9 +12,9 @@ const gitlabUsername = process.env.GITLAB_USERNAME ?? "root";
 const gitlabPassword =
   process.env.GITLAB_PASSWORD ?? process.env.GITLAB_ROOT_PASSWORD ?? "CHANGE_ME";
 const gitlabDev1Username = process.env.GITLAB_DEV1_USERNAME ?? "dev1";
-const gitlabDev1Password = process.env.GITLAB_DEV1_PASSWORD ?? "123456";
+const gitlabDev1Password = process.env.GITLAB_DEV1_PASSWORD ?? "CHANGE_ME";
 const gitlabDev2Username = process.env.GITLAB_DEV2_USERNAME ?? "dev2";
-const gitlabDev2Password = process.env.GITLAB_DEV2_PASSWORD ?? "123456";
+const gitlabDev2Password = process.env.GITLAB_DEV2_PASSWORD ?? "CHANGE_ME";
 const backendGitFlowFile =
   process.env.BACKEND_GIT_FLOW_FILE ?? "/workspace/dist/gitlab-demo/captures/backend-git-flow.txt";
 const frontendGitFlowFile =
@@ -22,13 +22,13 @@ const frontendGitFlowFile =
 const test1LabUrl = process.env.TEST1_LAB_URL ?? "";
 const browserExecutablePath = process.env.PLAYWRIGHT_EXECUTABLE_PATH ?? "";
 const nexusUsername = process.env.NEXUS_USERNAME ?? "admin";
-const nexusPassword = process.env.NEXUS_PASSWORD ?? "nexus123!";
+const nexusPassword = process.env.NEXUS_PASSWORD ?? "CHANGE_ME";
 const airflowUsername = process.env.AIRFLOW_USERNAME ?? "admin";
-const airflowPassword = process.env.AIRFLOW_PASSWORD ?? "admin12345!";
+const airflowPassword = process.env.AIRFLOW_PASSWORD ?? "CHANGE_ME";
 const test1Username = process.env.TEST1_USERNAME ?? "test1@test.com";
-const test1Password = process.env.TEST1_PASSWORD ?? "123456";
+const test1Password = process.env.TEST1_PASSWORD ?? "CHANGE_ME";
 const adminUsername = process.env.ADMIN_USERNAME ?? process.env.CONTROL_PLANE_USERNAME ?? "admin@test.com";
-const adminPassword = process.env.ADMIN_PASSWORD ?? process.env.CONTROL_PLANE_PASSWORD ?? "123456";
+const adminPassword = process.env.ADMIN_PASSWORD ?? process.env.CONTROL_PLANE_PASSWORD ?? "CHANGE_ME";
 const browserCdpUrl = process.env.BROWSER_CDP_URL ?? "";
 const screenshotSuffix = (process.env.SCREENSHOT_SUFFIX ?? "").trim();
 
@@ -158,7 +158,7 @@ async function captureJupyter(browser) {
   await waitForHttp(loginUrl, { timeoutMs: 240000 });
   const page = await createPage(browser, 1024);
   await page.goto(loginUrl, { waitUntil: "domcontentloaded", timeout: 240000 });
-  await page.getByLabel("Password or token").fill("platform123");
+  await page.getByLabel("Password or token").fill("CHANGE_ME");
   await page.getByRole("button", { name: "Log in", exact: true }).click();
   await page.waitForURL(/lab/, { timeout: 240000 });
   await page.waitForLoadState("networkidle", { timeout: 240000 }).catch(() => {});

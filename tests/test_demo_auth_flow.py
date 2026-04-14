@@ -90,7 +90,7 @@ class DemoAuthFlowTests(unittest.TestCase):
     def tearDown(self) -> None:
         self.patches.close()
 
-    def login(self, username: str, password: str = "123456"):
+    def login(self, username: str, password: str = "CHANGE_ME"):
         response = login_demo_user(DemoUserLoginRequest(username=username, password=password))
         current_user = require_authenticated_user(response.token)
         return response, current_user

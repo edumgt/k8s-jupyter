@@ -679,10 +679,10 @@ bash scripts/status_k8s.sh --env dev
 
 검증 기준(2026-04-06):
 
-- control-plane: `k8s-data-platform` (`10.110.2.215`)
-- worker: `k8s-worker-1` (`10.110.2.216`)
-- worker: `k8s-worker-2` (`10.110.2.217`)
-- worker: `k8s-worker-3` (`10.110.2.218`)
+- control-plane: `k8s-data-platform` (`192.168.56.10`)
+- worker: `k8s-worker-1` (`192.168.56.11`)
+- worker: `k8s-worker-2` (`192.168.56.12`)
+- worker: `k8s-worker-3` (`192.168.56.13`)
 - SSH: `disadm@<node> -p 10022`
 
 패키지 고정:
@@ -744,7 +744,7 @@ sudo netplan generate && sudo netplan apply
 
 ```bash
 ip -4 -br a | egrep 'ens160|ens32|ens33'
-ip route | egrep 'default|10.110.2.0|192.168.56.0'
+ip route | egrep 'default|192.168.56.0'
 ```
 
 #### B) 사전 점검 (control-plane)
@@ -777,9 +777,9 @@ for NODE in k8s-worker-1 k8s-worker-2 k8s-worker-3; do
     --ignore-daemonsets --delete-emptydir-data --force --grace-period=30 --timeout=180s
 
   NODE_IP=""
-  if [ "${NODE}" = "k8s-worker-1" ]; then NODE_IP="10.110.2.216"; fi
-  if [ "${NODE}" = "k8s-worker-2" ]; then NODE_IP="10.110.2.217"; fi
-  if [ "${NODE}" = "k8s-worker-3" ]; then NODE_IP="10.110.2.218"; fi
+  if [ "${NODE}" = "k8s-worker-1" ]; then NODE_IP="192.168.56.11"; fi
+  if [ "${NODE}" = "k8s-worker-2" ]; then NODE_IP="192.168.56.12"; fi
+  if [ "${NODE}" = "k8s-worker-3" ]; then NODE_IP="192.168.56.13"; fi
 
   ssh -p 10022 disadm@"${NODE_IP}" "
     sudo kubeadm upgrade node &&
@@ -800,7 +800,7 @@ done
 
 주요 원인:
 
-- etcd advertise 주소(`10.110.2.215`)와 etcd server/peer 인증서 SAN 불일치
+- etcd advertise 주소(`192.168.56.10`)와 etcd server/peer 인증서 SAN 불일치
 - `ens160` 고정 주소 유실로 기존 etcd endpoint(`192.168.56.10`) 단절
 
 점검:
@@ -817,7 +817,7 @@ cat <<'EOF' | sudo tee /tmp/kubeadm-etcd-certfix.yaml >/dev/null
 apiVersion: kubeadm.k8s.io/v1beta4
 kind: InitConfiguration
 localAPIEndpoint:
-  advertiseAddress: 10.110.2.215
+  advertiseAddress: 192.168.56.10
   bindPort: 6443
 nodeRegistration:
   name: k8s-data-platform
@@ -826,15 +826,15 @@ nodeRegistration:
 apiVersion: kubeadm.k8s.io/v1beta4
 kind: ClusterConfiguration
 kubernetesVersion: v1.35.3
-controlPlaneEndpoint: 10.110.2.215:6443
+controlPlaneEndpoint: 192.168.56.10:6443
 etcd:
   local:
     serverCertSANs:
-      - 10.110.2.215
+      - 192.168.56.10
       - 192.168.56.10
       - 127.0.0.1
     peerCertSANs:
-      - 10.110.2.215
+      - 192.168.56.10
       - 192.168.56.10
       - 127.0.0.1
 EOF
@@ -1021,13 +1021,13 @@ hosts 파일 예시(Windows):
 
 | 솔루션 | 접속 주소 | 관리자 ID | 비밀번호/토큰 | 근거 |
 |---|---|---|---|---|
-| VMware VM SSH (control-plane/worker) | SSH (`22`) | `ubuntu` | `ubuntu` | `packer/variables.vmware.auto.pkrvars.hcl` |
-| Platform Web(Admin 모드) | `http://platform.local` | `admin@test.com` | `123456` | `apps/backend/app/services/demo_users.py` |
-| Control-plane 전용 로그인(대체 계정) | `http://platform.local/#control-plane` | `platform-admin` | `controlplane123!` | `infra/k8s/overlays/dev-3node/platform-secrets-patch.yaml` |
-| JupyterLab(shared) | `http://jupyter.platform.local/lab` | `token` | `platform123` | `infra/k8s/overlays/dev-3node/platform-secrets-patch.yaml` |
-| GitLab (root) | `http://gitlab.platform.local` | `root` | `v7Q#2mL!9xC@4pR%8tZ` | `GITLAB_ROOT_PASSWORD` (dev overlay) |
-| Airflow | `http://airflow.platform.local` | `admin` | `admin12345!` | `AIRFLOW_ADMIN_USERNAME/PASSWORD` (dev overlay) |
-| Nexus Repository | `http://nexus.platform.local` | `admin` | `nexus123!` | `start.sh` 기본값 + `PLATFORM_NEXUS_ADMIN_PASSWORD` |
+| VMware VM SSH (control-plane/worker) | SSH (`22`) | `ubuntu` | `CHANGE_ME` | `packer/variables.vmware.auto.pkrvars.hcl` |
+| Platform Web(Admin 모드) | `http://platform.local` | `admin@test.com` | `CHANGE_ME` | `apps/backend/app/services/demo_users.py` |
+| Control-plane 전용 로그인(대체 계정) | `http://platform.local/#control-plane` | `platform-admin` | `CHANGE_ME` | `infra/k8s/overlays/dev-3node/platform-secrets-patch.yaml` |
+| JupyterLab(shared) | `http://jupyter.platform.local/lab` | `token` | `CHANGE_ME` | `infra/k8s/overlays/dev-3node/platform-secrets-patch.yaml` |
+| GitLab (root) | `http://gitlab.platform.local` | `root` | `CHANGE_ME` | `GITLAB_ROOT_PASSWORD` (dev overlay) |
+| Airflow | `http://airflow.platform.local` | `admin` | `CHANGE_ME` | `AIRFLOW_ADMIN_USERNAME/PASSWORD` (dev overlay) |
+| Nexus Repository | `http://nexus.platform.local` | `admin` | `CHANGE_ME` | `start.sh` 기본값 + `PLATFORM_NEXUS_ADMIN_PASSWORD` |
 | Harbor Snapshot Registry | `http://<CONTROL_PLANE_IP>:30092` | `PLATFORM_HARBOR_USER` | `PLATFORM_HARBOR_PASSWORD` | base secret 기본값은 `CHANGE_ME` |
 
 `prod` overlay는 별도 계정/비밀번호를 사용합니다: `infra/k8s/overlays/prod/platform-secrets-patch.yaml`.
@@ -1037,9 +1037,9 @@ hosts 파일 예시(Windows):
 ## Frontend / API
 
 - Frontend 로그인 계정
-  - user: `test1@test.com / 123456`
-  - user: `test2@test.com / 123456`
-  - admin: `admin@test.com / 123456`
+  - user: `test1@test.com / CHANGE_ME`
+  - user: `test2@test.com / CHANGE_ME`
+  - admin: `admin@test.com / CHANGE_ME`
 - 로그인은 JWT 기반 modal UI로 먼저 수행
 - 일반 사용자는 로그인 후 본인 전용 Jupyter sandbox 만 시작/중지/복원
 - 일반 사용자는 본인 Jupyter 사용 이력(로그인/실행 횟수, 현재/누적 사용시간)을 확인
@@ -1163,8 +1163,8 @@ JWT modal 로그인 화면:
 
 실행 중인 GitLab pod 에 demo 계정과 공개 repo 를 만들어 `apps/backend`, `apps/frontend` 를 app repo 로 분리해 push/pull 하는 흐름도 재현했습니다.
 
-- GitLab demo user: `dev1@dev.com / 123456`
-- GitLab demo user: `dev2@dev.com / 123456`
+- GitLab demo user: `dev1@dev.com / CHANGE_ME`
+- GitLab demo user: `dev2@dev.com / CHANGE_ME`
 - public repo: `dev1/platform-backend`
 - public repo: `dev2/platform-frontend`
 

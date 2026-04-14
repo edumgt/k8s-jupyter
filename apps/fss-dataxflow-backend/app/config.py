@@ -12,38 +12,38 @@ class Settings(BaseSettings):
     env: str = "base"
     mongo_url: str = "mongodb://mongodb:27017/platform"
     redis_url: str = "redis://redis:6379/0"
-    backend_url: str = "http://api.dataxflow.fss.or.kr/docs"
-    frontend_url: str = "http://dataxflow.fss.or.kr"
-    control_plane_url: str = "http://dataxflow.fss.or.kr/#control-plane"
-    admin_url: str = "http://dataxflow.fss.or.kr/#admin"
+    backend_url: str = "http://api.dataxflow.platform.local/docs"
+    frontend_url: str = "http://dataxflow.platform.local"
+    control_plane_url: str = "http://dataxflow.platform.local/#control-plane"
+    admin_url: str = "http://dataxflow.platform.local/#admin"
     airflow_url: str = "http://localhost:30090"
     jupyter_url: str = "http://localhost:30088/lab"
     gitlab_url: str = "http://localhost:30089"
     nexus_url: str = "http://localhost:30091"
     pypi_index_url: str = "http://localhost:30091/repository/pypi-all/simple"
     npm_registry: str = "http://localhost:30091/repository/npm-all/"
-    harbor_url: str = "http://10.111.111.72:30083"
-    harbor_registry: str = "10.111.111.72"
+    harbor_url: str = "http://192.168.56.72:30083"
+    harbor_registry: str = "192.168.56.72"
     harbor_project: str = "app"
     harbor_user: str | None = None
     harbor_password: str | None = None
     harbor_insecure_registry: bool = True
     notebooks_path: str = "/workspace/notebooks/shared"
     k8s_namespace: str = "app"
-    jupyter_image: str = "10.111.111.72/dis/jupter-teradata-fss:latest"
+    jupyter_image: str = "192.168.56.72/dis/jupter-teradata-fss:latest"
     jupyter_workspace_pvc: str = "jupyter-workspace"
     jupyter_workspace_root: str = "/workspace/user-home"
     jupyter_bootstrap_dir: str = "/opt/platform/bootstrap-workspace"
     jupyter_user_pvc_storage_class: str | None = None
     lab_governance_enabled: bool = False
-    jupyter_snapshot_builder_image: str = "10.111.111.72/library/platform-kaniko-executor:v1.23.2-debug"
+    jupyter_snapshot_builder_image: str = "192.168.56.72/library/platform-kaniko-executor:v1.23.2-debug"
     jupyter_access_mode: str = "dynamic-route"
-    jupyter_dynamic_host_suffix: str = "service.jupyter.fss.or.kr"
+    jupyter_dynamic_host_suffix: str = "service.jupyter.platform.local"
     jupyter_dynamic_scheme: str = "https"
     jupyter_dynamic_subdomain: str = "jupyter-named-pod"
-    jupyter_token: str = Field(default="platform123", validation_alias="JUPYTER_TOKEN")
+    jupyter_token: str = Field(default="CHANGE_ME", validation_alias="JUPYTER_TOKEN")
     control_plane_username: str = "admin@test.com"
-    control_plane_password: str = "123456"
+    control_plane_password: str = "CHANGE_ME"
     control_plane_session_secret: str = "controlplane-session"
     auth_jwt_secret: str = "platform-auth-jwt"
     auth_jwt_algorithm: str = "HS256"
@@ -58,12 +58,12 @@ class Settings(BaseSettings):
     teradata_fake_mode: bool = True
     teradata_encryptdata: bool = True
     cors_allow_origins: str = (
-        "http://dataxflow.fss.or.kr,"
-        "http://dev.dataxflow.fss.or.kr,"
-        "http://www.dataxflow.fss.or.kr,"
-        "http://platform.fss.or.kr,"
-        "http://dev.platform.fss.or.kr,"
-        "http://www.platform.fss.or.kr,"
+        "http://dataxflow.platform.local,"
+        "http://dev.dataxflow.platform.local,"
+        "http://www.dataxflow.platform.local,"
+        "http://platform.platform.local,"
+        "http://dev.platform.platform.local,"
+        "http://www.platform.platform.local,"
         "http://localhost:30080,"
         "http://localhost:5173"
     )
