@@ -50,7 +50,7 @@ export const config = {
   jupyterUserPvcStorageClass: process.env.JUPYTER_USER_PVC_STORAGE_CLASS || "",
 
   controlPlaneUsername: process.env.CONTROL_PLANE_USERNAME || "admin",
-  controlPlanePassword: process.env.CONTROL_PLANE_PASSWORD || "123456",
+  controlPlanePassword: process.env.CONTROL_PLANE_PASSWORD || "CHANGE_ME",
 
   harborRegistry: process.env.HARBOR_REGISTRY || "harbor.local",
   harborProject: process.env.HARBOR_PROJECT || "dis",

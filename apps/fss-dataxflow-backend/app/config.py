@@ -43,7 +43,7 @@ class Settings(BaseSettings):
     jupyter_dynamic_subdomain: str = "jupyter-named-pod"
     jupyter_token: str = Field(default="CHANGE_ME", validation_alias="JUPYTER_TOKEN")
     control_plane_username: str = "admin@test.com"
-    control_plane_password: str = "123456"
+    control_plane_password: str = "CHANGE_ME"
     control_plane_session_secret: str = "controlplane-session"
     auth_jwt_secret: str = "platform-auth-jwt"
     auth_jwt_algorithm: str = "HS256"

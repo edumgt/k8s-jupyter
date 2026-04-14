@@ -744,7 +744,7 @@ sudo netplan generate && sudo netplan apply
 
 ```bash
 ip -4 -br a | egrep 'ens160|ens32|ens33'
-ip route | egrep 'default|192.168.56.0|192.168.56.0'
+ip route | egrep 'default|192.168.56.0'
 ```
 
 #### B) 사전 점검 (control-plane)

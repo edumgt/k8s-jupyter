@@ -32,13 +32,13 @@ class DemoUser:
 DEMO_USERS = (
     DemoUser(
         username="test1@test.com",
-        password="123456",
+        password="CHANGE_ME",
         role="user",
         display_name="Test User 1",
     ),
     DemoUser(
         username="admin@test.com",
-        password="123456",
+        password="CHANGE_ME",
         role="admin",
         display_name="Platform Admin",
     ),

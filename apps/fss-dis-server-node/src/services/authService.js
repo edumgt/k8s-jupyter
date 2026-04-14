@@ -22,8 +22,8 @@ export async function verifyPassword(password, passwordHash) {
 
 export async function ensureDefaultUsers() {
   const defaults = [
-    { username: "admin@test.com", password: "123456", role: "admin", displayName: "Platform Admin" },
-    { username: "test1@test.com", password: "123456", role: "user", displayName: "Test User 1" },
+    { username: "admin@test.com", password: "CHANGE_ME", role: "admin", displayName: "Platform Admin" },
+    { username: "test1@test.com", password: "CHANGE_ME", role: "user", displayName: "Test User 1" },
   ];
 
   for (const item of defaults) {
