@@ -3,7 +3,7 @@ FROM harbor.local/data-platform/platform-node:22.22.0-bookworm-slim AS build
 WORKDIR /app
 
 ARG APP_ENV=dev
-ARG NPM_REGISTRY=http://192.168.56.10:30091/repository/npm-all/
+ARG NPM_REGISTRY=http://<YOUR_MASTER_IP>:30091/repository/npm-all/
 ARG NPM_AUTH_B64
 
 COPY package.json package-lock.json ./

@@ -22,7 +22,7 @@ Checks whether required stack images exist in node containerd under
 harbor.local/data-platform/* tags.
 
 Options:
-  --nodes <csv>          Node IPs to check. Example: 192.168.56.10,192.168.56.11,192.168.56.12
+  --nodes <csv>          Node IPs to check. Example: <YOUR_MASTER_IP>,<YOUR_WORKER1_IP>,<YOUR_WORKER2_IP>
                          If omitted, derives InternalIP list from kubectl.
   --ssh-user <user>      SSH user. Default: ubuntu
   --ssh-password <pass>  SSH password. Default: ubuntu

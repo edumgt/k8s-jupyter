@@ -20,12 +20,12 @@
 bash ./start.sh \
   --vars-file packer/variables.vmware.auto.pkrvars.hcl \
   --static-network \
-  --control-plane-ip 192.168.56.10 \
-  --worker1-ip 192.168.56.11 \
-  --worker2-ip 192.168.56.12 \
-  --gateway 192.168.56.1 \
-  --metallb-range 192.168.56.240-192.168.56.250 \
-  --ingress-lb-ip 192.168.56.240 \
+  --control-plane-ip <YOUR_MASTER_IP> \
+  --worker1-ip <YOUR_WORKER1_IP> \
+  --worker2-ip <YOUR_WORKER2_IP> \
+  --gateway <YOUR_GATEWAY_IP> \
+  --metallb-range <YOUR_LB_IP>-<YOUR_LB_IP_END> \
+  --ingress-lb-ip <YOUR_LB_IP> \
   --seed-gitlab-be-fe \
   --post-reboot-check
 ```
@@ -41,8 +41,8 @@ bash ./start.sh \
 ```bash
 bash ./ovabuild.sh \
   --vars-file packer/variables.vmware.auto.pkrvars.hcl \
-  --control-plane-ip 192.168.56.10 \
-  --ingress-lb-ip 192.168.56.240 \
+  --control-plane-ip <YOUR_MASTER_IP> \
+  --ingress-lb-ip <YOUR_LB_IP> \
   --dist-dir C:/ffmpeg
 ```
 

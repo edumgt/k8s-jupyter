@@ -10,7 +10,7 @@ data:
   K8S_APP_NAMESPACE: app
   K8S_USER_NAMESPACE: dis
   LAB_GOVERNANCE_ENABLED: "true"
-  JUPYTER_IMAGE: 192.168.56.72/dis/jupter-teradata-fss:latest
+  JUPYTER_IMAGE: harbor.local/dis/jupter-teradata-fss:latest
   JUPYTER_ACCESS_MODE: dynamic-route
   JUPYTER_DYNAMIC_HOST_SUFFIX: service.jupyter.platform.local
   JUPYTER_DYNAMIC_SCHEME: https
@@ -86,7 +86,7 @@ spec:
       serviceAccountName: fss-dis-server
       containers:
         - name: server
-          image: 192.168.56.72/app/fss-dis-server-node:latest
+          image: harbor.local/app/fss-dis-server-node:latest
           imagePullPolicy: IfNotPresent
           ports:
             - containerPort: 3000
@@ -161,7 +161,7 @@ spec:
     spec:
       containers:
         - name: frontend
-          image: 192.168.56.72/app/fss-dis-frontend:latest
+          image: harbor.local/app/fss-dis-frontend:latest
           imagePullPolicy: IfNotPresent
           ports:
             - containerPort: 80

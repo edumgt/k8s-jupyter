@@ -92,9 +92,9 @@ Examples:
     --ssh-user ubuntu --ssh-password ubuntu
 
   bash scripts/vmware_create_bastion_bh.sh \
-    --static-network --static-ip 192.168.56.100 --gateway 192.168.56.1 \
-    --dns-servers 192.168.56.1,1.1.1.1 \
-    --pdsh-group-hosts 192.168.56.10,192.168.56.11,192.168.56.12,192.168.56.13
+    --static-network --static-ip <YOUR_BASTION_INTERNAL_IP> --gateway <YOUR_GATEWAY_IP> \
+    --dns-servers <YOUR_GATEWAY_IP>,1.1.1.1 \
+    --pdsh-group-hosts <YOUR_MASTER_IP>,<YOUR_WORKER1_IP>,<YOUR_WORKER2_IP>,<YOUR_WORKER_ML1_IP>
 EOF
 }
 

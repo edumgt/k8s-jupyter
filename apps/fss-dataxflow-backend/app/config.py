@@ -22,21 +22,22 @@ class Settings(BaseSettings):
     nexus_url: str = "http://localhost:30091"
     pypi_index_url: str = "http://localhost:30091/repository/pypi-all/simple"
     npm_registry: str = "http://localhost:30091/repository/npm-all/"
-    harbor_url: str = "http://192.168.56.72:30083"
-    harbor_registry: str = "192.168.56.72"
+    harbor_url: str = ""
+    harbor_registry: str = ""
     harbor_project: str = "app"
     harbor_user: str | None = None
     harbor_password: str | None = None
     harbor_insecure_registry: bool = True
     notebooks_path: str = "/workspace/notebooks/shared"
     k8s_namespace: str = "app"
-    jupyter_image: str = "192.168.56.72/dis/jupter-teradata-fss:latest"
+    jupyter_image: str = "harbor.local/dis/jupter-teradata-fss:latest"
     jupyter_workspace_pvc: str = "jupyter-workspace"
     jupyter_workspace_root: str = "/workspace/user-home"
     jupyter_bootstrap_dir: str = "/opt/platform/bootstrap-workspace"
     jupyter_user_pvc_storage_class: str | None = None
     lab_governance_enabled: bool = False
-    jupyter_snapshot_builder_image: str = "192.168.56.72/library/platform-kaniko-executor:v1.23.2-debug"
+    jupyter_snapshot_builder_image: str = "harbor.local/library/platform-kaniko-executor:v1.23.2-debug"
+    jupyter_snapshot_context_image: str = "harbor.local/library/platform-busybox:1.36"
     jupyter_access_mode: str = "dynamic-route"
     jupyter_dynamic_host_suffix: str = "service.jupyter.platform.local"
     jupyter_dynamic_scheme: str = "https"
@@ -83,6 +84,19 @@ class Settings(BaseSettings):
             for origin in self.cors_allow_origins.split(",")
             if origin.strip()
         ]
+
+    def require_harbor(self) -> None:
+        """Raise if Harbor connection settings are not configured."""
+        missing = []
+        if not self.harbor_registry:
+            missing.append("PLATFORM_HARBOR_REGISTRY")
+        if not self.harbor_url:
+            missing.append("PLATFORM_HARBOR_URL")
+        if missing:
+            raise RuntimeError(
+                f"Required environment variable(s) not set: {', '.join(missing)}. "
+                "Set them in your .env file or environment before starting the application."
+            )
 
 
 @lru_cache

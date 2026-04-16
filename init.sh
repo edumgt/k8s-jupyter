@@ -14,15 +14,15 @@ WORKER1_HOSTNAME="${WORKER1_HOSTNAME:-k8s-worker-1}"
 WORKER2_HOSTNAME="${WORKER2_HOSTNAME:-k8s-worker-2}"
 WORKER3_HOSTNAME="${WORKER3_HOSTNAME:-k8s-worker-3}"
 
-CONTROL_PLANE_IP="${CONTROL_PLANE_IP:-192.168.56.10}"
-WORKER1_IP="${WORKER1_IP:-192.168.56.11}"
-WORKER2_IP="${WORKER2_IP:-192.168.56.12}"
-WORKER3_IP="${WORKER3_IP:-192.168.56.13}"
-GATEWAY="${GATEWAY:-192.168.56.1}"
-DNS_SERVERS="${DNS_SERVERS:-192.168.56.1,1.1.1.1,8.8.8.8}"
+CONTROL_PLANE_IP="${CONTROL_PLANE_IP:-<YOUR_MASTER_IP>}"
+WORKER1_IP="${WORKER1_IP:-<YOUR_WORKER1_IP>}"
+WORKER2_IP="${WORKER2_IP:-<YOUR_WORKER2_IP>}"
+WORKER3_IP="${WORKER3_IP:-<YOUR_WORKER_ML1_IP>}"
+GATEWAY="${GATEWAY:-<YOUR_GATEWAY_IP>}"
+DNS_SERVERS="${DNS_SERVERS:-<YOUR_GATEWAY_IP>,1.1.1.1,8.8.8.8}"
 NETWORK_CIDR_PREFIX="${NETWORK_CIDR_PREFIX:-24}"
-INGRESS_LB_IP="${INGRESS_LB_IP:-192.168.56.240}"
-METALLB_RANGE="${METALLB_RANGE:-192.168.56.240-192.168.56.250}"
+INGRESS_LB_IP="${INGRESS_LB_IP:-<YOUR_LB_IP>}"
+METALLB_RANGE="${METALLB_RANGE:-<YOUR_LB_IP>-<YOUR_LB_IP_END>}"
 NET_INTERFACE="${NET_INTERFACE:-}"
 WSL_ROUTE_GATEWAY="${WSL_ROUTE_GATEWAY:-}"
 BUNDLE_DIR="${BUNDLE_DIR:-${ROOT_DIR}/dist/offline-bundle}"
@@ -58,7 +58,7 @@ Usage: bash init.sh [options] [-- <extra start.sh args>]
 init.sh helps with the post-import VMware OVA workflow:
   1) Import 4 OVA files into VMware Workstation output paths
   2) Print the exact per-VM commands for static IP + hostname setup
-  3) Add a WSL route for 192.168.56.0/24 via the Windows/WSL gateway
+  3) Add a WSL route for <YOUR_SUBNET>/24 via the Windows/WSL gateway
   4) Preload an offline bundle into the control-plane VM
   5) Update WSL /etc/hosts for ingress domains
   6) Update Windows hosts file for ingress domains
@@ -80,19 +80,19 @@ Important:
   - init.sh cannot safely change multiple VMs remotely while they all answer
     on the same address.
   - The WSL route step assumes Windows/VMware networking is already configured
-    so the Windows host can reach 192.168.56.0/24.
+    so the Windows host can reach <YOUR_SUBNET>/24.
 
 Options:
-  --control-plane-ip IP       Default: 192.168.56.10
-  --worker1-ip IP             Default: 192.168.56.11
-  --worker2-ip IP             Default: 192.168.56.12
-  --worker3-ip IP             Default: 192.168.56.13
-  --gateway IP                Default: 192.168.56.1
-  --dns-servers CSV           Default: 192.168.56.1,1.1.1.1,8.8.8.8
+  --control-plane-ip IP       Default: <YOUR_MASTER_IP>
+  --worker1-ip IP             Default: <YOUR_WORKER1_IP>
+  --worker2-ip IP             Default: <YOUR_WORKER2_IP>
+  --worker3-ip IP             Default: <YOUR_WORKER_ML1_IP>
+  --gateway IP                Default: <YOUR_GATEWAY_IP>
+  --dns-servers CSV           Default: <YOUR_GATEWAY_IP>,1.1.1.1,8.8.8.8
   --network-cidr-prefix N     Default: 24
   --net-interface IFACE       Optional net interface for VM static IP script
-  --ingress-lb-ip IP          Default: 192.168.56.240
-  --metallb-range RANGE       Default: 192.168.56.240-192.168.56.250
+  --ingress-lb-ip IP          Default: <YOUR_LB_IP>
+  --metallb-range RANGE       Default: <YOUR_LB_IP>-<YOUR_LB_IP_END>
   --vars-file PATH            Default: packer/variables.vmware.auto.pkrvars.hcl
   --ova-dir PATH              Default: C:/ffmpeg
   --vmware-output-dir PATH    Override VMware import/output dir
@@ -117,7 +117,7 @@ Options:
 Stages:
   --import-ova                Import k8s-data-platform / worker1 / worker2 / worker3 OVA files
   --vm-commands               Print per-VM commands only
-  --apply-wsl-route           Add/replace WSL route for 192.168.56.0/24
+  --apply-wsl-route           Add/replace WSL route for <YOUR_SUBNET>/24
   --preload-offline-bundle    Build/reuse and copy the offline bundle to the control-plane VM
   --apply-wsl-hosts           Update WSL hosts file
   --apply-windows-hosts       Update Windows hosts file via powershell.exe

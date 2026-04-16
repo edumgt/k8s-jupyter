@@ -31,12 +31,12 @@ import부터 hosts/start까지 전체 진행:
 ```bash
 bash scripts/phase3_install_from_completed_ova.sh full \
   --ova-dir C:/ffmpeg \
-  --control-plane-ip 192.168.56.10 \
-  --worker1-ip 192.168.56.11 \
-  --worker2-ip 192.168.56.12 \
-  --gateway 192.168.56.1 \
-  --ingress-lb-ip 192.168.56.240 \
-  --metallb-range 192.168.56.240-192.168.56.250
+  --control-plane-ip <YOUR_MASTER_IP> \
+  --worker1-ip <YOUR_WORKER1_IP> \
+  --worker2-ip <YOUR_WORKER2_IP> \
+  --gateway <YOUR_GATEWAY_IP> \
+  --ingress-lb-ip <YOUR_LB_IP> \
+  --metallb-range <YOUR_LB_IP>-<YOUR_LB_IP_END>
 ```
 
 ## 상황별 실행
@@ -45,16 +45,16 @@ OVA import는 이미 끝난 경우:
 
 ```bash
 bash scripts/phase3_install_from_completed_ova.sh continue \
-  --control-plane-ip 192.168.56.10 \
-  --worker1-ip 192.168.56.11 \
-  --worker2-ip 192.168.56.12
+  --control-plane-ip <YOUR_MASTER_IP> \
+  --worker1-ip <YOUR_WORKER1_IP> \
+  --worker2-ip <YOUR_WORKER2_IP>
 ```
 
 hosts만 갱신:
 
 ```bash
 bash scripts/phase3_install_from_completed_ova.sh hosts-only \
-  --ingress-lb-ip 192.168.56.240
+  --ingress-lb-ip <YOUR_LB_IP>
 ```
 
 start 단계만 재실행:

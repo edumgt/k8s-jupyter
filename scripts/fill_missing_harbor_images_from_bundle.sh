@@ -25,7 +25,7 @@ from offline bundle tar archives.
 
 Options:
   --bundle-dir <path>      Offline bundle root path. Default: dist/offline-bundle
-  --nodes <csv>            Node IP list. Example: 192.168.56.10,192.168.56.11,192.168.56.12
+  --nodes <csv>            Node IP list. Example: <YOUR_MASTER_IP>,<YOUR_WORKER1_IP>,<YOUR_WORKER2_IP>
                            If omitted, discovers node IPs via kubectl.
   --ssh-user <user>        SSH user. Default: ubuntu
   --ssh-password <pass>    SSH password. Default: ubuntu

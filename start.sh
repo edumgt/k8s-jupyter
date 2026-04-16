@@ -23,11 +23,11 @@ VM_START_MODE="${VM_START_MODE:-nogui}"
 WAIT_VM_IP_TIMEOUT_SEC="${WAIT_VM_IP_TIMEOUT_SEC:-600}"
 
 STATIC_NETWORK=0
-CONTROL_PLANE_IP="${CONTROL_PLANE_IP:-192.168.56.10}"
-WORKER1_IP="${WORKER1_IP:-192.168.56.11}"
-WORKER2_IP="${WORKER2_IP:-192.168.56.12}"
-WORKER3_IP="${WORKER3_IP:-192.168.56.13}"
-GATEWAY="${GATEWAY:-192.168.56.1}"
+CONTROL_PLANE_IP="${CONTROL_PLANE_IP:-<YOUR_MASTER_IP>}"
+WORKER1_IP="${WORKER1_IP:-<YOUR_WORKER1_IP>}"
+WORKER2_IP="${WORKER2_IP:-<YOUR_WORKER2_IP>}"
+WORKER3_IP="${WORKER3_IP:-<YOUR_WORKER_ML1_IP>}"
+GATEWAY="${GATEWAY:-<YOUR_GATEWAY_IP>}"
 NETWORK_CIDR_PREFIX="${NETWORK_CIDR_PREFIX:-24}"
 DNS_SERVERS="${DNS_SERVERS:-}"
 NET_INTERFACE="${NET_INTERFACE:-}"
@@ -129,17 +129,17 @@ Options:
   --vm-start-mode gui|nogui    Default: nogui
 
   --static-network             Enable static IP bootstrap (recommended for reproducible OVA)
-  --control-plane-ip IP        Default: 192.168.56.10
-  --worker1-ip IP              Default: 192.168.56.11
-  --worker2-ip IP              Default: 192.168.56.12
-  --worker3-ip IP              Default: 192.168.56.13
-  --gateway IP                 Default: 192.168.56.1
+  --control-plane-ip IP        Default: <YOUR_MASTER_IP>
+  --worker1-ip IP              Default: <YOUR_WORKER1_IP>
+  --worker2-ip IP              Default: <YOUR_WORKER2_IP>
+  --worker3-ip IP              Default: <YOUR_WORKER_ML1_IP>
+  --gateway IP                 Default: <YOUR_GATEWAY_IP>
   --network-cidr-prefix N      Default: 24
   --dns-servers CSV            Default(static network): <gateway>,1.1.1.1,8.8.8.8
   --net-interface IFACE        Optional net interface override
 
-  --metallb-range RANGE        Example: 192.168.56.240-192.168.56.250
-  --ingress-lb-ip IP           Example: 192.168.56.240
+  --metallb-range RANGE        Example: <YOUR_LB_IP>-<YOUR_LB_IP_END>
+  --ingress-lb-ip IP           Example: <YOUR_LB_IP>
   --skip-ingress-setup         Skip ingress/metallb setup
   --skip-node-network-fix      Skip automatic kubelet(:10250)/DNS timeout fix on all nodes
 
@@ -172,13 +172,13 @@ Examples:
   bash start.sh --vars-file packer/variables.vmware.auto.pkrvars.hcl
 
   bash start.sh --static-network \
-    --control-plane-ip 192.168.56.10 \
-    --worker1-ip 192.168.56.11 \
-    --worker2-ip 192.168.56.12 \
-    --worker3-ip 192.168.56.13 \
-    --gateway 192.168.56.1 \
-    --metallb-range 192.168.56.240-192.168.56.250 \
-    --ingress-lb-ip 192.168.56.240
+    --control-plane-ip <YOUR_MASTER_IP> \
+    --worker1-ip <YOUR_WORKER1_IP> \
+    --worker2-ip <YOUR_WORKER2_IP> \
+    --worker3-ip <YOUR_WORKER_ML1_IP> \
+    --gateway <YOUR_GATEWAY_IP> \
+    --metallb-range <YOUR_LB_IP>-<YOUR_LB_IP_END> \
+    --ingress-lb-ip <YOUR_LB_IP>
 EOF
 }
 

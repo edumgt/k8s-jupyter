@@ -5,7 +5,8 @@ metadata:
   namespace: metallb-system
 spec:
   addresses:
-    - 192.168.56.77-192.168.56.77
+    # Replace with the actual MetalLB IP range for your environment
+    - <YOUR_LB_IP>-<YOUR_LB_IP>
 ---
 apiVersion: metallb.io/v1beta1
 kind: L2Advertisement

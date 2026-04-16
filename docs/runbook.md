@@ -74,7 +74,7 @@ kubectl rollout restart deployment/gitlab -n data-platform-dev
 ## 8. kubelet(:10250) / 이미지 Pull DNS 타임아웃 복구
 
 ```bash
-sudo bash scripts/fix_kubelet_network_timeouts.sh --dns-servers 192.168.56.1,1.1.1.1,8.8.8.8
+sudo bash scripts/fix_kubelet_network_timeouts.sh --dns-servers <YOUR_GATEWAY_IP>,1.1.1.1,8.8.8.8
 ```
 
 이 스크립트는 아래를 한 번에 보정합니다.

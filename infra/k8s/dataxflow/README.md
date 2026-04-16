@@ -53,12 +53,12 @@ Harbor가 `http`(insecure)인 환경에서 일부 노드가 `https`로만 시도
 bash scripts/sync_docker_image_to_vms.sh \
   --image-ref harbor.local/data-platform/k8s-dataxflow-frontend:latest \
   --ssh-user ubuntu --ssh-password ubuntu \
-  --control-plane-ip 192.168.56.10 --worker1-ip 192.168.56.11 \
-  --worker2-ip 192.168.56.12 --worker3-ip 192.168.56.13
+  --control-plane-ip <YOUR_MASTER_IP> --worker1-ip <YOUR_WORKER1_IP> \
+  --worker2-ip <YOUR_WORKER2_IP> --worker3-ip <YOUR_WORKER_ML1_IP>
 
 bash scripts/sync_docker_image_to_vms.sh \
   --image-ref harbor.local/data-platform/platform-redis:7-alpine \
   --ssh-user ubuntu --ssh-password ubuntu \
-  --control-plane-ip 192.168.56.10 --worker1-ip 192.168.56.11 \
-  --worker2-ip 192.168.56.12 --worker3-ip 192.168.56.13
+  --control-plane-ip <YOUR_MASTER_IP> --worker1-ip <YOUR_WORKER1_IP> \
+  --worker2-ip <YOUR_WORKER2_IP> --worker3-ip <YOUR_WORKER_ML1_IP>
 ```

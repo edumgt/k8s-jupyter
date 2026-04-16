@@ -38,7 +38,7 @@ export const config = {
   labGovernanceEnabled: parseBool(process.env.LAB_GOVERNANCE_ENABLED, true),
 
   jupyterImage:
-    process.env.JUPYTER_IMAGE || "192.168.56.72/dis/jupter-teradata-fss:latest",
+    process.env.JUPYTER_IMAGE || "harbor.local/dis/jupter-teradata-fss:latest",
   jupyterAccessMode: process.env.JUPYTER_ACCESS_MODE || "dynamic-route",
   jupyterDynamicHostSuffix:
     process.env.JUPYTER_DYNAMIC_HOST_SUFFIX || "service.jupyter.platform.local",
@@ -52,7 +52,7 @@ export const config = {
   controlPlaneUsername: process.env.CONTROL_PLANE_USERNAME || "admin@test.com",
   controlPlanePassword: process.env.CONTROL_PLANE_PASSWORD || "CHANGE_ME",
 
-  harborRegistry: process.env.HARBOR_REGISTRY || "192.168.56.72",
+  harborRegistry: process.env.HARBOR_REGISTRY || "harbor.local",
   harborProject: process.env.HARBOR_PROJECT || "dis",
 
   frontendUrl: process.env.FRONTEND_URL || "http://dis.platform.local",

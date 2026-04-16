@@ -111,7 +111,7 @@ Options:
   --overlay NAME            Overlay name (default: dev-3node)
   --remote-repo-root PATH   Remote repo root (default: /opt/k8s-data-platform)
   --skip-ingress-setup      Skip ingress-nginx + MetalLB setup after overlay apply
-  --metallb-range RANGE     MetalLB address range, e.g. 192.168.56.240-192.168.56.250
+  --metallb-range RANGE     MetalLB address range, e.g. <YOUR_LB_IP>-<YOUR_LB_IP_END>
   --ingress-lb-ip IP        Fixed ingress LoadBalancer IP inside the MetalLB range
   --metallb-manifest REF    MetalLB manifest URL/path override (advanced)
   --ingress-manifest REF    ingress-nginx manifest URL/path override (advanced)

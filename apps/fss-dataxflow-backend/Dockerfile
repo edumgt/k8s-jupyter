@@ -1,4 +1,4 @@
-FROM 192.168.56.72/library/platform-python:3.12-slim
+FROM harbor.local/library/platform-python:3.12-slim
 
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1

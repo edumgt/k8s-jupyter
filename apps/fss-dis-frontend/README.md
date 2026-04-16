@@ -3,7 +3,7 @@
 `dis.platform.local`용 Vue3 + Quasar SPA 프론트엔드입니다.
 
 ## 배포 대상
-- Harbor image: `192.168.56.72/app/fss-dis-frontend`
+- Harbor image: `harbor.local/app/fss-dis-frontend`
 - Kubernetes deployment: `fss-dis-frontend` (`infra/k8s/fss/base/dis-app.yaml`)
 
 ## 로컬 실행

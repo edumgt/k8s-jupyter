@@ -1,4 +1,4 @@
-FROM 192.168.56.72/library/platform-airflow-base:2.10.5-python3.12
+FROM harbor.local/library/platform-airflow-base:2.10.5-python3.12
 
 USER airflow
 

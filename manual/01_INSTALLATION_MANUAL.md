@@ -28,13 +28,13 @@
 
 ### 3.2 네트워크 기준값(권장)
 
-1. Subnet: `192.168.56.0/24`
-2. Gateway: `192.168.56.1`
-3. Control-plane: `192.168.56.10`
-4. Worker-1: `192.168.56.11`
-5. Worker-2: `192.168.56.12`
-6. MetalLB range: `192.168.56.240-192.168.56.250`
-7. Ingress LB IP: `192.168.56.240`
+1. Subnet: `<YOUR_SUBNET>/24`
+2. Gateway: `<YOUR_GATEWAY_IP>`
+3. Control-plane: `<YOUR_MASTER_IP>`
+4. Worker-1: `<YOUR_WORKER1_IP>`
+5. Worker-2: `<YOUR_WORKER2_IP>`
+6. MetalLB range: `<YOUR_LB_IP>-<YOUR_LB_IP_END>`
+7. Ingress LB IP: `<YOUR_LB_IP>`
 
 ## 4. 설치 절차
 
@@ -49,8 +49,8 @@ VMware에서 OVA 3개를 import합니다.
 예시(control-plane):
 
 ```bash
-sudo bash /opt/k8s-data-platform/scripts/set_static_ip.sh --ip 192.168.56.10 --prefix 24 --gateway 192.168.56.1 --dns 192.168.56.1,1.1.1.1,8.8.8.8
-sudo bash /opt/k8s-data-platform/scripts/set_hostname_hosts.sh --hostname k8s-data-platform --entry "192.168.56.10 k8s-data-platform" --entry "192.168.56.11 k8s-worker-1" --entry "192.168.56.12 k8s-worker-2"
+sudo bash /opt/k8s-data-platform/scripts/set_static_ip.sh --ip <YOUR_MASTER_IP> --prefix 24 --gateway <YOUR_GATEWAY_IP> --dns <YOUR_GATEWAY_IP>,1.1.1.1,8.8.8.8
+sudo bash /opt/k8s-data-platform/scripts/set_hostname_hosts.sh --hostname k8s-data-platform --entry "<YOUR_MASTER_IP> k8s-data-platform" --entry "<YOUR_WORKER1_IP> k8s-worker-1" --entry "<YOUR_WORKER2_IP> k8s-worker-2"
 ```
 
 ### 4.3 원샷 설치 실행
@@ -66,12 +66,12 @@ bash init.sh --all
 ```bash
 bash ./start.sh \
   --static-network \
-  --control-plane-ip 192.168.56.10 \
-  --worker1-ip 192.168.56.11 \
-  --worker2-ip 192.168.56.12 \
-  --gateway 192.168.56.1 \
-  --metallb-range 192.168.56.240-192.168.56.250 \
-  --ingress-lb-ip 192.168.56.240
+  --control-plane-ip <YOUR_MASTER_IP> \
+  --worker1-ip <YOUR_WORKER1_IP> \
+  --worker2-ip <YOUR_WORKER2_IP> \
+  --gateway <YOUR_GATEWAY_IP> \
+  --metallb-range <YOUR_LB_IP>-<YOUR_LB_IP_END> \
+  --ingress-lb-ip <YOUR_LB_IP>
 ```
 
 ### 4.4 hosts 적용
@@ -79,12 +79,12 @@ bash ./start.sh \
 Windows/WSL hosts에 아래 도메인을 등록합니다.
 
 ```text
-192.168.56.240 platform.local
-192.168.56.240 jupyter.platform.local
-192.168.56.240 gitlab.platform.local
-192.168.56.240 airflow.platform.local
-192.168.56.240 nexus.platform.local
-192.168.56.240 headlamp.platform.local
+<YOUR_LB_IP> platform.local
+<YOUR_LB_IP> jupyter.platform.local
+<YOUR_LB_IP> gitlab.platform.local
+<YOUR_LB_IP> airflow.platform.local
+<YOUR_LB_IP> nexus.platform.local
+<YOUR_LB_IP> headlamp.platform.local
 ```
 
 ## 5. 설치 검증
@@ -99,7 +99,7 @@ sudo KUBECONFIG=/etc/kubernetes/admin.conf kubectl get pods -A -o wide
 ### 5.2 Ingress 검증
 
 ```bash
-bash scripts/verify.sh --http-mode ingress --lb-ip 192.168.56.240
+bash scripts/verify.sh --http-mode ingress --lb-ip <YOUR_LB_IP>
 ```
 
 ### 5.3 URL 확인

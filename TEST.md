@@ -379,11 +379,11 @@ Examples:
 
 ###
 ```
-sudo bash /opt/k8s-data-platform/scripts/set_static_ip.sh --ip 192.168.56.11 --prefix 24 --gateway 192.168.56.1 --dns 192.168.56.1,1.1.1.1,8.8.8.8
+sudo bash /opt/k8s-data-platform/scripts/set_static_ip.sh --ip <YOUR_WORKER1_IP> --prefix 24 --gateway <YOUR_GATEWAY_IP> --dns <YOUR_GATEWAY_IP>,1.1.1.1,8.8.8.8
 ```
 ```
-sudo bash /opt/k8s-data-platform/scripts/set_static_ip.sh --ip 192.168.56.12 --prefix 24 --gateway 192.168.56.1 --dns 192.168.56.1,1.1.1.1,8.8.8.8
+sudo bash /opt/k8s-data-platform/scripts/set_static_ip.sh --ip <YOUR_WORKER2_IP> --prefix 24 --gateway <YOUR_GATEWAY_IP> --dns <YOUR_GATEWAY_IP>,1.1.1.1,8.8.8.8
 ```
 ```
-sudo bash /opt/k8s-data-platform/scripts/set_static_ip.sh --ip 192.168.56.10 --prefix 24 --gateway 192.168.56.1 --dns 192.168.56.1,1.1.1.1,8.8.8.8
+sudo bash /opt/k8s-data-platform/scripts/set_static_ip.sh --ip <YOUR_MASTER_IP> --prefix 24 --gateway <YOUR_GATEWAY_IP> --dns <YOUR_GATEWAY_IP>,1.1.1.1,8.8.8.8
 ```

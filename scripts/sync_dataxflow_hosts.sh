@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-INGRESS_IP="${INGRESS_IP:-192.168.56.240}"
+INGRESS_IP="${INGRESS_IP:-<YOUR_LB_IP>}"
 WINDOWS_HOSTS_PATH="${WINDOWS_HOSTS_PATH:-/mnt/c/Windows/System32/drivers/etc/hosts}"
 BEGIN_MARKER="# BEGIN DATAXFLOW_LOCAL"
 END_MARKER="# END DATAXFLOW_LOCAL"
@@ -16,7 +16,7 @@ Usage: scripts/sync_dataxflow_hosts.sh [options]
 Synchronize hosts entries for dataxflow domains.
 
 Options:
-  --ingress-ip <ip>          Ingress/LB IP to map domains to (default: 192.168.56.240)
+  --ingress-ip <ip>          Ingress/LB IP to map domains to (default: <YOUR_LB_IP>)
   --apply-wsl-hosts          Apply changes to /etc/hosts
   --apply-windows-hosts      Apply changes to Windows hosts file from WSL mount
   --windows-hosts-path <p>   Override Windows hosts path

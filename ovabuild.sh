@@ -89,8 +89,8 @@ Options:
 Examples:
   bash ./ovabuild.sh \
     --vars-file packer/variables.vmware.auto.pkrvars.hcl \
-    --control-plane-ip 192.168.56.10 \
-    --ingress-lb-ip 192.168.56.240 \
+    --control-plane-ip <YOUR_MASTER_IP> \
+    --ingress-lb-ip <YOUR_LB_IP> \
     --dist-dir C:/ffmpeg
 EOF
 }

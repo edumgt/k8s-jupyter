@@ -36,7 +36,7 @@ Installs ingress-nginx + MetalLB + metrics-server for VM/air-gap clusters.
 
 Options:
   --metallb-range <start-end>    Required unless --skip-pool-apply is used.
-                                 Example: 192.168.56.240-192.168.56.250
+                                 Example: <YOUR_LB_IP>-<YOUR_LB_IP_END>
   --ingress-lb-ip <ip>           Optional fixed LoadBalancer IP for ingress-nginx-controller.
   --metallb-manifest <ref>       MetalLB manifest URL/path. Defaults to official GitHub raw URL.
   --ingress-manifest <ref>       ingress-nginx manifest URL/path. Defaults to official GitHub raw URL.

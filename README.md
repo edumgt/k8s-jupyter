@@ -47,8 +47,8 @@ bash ./start.sh --vars-file packer/variables.vmware.auto.pkrvars.hcl
 ```bash
 bash ./ovabuild.sh \
   --vars-file packer/variables.vmware.auto.pkrvars.hcl \
-  --control-plane-ip 192.168.56.10 \
-  --ingress-lb-ip 192.168.56.240 \
+  --control-plane-ip <YOUR_MASTER_IP> \
+  --ingress-lb-ip <YOUR_LB_IP> \
   --dist-dir C:/ffmpeg
 ```
 
@@ -66,8 +66,8 @@ PC 재기동 후 VMware에서 각 VM을 수동으로 Power On 한 다음, 재빌
 ```bash
 bash scripts/vmware_post_reboot_verify.sh \
   --vars-file packer/variables.vmware.auto.pkrvars.hcl \
-  --control-plane-ip 192.168.56.10 \
-  --ingress-lb-ip 192.168.56.240
+  --control-plane-ip <YOUR_MASTER_IP> \
+  --ingress-lb-ip <YOUR_LB_IP>
 ```
 
 Ingress URL 접근까지 한 번에 맞추려면(권장):
@@ -76,19 +76,19 @@ Ingress URL 접근까지 한 번에 맞추려면(권장):
 bash ./start.sh \
   --vars-file packer/variables.vmware.auto.pkrvars.hcl \
   --static-network \
-  --control-plane-ip 192.168.56.10 \
-  --worker1-ip 192.168.56.11 \
-  --worker2-ip 192.168.56.12 \
-  --gateway 192.168.56.1 \
-  --metallb-range 192.168.56.240-192.168.56.250 \
-  --ingress-lb-ip 192.168.56.240
+  --control-plane-ip <YOUR_MASTER_IP> \
+  --worker1-ip <YOUR_WORKER1_IP> \
+  --worker2-ip <YOUR_WORKER2_IP> \
+  --gateway <YOUR_GATEWAY_IP> \
+  --metallb-range <YOUR_LB_IP>-<YOUR_LB_IP_END> \
+  --ingress-lb-ip <YOUR_LB_IP>
 ```
 
 폐쇄망 또는 외부 registry 접근이 불안정한 환경에서는, 먼저 오프라인 이미지 번들을 control-plane VM에 preload 한 뒤 `start.sh`를 실행하는 것을 권장합니다.
 
 ```bash
 bash scripts/preload_offline_bundle_to_vm.sh \
-  --control-plane-ip 192.168.56.10 \
+  --control-plane-ip <YOUR_MASTER_IP> \
   --env dev
 ```
 
@@ -119,10 +119,10 @@ bash scripts/check_offline_readiness.sh
 권장 순서:
 
 1. `packer/variables.vmware.auto.pkrvars.hcl` 값 확인 (`iso_url`, `vmware_workstation_path`, `ovftool_path_windows`)
-2. VMware Host-only 네트워크/Windows 어댑터/WSL route를 `192.168.56.0/24` 기준으로 정리
-3. 폐쇄망 대비가 필요하면 `bash scripts/preload_offline_bundle_to_vm.sh --control-plane-ip 192.168.56.10 --env dev` 실행
+2. VMware Host-only 네트워크/Windows 어댑터/WSL route를 `<YOUR_SUBNET>` 기준으로 정리
+3. 폐쇄망 대비가 필요하면 `bash scripts/preload_offline_bundle_to_vm.sh --control-plane-ip <YOUR_MASTER_IP> --env dev` 실행
 4. `bash ./start.sh ... --metallb-range ... --ingress-lb-ip ...` 실행
-5. hosts 파일 등록 (예: `192.168.56.240 platform.local jupyter.platform.local gitlab.platform.local airflow.platform.local nexus.platform.local`)
+5. hosts 파일 등록 (예: `<YOUR_LB_IP> platform.local jupyter.platform.local gitlab.platform.local airflow.platform.local nexus.platform.local`)
 6. URL 접속 점검: `start.sh` 내부 `verify.sh` 결과 확인
 7. (권장) control-plane VM에서 부팅 10분 후 자동 air-gap 점검 timer 설치
 8. PC 재기동 후 수동 Power On 시 `bash scripts/vmware_post_reboot_verify.sh ...` 실행
@@ -221,7 +221,7 @@ flowchart TB
     W2["k8s-worker-2<br/>gitlab, nexus, mongodb, redis, airflow, frontend(1)"]
   end
 
-  LB["MetalLB LB IP<br/>(예: 192.168.56.240)"] --> ING["ingress-nginx-controller"]
+  LB["MetalLB LB IP<br/>(예: <YOUR_LB_IP>)"] --> ING["ingress-nginx-controller"]
   ING --> P["platform.local"]
   ING --> J["jupyter.platform.local"]
   ING --> G["gitlab.platform.local"]
@@ -411,10 +411,10 @@ bash scripts/vmware_provision_3node.sh --vars-file packer/variables.vmware.auto.
 bash scripts/vmware_provision_3node.sh \
   --vars-file packer/variables.vmware.auto.pkrvars.hcl \
   --static-network \
-  --control-plane-ip 192.168.56.10 \
-  --worker1-ip 192.168.56.11 \
-  --worker2-ip 192.168.56.12 \
-  --gateway 192.168.56.1
+  --control-plane-ip <YOUR_MASTER_IP> \
+  --worker1-ip <YOUR_WORKER1_IP> \
+  --worker2-ip <YOUR_WORKER2_IP> \
+  --gateway <YOUR_GATEWAY_IP>
 ```
 
 URL 접속까지 바로 맞추려면:
@@ -423,12 +423,12 @@ URL 접속까지 바로 맞추려면:
 bash scripts/vmware_provision_3node.sh \
   --vars-file packer/variables.vmware.auto.pkrvars.hcl \
   --static-network \
-  --control-plane-ip 192.168.56.10 \
-  --worker1-ip 192.168.56.11 \
-  --worker2-ip 192.168.56.12 \
-  --gateway 192.168.56.1 \
-  --metallb-range 192.168.56.240-192.168.56.250 \
-  --ingress-lb-ip 192.168.56.240
+  --control-plane-ip <YOUR_MASTER_IP> \
+  --worker1-ip <YOUR_WORKER1_IP> \
+  --worker2-ip <YOUR_WORKER2_IP> \
+  --gateway <YOUR_GATEWAY_IP> \
+  --metallb-range <YOUR_LB_IP>-<YOUR_LB_IP_END> \
+  --ingress-lb-ip <YOUR_LB_IP>
 ```
 
 3대 VM 사용/검증이 끝난 뒤 OVA 3개를 일괄 export하려면:
@@ -548,8 +548,8 @@ bash scripts/bootstrap_3node_k8s_ova.sh --config /tmp/3node-cluster.env
 
 ```bash
 bash scripts/setup_k8s_modern_stack.sh \
-  --metallb-range 192.168.56.240-192.168.56.250 \
-  --ingress-lb-ip 192.168.56.240
+  --metallb-range <YOUR_LB_IP>-<YOUR_LB_IP_END> \
+  --ingress-lb-ip <YOUR_LB_IP>
 ```
 
 ### nexus.platform.local / admin / Edumgt22509741!
@@ -679,10 +679,10 @@ bash scripts/status_k8s.sh --env dev
 
 검증 기준(2026-04-06):
 
-- control-plane: `k8s-data-platform` (`192.168.56.10`)
-- worker: `k8s-worker-1` (`192.168.56.11`)
-- worker: `k8s-worker-2` (`192.168.56.12`)
-- worker: `k8s-worker-3` (`192.168.56.13`)
+- control-plane: `k8s-data-platform` (`<YOUR_MASTER_IP>`)
+- worker: `k8s-worker-1` (`<YOUR_WORKER1_IP>`)
+- worker: `k8s-worker-2` (`<YOUR_WORKER2_IP>`)
+- worker: `k8s-worker-3` (`<YOUR_WORKER_ML1_IP>`)
 - SSH: `disadm@<node> -p 10022`
 
 패키지 고정:
@@ -694,8 +694,8 @@ bash scripts/status_k8s.sh --env dev
 
 주의:
 
-- `ens33`를 외부망 기본 경로로 쓰더라도 `ens160`의 `192.168.56.x` 고정 IP를 제거하면 안 됩니다.
-- etcd/Harbor 접근이 `192.168.56.x`에 의존하는 경우가 있어, `ens160`은 보조 경로(metric 높게)로 유지해야 합니다.
+- `ens33`를 외부망 기본 경로로 쓰더라도 `ens160`의 `<YOUR_SUBNET>.x` 고정 IP를 제거하면 안 됩니다.
+- etcd/Harbor 접근이 `<YOUR_SUBNET>.x`에 의존하는 경우가 있어, `ens160`은 보조 경로(metric 높게)로 유지해야 합니다.
 
 #### A) NIC/netplan 정렬 (`ens33` 우선 + `ens160` 유지)
 
@@ -728,13 +728,13 @@ network:
     ens160:
       dhcp4: false
       addresses:
-        - 192.168.56.10/24
+        - <YOUR_MASTER_IP>/24
       routes:
         - to: default
-          via: 192.168.56.1
+          via: <YOUR_GATEWAY_IP>
           metric: 500
       nameservers:
-        addresses: [192.168.56.1, 1.1.1.1, 8.8.8.8]
+        addresses: [<YOUR_GATEWAY_IP>, 1.1.1.1, 8.8.8.8]
 EOF
 sudo chmod 600 /etc/netplan/99-k8s-data-platform-static.yaml
 sudo netplan generate && sudo netplan apply
@@ -744,7 +744,7 @@ sudo netplan generate && sudo netplan apply
 
 ```bash
 ip -4 -br a | egrep 'ens160|ens32|ens33'
-ip route | egrep 'default|192.168.56.0'
+ip route | egrep 'default|<YOUR_SUBNET>'
 ```
 
 #### B) 사전 점검 (control-plane)
@@ -777,9 +777,9 @@ for NODE in k8s-worker-1 k8s-worker-2 k8s-worker-3; do
     --ignore-daemonsets --delete-emptydir-data --force --grace-period=30 --timeout=180s
 
   NODE_IP=""
-  if [ "${NODE}" = "k8s-worker-1" ]; then NODE_IP="192.168.56.11"; fi
-  if [ "${NODE}" = "k8s-worker-2" ]; then NODE_IP="192.168.56.12"; fi
-  if [ "${NODE}" = "k8s-worker-3" ]; then NODE_IP="192.168.56.13"; fi
+  if [ "${NODE}" = "k8s-worker-1" ]; then NODE_IP="<YOUR_WORKER1_IP>"; fi
+  if [ "${NODE}" = "k8s-worker-2" ]; then NODE_IP="<YOUR_WORKER2_IP>"; fi
+  if [ "${NODE}" = "k8s-worker-3" ]; then NODE_IP="<YOUR_WORKER_ML1_IP>"; fi
 
   ssh -p 10022 disadm@"${NODE_IP}" "
     sudo kubeadm upgrade node &&
@@ -800,8 +800,8 @@ done
 
 주요 원인:
 
-- etcd advertise 주소(`192.168.56.10`)와 etcd server/peer 인증서 SAN 불일치
-- `ens160` 고정 주소 유실로 기존 etcd endpoint(`192.168.56.10`) 단절
+- etcd advertise 주소(`<YOUR_MASTER_IP>`)와 etcd server/peer 인증서 SAN 불일치
+- `ens160` 고정 주소 유실로 기존 etcd endpoint(`<YOUR_MASTER_IP>`) 단절
 
 점검:
 
@@ -817,7 +817,7 @@ cat <<'EOF' | sudo tee /tmp/kubeadm-etcd-certfix.yaml >/dev/null
 apiVersion: kubeadm.k8s.io/v1beta4
 kind: InitConfiguration
 localAPIEndpoint:
-  advertiseAddress: 192.168.56.10
+  advertiseAddress: <YOUR_MASTER_IP>
   bindPort: 6443
 nodeRegistration:
   name: k8s-data-platform
@@ -826,16 +826,16 @@ nodeRegistration:
 apiVersion: kubeadm.k8s.io/v1beta4
 kind: ClusterConfiguration
 kubernetesVersion: v1.35.3
-controlPlaneEndpoint: 192.168.56.10:6443
+controlPlaneEndpoint: <YOUR_MASTER_IP>:6443
 etcd:
   local:
     serverCertSANs:
-      - 192.168.56.10
-      - 192.168.56.10
+      - <YOUR_MASTER_IP>
+      - <YOUR_MASTER_IP>
       - 127.0.0.1
     peerCertSANs:
-      - 192.168.56.10
-      - 192.168.56.10
+      - <YOUR_MASTER_IP>
+      - <YOUR_MASTER_IP>
       - 127.0.0.1
 EOF
 
@@ -985,7 +985,7 @@ sudo KUBECONFIG=/etc/kubernetes/admin.conf kubectl get ingress -n data-platform-
 Ingress 점검:
 
 ```bash
-bash scripts/verify.sh --http-mode ingress --lb-ip 192.168.56.240
+bash scripts/verify.sh --http-mode ingress --lb-ip <YOUR_LB_IP>
 ```
 
 ### 4) 웹 접속 확인 (Ingress URL)
@@ -1007,12 +1007,12 @@ bash scripts/verify.sh --http-mode ingress --lb-ip 192.168.56.240
 hosts 파일 예시(Windows):
 
 ```text
-192.168.56.240 platform.local
-192.168.56.240 jupyter.platform.local
-192.168.56.240 gitlab.platform.local
-192.168.56.240 airflow.platform.local
-192.168.56.240 nexus.platform.local
-192.168.56.240 headlamp.platform.local
+<YOUR_LB_IP> platform.local
+<YOUR_LB_IP> jupyter.platform.local
+<YOUR_LB_IP> gitlab.platform.local
+<YOUR_LB_IP> airflow.platform.local
+<YOUR_LB_IP> nexus.platform.local
+<YOUR_LB_IP> headlamp.platform.local
 ```
 
 ## 관리자 계정 / 비밀번호 정리 (현재 기본 실행값)
@@ -1560,12 +1560,12 @@ OVA import 후 아래 항목을 순서대로 확인하면 기본 검증이 가�
 bash scripts/vmware_provision_3node.sh \
   --vars-file packer/variables.vmware.auto.pkrvars.hcl \
   --static-network \
-  --control-plane-ip 192.168.56.10 \
-  --worker1-ip 192.168.56.11 \
-  --worker2-ip 192.168.56.12 \
-  --gateway 192.168.56.1 \
-  --metallb-range 192.168.56.240-192.168.56.250 \
-  --ingress-lb-ip 192.168.56.240
+  --control-plane-ip <YOUR_MASTER_IP> \
+  --worker1-ip <YOUR_WORKER1_IP> \
+  --worker2-ip <YOUR_WORKER2_IP> \
+  --gateway <YOUR_GATEWAY_IP> \
+  --metallb-range <YOUR_LB_IP>-<YOUR_LB_IP_END> \
+  --ingress-lb-ip <YOUR_LB_IP>
 ```
 
 2. 클러스터/Ingress 확인
@@ -1574,7 +1574,7 @@ bash scripts/vmware_provision_3node.sh \
 sudo KUBECONFIG=/etc/kubernetes/admin.conf kubectl get nodes -o wide
 sudo KUBECONFIG=/etc/kubernetes/admin.conf kubectl get pods -n data-platform-dev -o wide
 sudo KUBECONFIG=/etc/kubernetes/admin.conf kubectl get ingress -n data-platform-dev
-bash scripts/verify.sh --http-mode ingress --lb-ip 192.168.56.240
+bash scripts/verify.sh --http-mode ingress --lb-ip <YOUR_LB_IP>
 ```
 
 3. 오프라인 개발 캐시(Nexus) 워밍

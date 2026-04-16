@@ -28,12 +28,12 @@
 
 기본 네트워크 값:
 
-- control-plane: `k8s-data-platform` / `192.168.56.10`
-- worker-1: `k8s-worker-1` / `192.168.56.11`
-- worker-2: `k8s-worker-2` / `192.168.56.12`
-- gateway: `192.168.56.1`
-- MetalLB: `192.168.56.240-192.168.56.250`
-- ingress LB IP: `192.168.56.240`
+- control-plane: `k8s-data-platform` / `<YOUR_MASTER_IP>`
+- worker-1: `k8s-worker-1` / `<YOUR_WORKER1_IP>`
+- worker-2: `k8s-worker-2` / `<YOUR_WORKER2_IP>`
+- gateway: `<YOUR_GATEWAY_IP>`
+- MetalLB: `<YOUR_LB_IP>-<YOUR_LB_IP_END>`
+- ingress LB IP: `<YOUR_LB_IP>`
 
 ---
 
@@ -41,9 +41,9 @@
 
 VMware Workstation의 Host-only 네트워크를 아래처럼 맞춥니다.
 
-- Subnet: `192.168.56.0`
+- Subnet: `<YOUR_SUBNET>`
 - Mask: `255.255.255.0`
-- Host adapter IP(Windows VMware VMnet 어댑터): `192.168.56.1`
+- Host adapter IP(Windows VMware VMnet 어댑터): `<YOUR_GATEWAY_IP>`
 
 확인(WSL):
 
@@ -51,7 +51,7 @@ VMware Workstation의 Host-only 네트워크를 아래처럼 맞춥니다.
 powershell.exe -NoProfile -Command "Get-NetIPAddress -AddressFamily IPv4 | ? InterfaceAlias -like 'VMware Network Adapter VMnet*' | sort InterfaceAlias | ft InterfaceAlias,IPAddress,PrefixLength -Auto"
 ```
 
-`VMware Network Adapter VMnet1` 가 `192.168.56.1/24` 이면 정상입니다.
+`VMware Network Adapter VMnet1` 가 `<YOUR_GATEWAY_IP>/24` 이면 정상입니다.
 
 ---
 
@@ -89,8 +89,8 @@ VMware 콘솔에서 각 VM에 로그인해 해당 명령을 실행합니다.
 예시(각 VM 공통 패턴):
 
 ```bash
-sudo bash /opt/k8s-data-platform/scripts/set_static_ip.sh --ip 192.168.56.10 --prefix 24 --gateway 192.168.56.1 --dns 192.168.56.1,1.1.1.1,8.8.8.8
-sudo bash /opt/k8s-data-platform/scripts/set_hostname_hosts.sh --hostname k8s-data-platform --entry "192.168.56.10 k8s-data-platform" --entry "192.168.56.11 k8s-worker-1" --entry "192.168.56.12 k8s-worker-2"
+sudo bash /opt/k8s-data-platform/scripts/set_static_ip.sh --ip <YOUR_MASTER_IP> --prefix 24 --gateway <YOUR_GATEWAY_IP> --dns <YOUR_GATEWAY_IP>,1.1.1.1,8.8.8.8
+sudo bash /opt/k8s-data-platform/scripts/set_hostname_hosts.sh --hostname k8s-data-platform --entry "<YOUR_MASTER_IP> k8s-data-platform" --entry "<YOUR_WORKER1_IP> k8s-worker-1" --entry "<YOUR_WORKER2_IP> k8s-worker-2"
 hostname
 hostname -I
 ip route
@@ -98,16 +98,16 @@ ip route
 
 
 ```bash
-sudo bash /opt/k8s-data-platform/scripts/set_static_ip.sh --ip 192.168.56.11 --prefix 24 --gateway 192.168.56.1 --dns 192.168.56.1,1.1.1.1,8.8.8.8
-sudo bash /opt/k8s-data-platform/scripts/set_hostname_hosts.sh --hostname k8s-worker-1 --entry "192.168.56.10 k8s-data-platform" --entry "192.168.56.11 k8s-worker-1" --entry "192.168.56.12 k8s-worker-2"
+sudo bash /opt/k8s-data-platform/scripts/set_static_ip.sh --ip <YOUR_WORKER1_IP> --prefix 24 --gateway <YOUR_GATEWAY_IP> --dns <YOUR_GATEWAY_IP>,1.1.1.1,8.8.8.8
+sudo bash /opt/k8s-data-platform/scripts/set_hostname_hosts.sh --hostname k8s-worker-1 --entry "<YOUR_MASTER_IP> k8s-data-platform" --entry "<YOUR_WORKER1_IP> k8s-worker-1" --entry "<YOUR_WORKER2_IP> k8s-worker-2"
 hostname
 hostname -I
 ip route
 ```
 
 ```bash
-sudo bash /opt/k8s-data-platform/scripts/set_static_ip.sh --ip 192.168.56.12 --prefix 24 --gateway 192.168.56.1 --dns 192.168.56.1,1.1.1.1,8.8.8.8
-sudo bash /opt/k8s-data-platform/scripts/set_hostname_hosts.sh --hostname k8s-worker-2 --entry "192.168.56.10 k8s-data-platform" --entry "192.168.56.11 k8s-worker-1" --entry "192.168.56.12 k8s-worker-2"
+sudo bash /opt/k8s-data-platform/scripts/set_static_ip.sh --ip <YOUR_WORKER2_IP> --prefix 24 --gateway <YOUR_GATEWAY_IP> --dns <YOUR_GATEWAY_IP>,1.1.1.1,8.8.8.8
+sudo bash /opt/k8s-data-platform/scripts/set_hostname_hosts.sh --hostname k8s-worker-2 --entry "<YOUR_MASTER_IP> k8s-data-platform" --entry "<YOUR_WORKER1_IP> k8s-worker-1" --entry "<YOUR_WORKER2_IP> k8s-worker-2"
 hostname
 hostname -I
 ip route
@@ -123,7 +123,7 @@ ip route
 
 ---
 ```
-bash init.sh --apply-windows-hosts --ingress-lb-ip 192.168.56.240 --wsl-route-gateway 172.29.32.1
+bash init.sh --apply-windows-hosts --ingress-lb-ip <YOUR_LB_IP> --wsl-route-gateway 172.29.32.1
 ```
 
 `init.sh`가 hosts까지 반영하면 아래 도메인 사용 가능:

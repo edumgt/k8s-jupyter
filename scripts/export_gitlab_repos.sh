@@ -92,13 +92,13 @@ variables:
   HARBOR_REGISTRY: "harbor.local"
   HARBOR_PROJECT: "data-platform"
   IMAGE_NAME: "${HARBOR_REGISTRY}/${HARBOR_PROJECT}/k8s-data-platform-backend"
-  NEXUS_PYPI_INDEX_URL: "http://192.168.56.10:30091/repository/pypi-all/simple"
-  NEXUS_PYPI_TRUSTED_HOST: "192.168.56.10"
+  NEXUS_PYPI_INDEX_URL: "http://<YOUR_MASTER_IP>:30091/repository/pypi-all/simple"
+  NEXUS_PYPI_TRUSTED_HOST: "<YOUR_MASTER_IP>"
   DEPLOY_NAMESPACE: "data-platform-dev"
-  TARGET_NODES: "192.168.56.10 192.168.56.11 192.168.56.12"
+  TARGET_NODES: "<YOUR_MASTER_IP> <YOUR_WORKER1_IP> <YOUR_WORKER2_IP>"
   SSH_USER: "ubuntu"
   SSH_PASSWORD: "ubuntu"
-  INGRESS_LB_IP: "192.168.56.240"
+  INGRESS_LB_IP: "<YOUR_LB_IP>"
 
 workflow:
   rules:
@@ -128,7 +128,7 @@ build_backend_image:
     - docker save "${IMAGE_NAME}:${CI_COMMIT_SHORT_SHA}" -o "${TAR_PATH}"
     - |
       for node in ${TARGET_NODES}; do
-        if [ "${node}" = "192.168.56.10" ]; then
+        if [ "${node}" = "<YOUR_MASTER_IP>" ]; then
           printf '%s\n' "${SSH_PASSWORD}" | sudo -S -p '' ctr -n k8s.io images import "${TAR_PATH}"
           continue
         fi
@@ -184,12 +184,12 @@ variables:
   HARBOR_REGISTRY: "harbor.local"
   HARBOR_PROJECT: "data-platform"
   IMAGE_NAME: "${HARBOR_REGISTRY}/${HARBOR_PROJECT}/k8s-data-platform-frontend"
-  NEXUS_NPM_REGISTRY: "http://192.168.56.10:30091/repository/npm-all/"
+  NEXUS_NPM_REGISTRY: "http://<YOUR_MASTER_IP>:30091/repository/npm-all/"
   DEPLOY_NAMESPACE: "data-platform-dev"
-  TARGET_NODES: "192.168.56.10 192.168.56.11 192.168.56.12"
+  TARGET_NODES: "<YOUR_MASTER_IP> <YOUR_WORKER1_IP> <YOUR_WORKER2_IP>"
   SSH_USER: "ubuntu"
   SSH_PASSWORD: "ubuntu"
-  INGRESS_LB_IP: "192.168.56.240"
+  INGRESS_LB_IP: "<YOUR_LB_IP>"
 
 workflow:
   rules:
@@ -232,7 +232,7 @@ build_frontend_image:
     - docker save "${IMAGE_NAME}:${CI_COMMIT_SHORT_SHA}" -o "${TAR_PATH}"
     - |
       for node in ${TARGET_NODES}; do
-        if [ "${node}" = "192.168.56.10" ]; then
+        if [ "${node}" = "<YOUR_MASTER_IP>" ]; then
           printf '%s\n' "${SSH_PASSWORD}" | sudo -S -p '' ctr -n k8s.io images import "${TAR_PATH}"
           continue
         fi

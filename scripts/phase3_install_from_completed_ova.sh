@@ -22,7 +22,7 @@ to init.sh unchanged.
 
 Examples:
   bash scripts/phase3_install_from_completed_ova.sh full --ova-dir C:/ffmpeg
-  bash scripts/phase3_install_from_completed_ova.sh continue --control-plane-ip 192.168.56.10
+  bash scripts/phase3_install_from_completed_ova.sh continue --control-plane-ip <YOUR_MASTER_IP>
   bash scripts/phase3_install_from_completed_ova.sh start-only -- --skip-export --skip-nexus-prime
 EOF
 }

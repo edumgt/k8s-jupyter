@@ -3,7 +3,7 @@
 ELT(`fss-dataxflow`) 워크로드를 위한 Airflow 이미지 소스입니다.
 
 - 이미지 목적: dataxflow 배치 스케줄링/오케스트레이션
-- 이미지 경로(권장): `192.168.56.72/app/fss-dataxflow-airflow:latest`
+- 이미지 경로(권장): `harbor.local/app/fss-dataxflow-airflow:latest`
 - 주요 구성:
   - `Dockerfile`
   - `requirements.txt`

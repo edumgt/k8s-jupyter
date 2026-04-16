@@ -88,7 +88,7 @@ sudo systemctl restart kubelet
 필요 시 네트워크 보정:
 
 ```bash
-sudo bash scripts/fix_kubelet_network_timeouts.sh --dns-servers 192.168.56.1,1.1.1.1,8.8.8.8
+sudo bash scripts/fix_kubelet_network_timeouts.sh --dns-servers <YOUR_GATEWAY_IP>,1.1.1.1,8.8.8.8
 ```
 
 ## 2.4 Dashboard 로그인 불가

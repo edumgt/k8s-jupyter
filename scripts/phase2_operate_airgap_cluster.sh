@@ -53,7 +53,7 @@ Options:
 Examples:
   bash scripts/phase2_operate_airgap_cluster.sh all --env dev
   bash scripts/phase2_operate_airgap_cluster.sh import-and-apply --bundle-dir /opt/k8s-data-platform/offline-bundle
-  bash scripts/phase2_operate_airgap_cluster.sh fill-images --nodes 192.168.56.10,192.168.56.11,192.168.56.12
+  bash scripts/phase2_operate_airgap_cluster.sh fill-images --nodes <YOUR_MASTER_IP>,<YOUR_WORKER1_IP>,<YOUR_WORKER2_IP>
 EOF
 }
 

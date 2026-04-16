@@ -8,7 +8,8 @@ metadata:
 spec:
   type: LoadBalancer
   externalTrafficPolicy: Local
-  loadBalancerIP: 192.168.56.77
+  # Replace with the actual LoadBalancer IP for your environment
+  loadBalancerIP: <YOUR_LB_IP>
   ports:
     - name: http
       port: 80

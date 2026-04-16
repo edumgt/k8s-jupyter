@@ -21,3 +21,8 @@ packer/packer_cache/
 *.ova
 tmp/pwcap/node_modules/
 *.docx
+# Prevent real .env files from being committed; use *.env.example for templates
+.env
+**/.env
+*.env
+!*.env.example

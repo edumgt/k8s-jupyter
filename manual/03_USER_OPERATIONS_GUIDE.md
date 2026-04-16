@@ -11,7 +11,7 @@
 ```bash
 kubectl get nodes
 kubectl get pods -A
-bash scripts/verify.sh --http-mode ingress --lb-ip 192.168.56.240
+bash scripts/verify.sh --http-mode ingress --lb-ip <YOUR_LB_IP>
 ```
 
 확인 기준:

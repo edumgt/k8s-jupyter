@@ -1,9 +1,9 @@
-FROM 192.168.56.72/library/platform-node:22.22.0-bookworm-slim AS build
+FROM harbor.local/library/platform-node:22.22.0-bookworm-slim AS build
 
 WORKDIR /app
 
 ARG APP_ENV=dev
-ARG NPM_REGISTRY=http://192.168.56.10:30091/repository/npm-all/
+ARG NPM_REGISTRY=http://<YOUR_MASTER_IP>:30091/repository/npm-all/
 ARG NPM_AUTH_B64
 
 COPY package.json package-lock.json ./
@@ -26,7 +26,7 @@ ENV VITE_API_BASE_URL=${VITE_API_BASE_URL}
 
 RUN npm run build
 
-FROM 192.168.56.72/library/platform-nginx:1.27-alpine
+FROM harbor.local/library/platform-nginx:1.27-alpine
 
 COPY nginx.conf /etc/nginx/conf.d/default.conf
 COPY --from=build /app/dist /usr/share/nginx/html

@@ -29,9 +29,9 @@ kubectl apply -k infra/k8s/fss/overlays/prod
 ```bash
 bash scripts/setup_fss_platform.sh \
   --env dev \
-  --metallb-range 192.168.56.77-192.168.56.77 \
-  --ingress-lb-ip 192.168.56.77 \
-  --harbor-server 192.168.56.72:80 \
+  --metallb-range <YOUR_LB_IP>-<YOUR_LB_IP> \
+  --ingress-lb-ip <YOUR_LB_IP> \
+  --harbor-server <YOUR_HARBOR_IP>:80 \
   --harbor-username 'robot$dis' \
   --harbor-password '<password>'
 ```
