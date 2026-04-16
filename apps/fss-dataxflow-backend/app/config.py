@@ -85,6 +85,19 @@ class Settings(BaseSettings):
             if origin.strip()
         ]
 
+    def require_harbor(self) -> None:
+        """Raise if Harbor connection settings are not configured."""
+        missing = []
+        if not self.harbor_registry:
+            missing.append("PLATFORM_HARBOR_REGISTRY")
+        if not self.harbor_url:
+            missing.append("PLATFORM_HARBOR_URL")
+        if missing:
+            raise RuntimeError(
+                f"Required environment variable(s) not set: {', '.join(missing)}. "
+                "Set them in your .env file or environment before starting the application."
+            )
+
 
 @lru_cache
 def get_settings() -> Settings:

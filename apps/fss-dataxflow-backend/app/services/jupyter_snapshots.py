@@ -123,6 +123,8 @@ def create_snapshot_publish_job(settings: Settings, username: str) -> dict[str, 
 
     if not settings.harbor_user or not settings.harbor_password:
         raise ValueError("Harbor credentials are required to publish a user snapshot image.")
+    if not settings.harbor_registry:
+        raise ValueError("PLATFORM_HARBOR_REGISTRY is required to publish a user snapshot image.")
 
     try:
         api = get_batch_v1_api()
