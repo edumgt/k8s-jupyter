@@ -26,3 +26,6 @@ tmp/pwcap/node_modules/
 **/.env
 *.env
 !*.env.example
+
+.codex
+tools/vscode-local-agent/node_modules/

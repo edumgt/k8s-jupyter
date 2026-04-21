@@ -5,6 +5,54 @@
 
 ---
 
+## 기술 스택
+
+### 플랫폼/인프라
+
+- `VMware OVA`
+- `Ubuntu 24.04`
+- `Kubernetes`
+- `containerd`
+- `NVIDIA GPU / CUDA`
+- `Harbor`, `Nexus`, `GitLab`, `NAS(OpenMediaVault)`
+
+### AI/개발 스택
+
+- `Ollama`, `vLLM`, `TGI`
+- `JupyterHub`
+- `LangGraph`, `AutoGen`
+- `Chroma`, `Milvus`
+
+### 로컬 개발 도구 체인
+
+- `Visual Studio Code`
+- `Ollama` 기반 로컬 LLM 추론
+- `Codex CLI` + `Ollama (--oss)` 조합의 로컬 코딩 에이전트
+- `Claude Code` + `Ollama` 조합의 로컬 코딩 에이전트
+- `Node.js / npm`, `Git for Windows`
+- 선택 사항: `VSCode Extension` 형태의 커스텀 로컬 에이전트 사이드바
+
+### 오프라인(air-gap) 개발 원칙
+
+- 인터넷이 없어도 `Ollama`에 미리 다운로드한 모델로 코드 작성, 리팩터링, 설명, 테스트 초안 생성 가능
+- `Codex CLI`와 `Claude Code`는 로컬 작업 디렉터리 기준으로 파일 읽기/수정/명령 실행 워크플로우 구성 가능
+- 웹 검색, 최신 문서 조회, 패키지 신규 설치, 원격 Git 연동은 인터넷 또는 사내 미러가 없으면 제한됨
+- 폐쇄망 반입 전 `모델`, `pip/npm/apt 의존성`, `문서`, `예제 코드`를 사전 번들링하는 것을 권장
+- 대형 코드베이스용 에이전트 작업은 큰 컨텍스트가 유리하므로 `Ollama` 컨텍스트 길이 상향 구성을 권장
+
+### Windows 로컬 개발 보조 스크립트
+
+- [setup-windows-ollama-dev.ps1](/home/ubuntu/k8s-jupyter/setup-windows-ollama-dev.ps1)
+- 목적: `Windows + VSCode + Ollama + 로컬 GPU` 환경에서 `Codex CLI`, `Claude Code`, 로컬 모델 pull, VSCode 연동 점검 자동화
+
+### VS Code 로컬 에이전트 확장
+
+- [tools/vscode-local-agent/README.md](/home/ubuntu/k8s-jupyter/tools/vscode-local-agent/README.md)
+- 목적: VS Code 왼쪽 `Activity Bar`에 `Local Agent` 아이콘을 추가하고, WSL에서 Windows Ollama(`http://172.29.32.1:11434`)를 호출하는 사이드바 채팅 패널 제공
+- 실행: 루트 워크스페이스에서 `F5` 또는 `Run and Debug > Run Local Ollama Agent Extension`
+
+---
+
 ## 아키텍처 다이어그램
 
 ### 1. 전체 딜리버리 파이프라인
